@@ -1,0 +1,16 @@
+#!/usr/bin/env python
+
+import argparse, os, sys, subprocess
+import mskcmo
+
+def parse_bwa_help(bwa_cmd):
+    bwa_help = subprocess.Popen(bwa_cmd,stdout=subprocess.PIPE,shell=True).communicate()[0]
+    print bwa_help
+    sys.exit(1)
+
+
+
+if __name__ =='__main__':
+    parser = argparser.ArgumentParser(description="run bwa sampe- the thingy that calculates best alignment pairs after bwa aln")
+    args_dict = parse_bwa_help(mskcmo.utils.programs['bwa'] + " sampe")
+    
