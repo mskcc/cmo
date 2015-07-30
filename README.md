@@ -7,4 +7,4 @@ alias python="/opt/common/CentOS_6-dev/python/python-2.7.10/bin/python"
 
 
 to install without sudo: python setup.py install --user
-[Data Yes!](https://i.imgur.com/gPOM4.gif)
+![Data Yes!](https://i.imgur.com/gPOM4.gif)
