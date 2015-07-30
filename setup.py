@@ -9,6 +9,8 @@ setup(name='mskcmo',
         licence='GPLv3',
         packages=['mskcmo'],
         install_requires=['argparse'],
-        scripts=['bin/bwa_sampe'],
+        scripts=['bin/bwa_sampe',
+                 'bin/bwa_align_paired_end',
+                 'bin/bwa_aln'],
         zip_safe=False)
 

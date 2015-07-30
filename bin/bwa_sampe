@@ -11,7 +11,7 @@ def parse_bwa_help(bwa_cmd):
 if __name__ =='__main__':
     parser = argparse.ArgumentParser(description="run bwa sampe- the thingy that calculates best alignment pairs after bwa aln")
     args_dict = parse_bwa_help(mskcmo.util.programs['bwa']['default'] + " sampe")
-    parser.add_argument("--genome", choices=["hg19", "hg38"], required=True)
+    parser.add_argument("--genome", choices=mskcmo.util.genomes.keys(), required=True)
     parser.add_argument("--fastq1", required=True)
     parser.add_argument("--sai1", required=True)
     parser.add_argument("--sai2", required=True)

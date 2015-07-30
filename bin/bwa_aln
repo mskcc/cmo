@@ -10,7 +10,7 @@ def parse_bwa_help(bwa_cmd):
 
 if __name__ =='__main__':
     parser = argparse.ArgumentParser(description="run bwa aln")
-    parser.add_argument("--genome", choices=["hg19", "hg38"], required=True)
+    parser.add_argument("--genome", choices=mskcmo.util.genomes.keys(), required=True)
     parser.add_argument("--fastq", required=True)
     parser.add_argument("--output", required=True)
     parser.add_argument("--version", required=True, choices=mskcmo.util.programs['bwa'].keys())
