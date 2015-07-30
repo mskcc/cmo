@@ -6,12 +6,26 @@ import mskcmo
 def parse_bwa_help(bwa_cmd):
     bwa_help = subprocess.Popen(bwa_cmd,stderr=subprocess.PIPE,shell=True).communicate()[1]
     valid_args = re.findall(r"(-\w) ([\S \t]+\n)?", bwa_help, re.M)
-    return dict(valid_args[:-1])
+    return dict(valid_args)
 
 if __name__ =='__main__':
     parser = argparse.ArgumentParser(description="run bwa aln")
+    parser.add_argument("--genome", choices=["hg19", "hg38"], required=True)
+    parser.add_argument("--fastq", required=True)
+    parser.add_argument("--output", required=True)
+    parser.add_argument("--version", required=True, choices=mskcmo.util.programs['bwa'].keys())
     args_dict = parse_bwa_help(mskcmo.util.programs['bwa']['default'] + " aln")
     for arg, description in args_dict.items():
         parser.add_argument(arg, dest=arg[1:],action="store", help=description)
-    parser.parse_args()
+    args = parser.parse_args()
+    fasta = mskcmo.util.genomes[args.genome]['fasta']
+    fastq = args.fastq
+    output = args.output
+    bwa_helper = mskcmo.bwa.Bwa(version='0.7.12')
+    args_dict = vars(args)
+    args_dict.pop("genome")
+    args_dict.pop("fastq")
+    args_dict.pop("output")
+    print bwa_helper.aln(fasta, fastq, output, args_dict)
+
 

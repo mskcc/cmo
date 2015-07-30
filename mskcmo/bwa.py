@@ -5,11 +5,16 @@ from . import util
 
 
 class Bwa:
-    def __init__(self,version="default"):
+    def __init__(self,version="default", samtools_version="default"):
         try:
             self.bwa_cmd=util.programs["bwa"][version]
         except KeyError, e:
             print >>sys.stderr, "Cannot find specified version of bwa in configuration file: %s" % version
+            sys.exit(1)
+        try:   
+            self.samtools_cmd=util.programs["samtools"][samtools_version]
+        except KeyError, e:
+            print >>sys.stderr, "Cannot find specified version of samtools in configuration file: %s" % version
             sys.exit(1)
     def index(self, fasta, args_dict=None):
         if not os.path.isfile(fasta):
@@ -20,19 +25,21 @@ class Bwa:
             for arg, value in args_dict.items():
                 cmd.append( "-" + arg + " " + value)
         cmd.append(fasta)
-        return cmd.join(" ")
-    def aln(self, prefix, fastq, args_dict=None):
+        return " ".join(cmd)
+    def aln(self, fasta, fastq, output, args_dict=None):
         cmd = [self.bwa_cmd, "aln"]
         if args_dict != None:
             for arg, value in args_dict.items():
                 cmd.append( "-" + arg + " " + value)
-        cmd.append(prefix)
+        cmd.append(fasta)
         cmd.append(fastq)
-        return cmd.join(" ")
-    def sampe(self, prefix, sai1, sai2, fq1, fq2, args_dict):
+        cmd = cmd + [">", output]
+        return " ".join(cmd)
+    def sampe(self, fasta, sai1, sai2, fq1, fq2, output_bam, args_dict, no_bam=False):
         cmd = [self.bwa_cmd, "sampe"]
         if args_dict != None:
             for arg, value in args_dict.items():
-                cmd.append( "-" + arg + " " + value)
-        cmd = cmd + [ sai1, sai2, fq1, fq2]
-        return cmd.join(" ")
+                if value != None:
+                    cmd.append( "-" + arg + " " + value)
+        cmd = cmd + [ sai1, sai2, fq1, fq2, "|", self.samtools_cmd, "view -bShq 1 -F 4  -", ">", output_bam]
+        return " ".join(cmd)
