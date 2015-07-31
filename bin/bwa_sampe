@@ -1,7 +1,7 @@
 #!/opt/common/CentOS_6-dev/python/python-2.7.10/bin/python
 
 import argparse, os, sys, re, subprocess,itertools
-import mskcmo
+import cmo
 
 def parse_bwa_help(bwa_cmd):
     bwa_help = subprocess.Popen(bwa_cmd,stderr=subprocess.PIPE,shell=True).communicate()[1]
@@ -10,27 +10,27 @@ def parse_bwa_help(bwa_cmd):
 
 if __name__ =='__main__':
     parser = argparse.ArgumentParser(description="run bwa sampe- the thingy that calculates best alignment pairs after bwa aln")
-    args_dict = parse_bwa_help(mskcmo.util.programs['bwa']['default'] + " sampe")
-    parser.add_argument("--genome", choices=mskcmo.util.genomes.keys(), required=True)
+    args_dict = parse_bwa_help(cmo.util.programs['bwa']['default'] + " sampe")
+    parser.add_argument("--genome", choices=cmo.util.genomes.keys(), required=True)
     parser.add_argument("--fastq1", required=True)
     parser.add_argument("--sai1", required=True)
     parser.add_argument("--sai2", required=True)
     parser.add_argument("--fastq2", required=True)
     parser.add_argument("--output", required=True)
     parser.add_argument("--sam", default=False)
-    parser.add_argument("--version", required=True, choices=mskcmo.util.programs['bwa'].keys())
-    args_dict = parse_bwa_help(mskcmo.util.programs['bwa']['default'] + " sampe")
+    parser.add_argument("--version", required=True, choices=cmo.util.programs['bwa'].keys())
+    args_dict = parse_bwa_help(cmo.util.programs['bwa']['default'] + " sampe")
     for arg, description in args_dict.items():
         parser.add_argument(arg, dest=arg[1:],action="store", help=description)
     args = parser.parse_args()
-    fasta = mskcmo.util.genomes[args.genome]['fasta']
+    fasta = cmo.util.genomes[args.genome]['fasta']
     fastq1 = args.fastq1
     fastq2 = args.fastq2
     sai1=args.sai1
     sai2=args.sai2
     output = args.output
     sam = args.output
-    bwa_helper = mskcmo.bwa.Bwa(version='0.7.12')
+    bwa_helper = cmo.bwa.Bwa(version='0.7.12')
     args_dict = vars(args)
     for key in ["genome", "fastq1", "fastq2", "sai1", "sai2", "output", "sam", "version"]:
         del args_dict[key]

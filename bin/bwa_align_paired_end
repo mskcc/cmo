@@ -2,19 +2,19 @@
 
 import argparse, os, sys, re, subprocess,itertools
 import tempfile
-import mskcmo
+import cmo
 
 if __name__ =='__main__':
     parser = argparse.ArgumentParser(description="run bwa on paired end reads")
-    parser.add_argument("--genome", choices=mskcmo.util.genomes.keys(), required=True)
-    parser.add_argument("--version", choices=mskcmo.util.programs['bwa'].keys(), required=True)
+    parser.add_argument("--genome", choices=cmo.util.genomes.keys(), required=True)
+    parser.add_argument("--version", choices=cmo.util.programs['bwa'].keys(), required=True)
     parser.add_argument("--fastq1", required=True)
     parser.add_argument("--fastq2", required=True)
     parser.add_argument("--tmp", default="/tmp/")
     parser.add_argument("--output-bam", required=True)
     args = parser.parse_args()
-    bwa_helper = mskcmo.bwa.Bwa(version=args.version)
-    fasta = mskcmo.util.genomes['hg19']['fasta']
+    bwa_helper = cmo.bwa.Bwa(version=args.version)
+    fasta = cmo.util.genomes['hg19']['fasta']
     sai1 = tempfile.NamedTemporaryFile(dir=args.tmp, delete=False)
     sai1.close()
     sai2 = tempfile.NamedTemporaryFile(dir=args.tmp, delete=False)
