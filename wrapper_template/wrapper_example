@@ -1,0 +1,31 @@
+#!/opt/common/CentOS_6-dev/python/python-2.7.10/bin/python
+
+import argparse, os, sys, re, subprocess,itertools
+import cmo
+
+def parse_bwa_help(bwa_cmd):
+    bwa_help = subprocess.Popen(bwa_cmd,stderr=subprocess.PIPE,shell=True).communicate()[1]
+    valid_args = re.findall(r"(-\w) ([\S \t]+\n)?", bwa_help, re.M)
+    return dict(valid_args)
+
+if __name__ =='__main__':
+    #start creating your argument parser with a short description of your code
+    parser = argparse.ArgumentParser(description="Short description of your code")
+    #need a genome file? use the util.genomes.keys() to determine all available versions for your tool to use
+    parser.add_argument("--genome", choices=cmo.util.genomes.keys(), required=True)
+    parser.add_argument("--number-setting-with-default", default=52, type=int, required=True)
+    #need a specific program? automatically offer all installed versions by getting programs['progname'].keys()
+    parser.add_argument("--version", required=True, choices=cmo.util.programs['progname'].keys())
+    args = parser.parse_args()
+    #look up specific subfiles for your genomes
+    fasta = cmo.util.genomes[args.genome]['fastq']
+    dbsnp = cmo.util.genomes[args.genome]['dbsnp']
+    fastq = args.fastq
+    output = args.output
+    args_dict = vars(args)
+    args_dict.pop("genome")
+    args_dict.pop("fastq")
+    args_dict.pop("output")
+    print bwa_helper.aln(fasta, fastq, output, args_dict)
+
+
