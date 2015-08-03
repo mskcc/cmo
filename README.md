@@ -1,4 +1,4 @@
-# mskcmo
+# cmo
 Python Package for the CMO
 
 ##install without sudo:
