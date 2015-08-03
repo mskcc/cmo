@@ -39,18 +39,18 @@ class Bwa:
         cmd = [self.bwa_cmd, "mem"]
         if args_dict != None:
             for arg, value in args_dict.items():
-                cmd.append( "-" + arg + " " + value)
+                if value != None:
+                    cmd.append( "-" + arg + " " + value)
         cmd.append(fasta)
         cmd.append(fastq1)
         if(fastq2):
             cmd.append(fastq2)
-        )
         if no_bam: 
             cmd = cmd + [">", output]
         else:
             cmd = cmd + ["|", self.samtools_cmd, "view -bShq 1 -F 4 - ", ">", output]
         return " ".join(cmd)
-    def sampe(self, fasta, sai1, sai2, fq1, fq2, output_bam, args_dict=None,, no_bam=False):
+    def sampe(self, fasta, sai1, sai2, fq1, fq2, output_bam, args_dict=None, no_bam=False):
         cmd = [self.bwa_cmd, "sampe"]
         if args_dict != None:
             for arg, value in args_dict.items():

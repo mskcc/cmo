@@ -11,6 +11,7 @@ setup(name='cmo',
         install_requires=['argparse'],
         scripts=['bin/bwa_sampe',
                  'bin/bwa_align_paired_end',
-                 'bin/bwa_aln'],
+                 'bin/bwa_aln',
+                 'bin/bwa_mem'],
         zip_safe=False)
 

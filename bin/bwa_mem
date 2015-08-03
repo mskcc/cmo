@@ -1,0 +1,42 @@
+#!/opt/common/CentOS_6-dev/python/python-2.7.10/bin/python
+
+import argparse, os, sys, re, subprocess,itertools
+import cmo
+
+def parse_bwa_help(bwa_cmd):
+    bwa_help = subprocess.Popen(bwa_cmd,stderr=subprocess.PIPE,shell=True).communicate()[1]
+    valid_args = re.findall(r"(-\w) ([\S \t]+\n)?", bwa_help, re.M)
+    print valid_args
+    return dict(valid_args)
+
+if __name__ =='__main__':
+    parser = argparse.ArgumentParser(description="run bwa mem")
+    args_dict = parse_bwa_help(cmo.util.programs['bwa']['default'] + " mem")
+    parser.add_argument("--genome", choices=cmo.util.genomes.keys(), required=True)
+    parser.add_argument("--fastq1", required=True)
+    parser.add_argument("--fastq2", required=True)
+    parser.add_argument("--output", required=True)
+    parser.add_argument("--sam", default=False, help="Produce Sam instead of the default  bam (Boolean)")
+    parser.add_argument("--version", required=True, choices=cmo.util.programs['bwa'].keys())
+    args_dict = parse_bwa_help(cmo.util.programs['bwa']['default'] + " mem")
+    if "-h" in args_dict:
+        args_dict['-hh']=args_dict['-h']
+        del args_dict['-h']
+    for arg, description in args_dict.items():
+        print arg, description
+        description=description.replace("%","%%")
+        parser.add_argument(arg, dest=arg[1:],action="store", help=description)
+    args = parser.parse_args()
+    fasta = cmo.util.genomes[args.genome]['fasta']
+    fastq1 = args.fastq1
+    fastq2 = args.fastq2
+    output = args.output
+    sam = args.sam
+    bwa_helper = cmo.bwa.Bwa(version=args.version)
+    args_dict = vars(args)
+    for key in ["genome", "fastq1", "fastq2", "output", "sam", "version"]:
+        del args_dict[key]
+    parser.parse_args()
+    print bwa_helper.mem(fasta, fastq1, fastq2, output, args_dict=args_dict, no_bam=sam)
+
+
