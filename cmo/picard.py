@@ -40,7 +40,9 @@ class Picard:
             if value != None:
                 cmd = cmd + [arg + "=" + value]
         return " ".join(cmd)
-          
+    def picard_cmd_help(self, command):
+        cmd = [self.java_cmd, self.java_args, "-jar", self.picard_jar, command, " -h"]
+        return " ".join(cmd)
 
 
 
