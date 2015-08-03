@@ -1,5 +1,10 @@
 { "programs" : 
     {
+        "ABRA" :
+        {"default":"/opt/common/CentOS_6/abra/abra-0.92/abra.jar",
+         "0.92":"/opt/common/CentOS_6/abra/abra-0.92/abra.jar",
+         "0.91":"/opt/common/CentOS_6/abra/abra-0.91/abra.jar"
+        },
         "bwa":
         {"default":"/opt/common/CentOS_6/bwa/bwa-0.7.12/bwa",
                  "0.7.12":"/opt/common/CentOS_6/bwa/bwa-0.7.12/bwa",
