@@ -1,0 +1,44 @@
+#!/opt/common/CentOS_6-dev/python/python-2.7.10/bin/python
+
+import argparse, os, sys, re, subprocess,itertools
+import cmo
+
+def find_sub_command_options(picard_helper, sub_command):
+    cmd = picard_helper.picard_cmd(sub_command) + " -h"
+    picard_help = subprocess.Popen(cmd,stderr=subprocess.PIPE,shell=True).communicate()[1]
+    if re.search("is not a valid command", picard_help):
+        return (None, picard_help)
+    valid_args = re.findall(r"(?:^([\S_]+)=\S+\n?){1,2}\s+([\S\s]+?(?=^[\S_]+=\S+))", picard_help, re.M)
+    return (dict(valid_args), None)
+
+if __name__ =='__main__':
+    preparser = argparse.ArgumentParser(description="run picard", add_help=False)
+  #  args_dict = parse_bwa_help(cmo.util.programs['bwa']['default'] + " mem")
+    preparser.add_argument("--version", choices=cmo.util.programs['picard'].keys(), default="default")
+    preparser.add_argument("--java-version", choices=cmo.util.programs['java'].keys(), default="default")
+    preparser.add_argument("--sub-command", required=True)
+    options, _ = preparser.parse_known_args()
+    picard_helper = cmo.picard.Picard(java_version=options.version, version=options.version)
+    (sub_command_options, error_msg) = find_sub_command_options(picard_helper, options.sub_command)
+    if sub_command_options == None:
+        print >>sys.stderr, error_msg
+        sys.exit(1)
+    parser = argparse.ArgumentParser(parents= [ preparser ] , add_help= True,
+            formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    for arg, help in sub_command_options.items():
+        if re.search("Required.", help) != None:
+            required=True
+        else:
+            required=False
+        parser.add_argument("--"+arg, action="store", help=help, required=required) 
+    parser.add_argument("--genome", required=True, choices=cmo.util.genomes.keys())
+    #time for monkey business
+  #  args_dict = parse_bwa_help(cmo.util.programs['bwa']['default'] + " mem")
+    args = parser.parse_args()
+    command_specific_args = vars(args)
+    genome = args.genome
+    for key in  ["version", "java_version", "sub_command", "genome"]:
+        del command_specific_args[key]
+    default_args_override = { "REFERENCE_SEQUENCE": cmo.util.genomes[genome]['fasta'] }
+    print picard_helper.picard_cmd(options.sub_command, default_args_override=default_args_override, command_specific_args=command_specific_args)
+     
