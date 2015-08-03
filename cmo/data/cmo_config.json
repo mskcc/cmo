@@ -1,0 +1,26 @@
+{ "programs" : 
+    {
+        "bwa":
+        {"default":"/opt/common/CentOS_6/bwa/bwa-0.7.12/bwa",
+                 "0.7.12":"/opt/common/CentOS_6/bwa/bwa-0.7.12/bwa",
+                 "0.7.10":"/opt/common/CentOS_6/bwa/bwa-0.7.10/bwa"
+        },
+       "samtools":
+        {"default":"/opt/common/CentOS_6/samtools/samtools-0.1.19/samtools",
+          "0.1.19":"/opt/common/CentOS_6/samtools/samtools-0.1.19/samtools"}
+,
+       "picard" :
+        {"default":"/opt/common/CentOS_6/picard/picard-tools-1.129",
+        "1.119":"/opt/common/CentOS_6/picard/picard-tools-1.119",
+        "1.124":"/opt/common/CentOS_6/picard/picard-tools-1.124",
+        "1.129":"/opt/common/CentOS_6/picard/picard-tools-1.129"}
+    },
+
+ "genomes" :
+    {
+        "hg19":
+        {"fasta":"/ifs/depot/assemblies/H.sapiens/hg19/hg19.fasta"}
+     }
+}
+
+ 
