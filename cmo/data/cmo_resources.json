@@ -1,6 +1,6 @@
 { "programs" : 
     {
-        "ABRA" :
+        "abra" :
         {"default":"/opt/common/CentOS_6/abra/abra-0.92/abra.jar",
          "0.92":"/opt/common/CentOS_6/abra/abra-0.92/abra.jar",
          "0.91":"/opt/common/CentOS_6/abra/abra-0.91/abra.jar"
