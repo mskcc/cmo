@@ -13,6 +13,8 @@ setup(name='cmo',
                  'bin/bwa_align_paired_end',
                  'bin/bwa_aln',
                  'bin/bwa_mem',
-                 'bin/picard'],
+                 'bin/picard',
+                 'bin/gatk'
+                 ],
         zip_safe=False)
 
