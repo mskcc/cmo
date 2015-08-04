@@ -7,24 +7,30 @@
         },
         "bwa":
         {"default":"/opt/common/CentOS_6/bwa/bwa-0.7.12/bwa",
-                 "0.7.12":"/opt/common/CentOS_6/bwa/bwa-0.7.12/bwa",
-                 "0.7.10":"/opt/common/CentOS_6/bwa/bwa-0.7.10/bwa"
+         "0.7.12":"/opt/common/CentOS_6/bwa/bwa-0.7.12/bwa",
+         "0.7.10":"/opt/common/CentOS_6/bwa/bwa-0.7.10/bwa"
+        },
+        "gatk":
+        {"default":"/opt/common/CentOS_6/gatk/GenomeAnalysisTK-3.4-0-g7e26428/GenomeAnalysisTK.jar",
+         "3.2-2":"opt/common/CentOS_6/gatk/GenomeAnalysisTK-3.2-2-gec30cee/GenomeAnalysisTK.jar",
+         "3.3-0":"/opt/common/CentOS_6/gatk/GenomeAnalysisTK-3.3-0/GenomeAnalysisTK.jar",
+         "3.4-0":"/opt/common/CentOS_6/gatk/GenomeAnalysisTK-3.4-0-g7e26428/GenomeAnalysisTK.jar"
         },
        "samtools":
         {"default":"/opt/common/CentOS_6/samtools/samtools-0.1.19/samtools",
-          "0.1.19":"/opt/common/CentOS_6/samtools/samtools-0.1.19/samtools"
+         "0.1.19":"/opt/common/CentOS_6/samtools/samtools-0.1.19/samtools"
         },
        "picard" :
         {"default":"/opt/common/CentOS_6/picard/picard-tools-1.129/picard.jar",
-        "1.124":"/opt/common/CentOS_6/picard/picard-tools-1.124/picard.jar",
-        "1.129":"/opt/common/CentOS_6/picard/picard-tools-1.129/picard.jar"
+         "1.124":"/opt/common/CentOS_6/picard/picard-tools-1.124/picard.jar",
+         "1.129":"/opt/common/CentOS_6/picard/picard-tools-1.129/picard.jar"
         },
         "java" :
-        { "default":"/opt/common/CentOS_6/java/jdk1.7.0_75/bin/java",
-        "jdk1.7.0_75":"/opt/common/CentOS_6/java/jdk1.7.0_75/bin/java",
-        "jdk1.8.0_25":"/opt/common/CentOS_6/java/jdk1.8.0_25/bin/java",
-        "jdk1.8.0_31":"/opt/common/CentOS_6/java/jdk1.8.0_31/bin/java",
-        "jre1.7.0_75":"/opt/common/CentOS_6/java/jre1.7.0_75/bin/java"
+        {"default":"/opt/common/CentOS_6/java/jdk1.7.0_75/bin/java",
+         "jdk1.7.0_75":"/opt/common/CentOS_6/java/jdk1.7.0_75/bin/java",
+         "jdk1.8.0_25":"/opt/common/CentOS_6/java/jdk1.8.0_25/bin/java",
+         "jdk1.8.0_31":"/opt/common/CentOS_6/java/jdk1.8.0_31/bin/java",
+         "jre1.7.0_75":"/opt/common/CentOS_6/java/jre1.7.0_75/bin/java"
         }
 },
 

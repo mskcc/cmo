@@ -12,6 +12,7 @@ setup(name='cmo',
         scripts=['bin/bwa_sampe',
                  'bin/bwa_align_paired_end',
                  'bin/bwa_aln',
-                 'bin/bwa_mem'],
+                 'bin/bwa_mem',
+                 'bin/picard'],
         zip_safe=False)
 
