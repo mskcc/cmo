@@ -5,8 +5,7 @@ import cmo
 
 def parse_bwa_help(bwa_cmd):
     bwa_help = subprocess.Popen(bwa_cmd,stderr=subprocess.PIPE,shell=True).communicate()[1]
-    valid_args = re.findall(r"(-\w) ([\S \t]+\n)?", bwa_help, re.M)
-    print valid_args
+    valid_args = re.findall(r"(-\w) ([\S \t]+)\n?", bwa_help, re.M)
     return dict(valid_args)
 
 if __name__ =='__main__':

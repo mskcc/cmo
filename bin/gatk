@@ -38,7 +38,9 @@ if __name__ =='__main__':
         print >>sys.stderr, error_msg
         sys.exit(1)
     #ok it was a valid subcommand, add the options we found and the genome option
-    parser = argparse.ArgumentParser(parents= [ preparser ] , add_help= True,)
+    parser = argparse.ArgumentParser(parents= [ preparser ] , add_help= True, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument("--java_args", default=gatk_helper.java_args, help="args to pass to java")
+    parser.add_argument("--java-temp", help="java.io.temp_dir, if you want to set it")
     for group in sub_command_options:
         parser_group=parser.add_argument_group(group)
         for (arg, long_arg, help) in sub_command_options[group]:
@@ -49,11 +51,16 @@ if __name__ =='__main__':
             #we want to not add this, argparse will
             if(arg == "-h" or arg =="-T" or arg=="-version"):
                 continue
-            parser_group.add_argument(arg,long_arg, action="store", metavar='',help=help) 
+            parser_group.add_argument(arg,long_arg, action="append", metavar='',help=help) 
     args = parser.parse_args()
+    if args.java_args:
+        gatk_helper.java_args=args.java_args
+    if args.java_tmp:
+        gatk_helper.temp_dir = java_tmp
     command_specific_args = vars(args)
+    command_specific_args = dict((k, v) for k, v in command_specific_args.iteritems() if v)
     command_specific_args['reference_sequence']=cmo.util.genomes[args.reference_sequence]['fasta']
-    for key in  ["version", "java_version", "sub_command"]:
+    for key in  ["version", "java_version", "sub_command", "java_args", "java_tmp"]:
         del command_specific_args[key]
     print gatk_helper.gatk_cmd(options.sub_command, command_specific_args=command_specific_args)
      

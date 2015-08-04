@@ -37,7 +37,11 @@
  "genomes" :
     {
         "hg19":
-        {"fasta":"/ifs/depot/assemblies/H.sapiens/hg19/hg19.fasta"}
+        {"fasta":"/ifs/depot/assemblies/H.sapiens/hg19/hg19.fasta"},
+        "hg18":
+        {"fasta":"/ifs/depot/assemblies/H.sapiens/hg18/hg18.fasta"},
+        "GRCh37":
+        {"fasta":"/ifs/depot/asemblies/H.sapiens/GRCh37/GRCh37.fasta"}
      }
 }
 
