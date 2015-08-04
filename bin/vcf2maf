@@ -6,7 +6,6 @@ import cmo
 def parse_vcf2maf_help(vcf2maf_cmd):
     bwa_help = subprocess.Popen("perl " + vcf2maf_cmd +" -h",stdout=subprocess.PIPE,shell=True).communicate()[0]
     valid_args = re.findall(r"\s+(--[\S_]+)\s+([\S \t]+)\n?", bwa_help, re.M)
-    print valid_args
     return dict(valid_args)
 
 if __name__ =='__main__':
