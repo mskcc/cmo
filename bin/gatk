@@ -1,0 +1,58 @@
+#!/opt/common/CentOS_6-dev/python/python-2.7.10/bin/python
+
+import argparse, os, sys, re, subprocess,itertools
+import cmo
+from collections import defaultdict
+def find_sub_command_options(gatk_helper, sub_command):
+    cmd = gatk_helper.gatk_cmd_help(sub_command) 
+    gatk_help = subprocess.Popen(cmd,stdout=subprocess.PIPE,shell=True).communicate()[0]
+    gatk_help = gatk_help.split("\n")
+    sub_command_arg_raw = defaultdict(list)
+    current_sub_command="GATK Common Options"
+    for line in gatk_help:
+        m = re.match("^Arguments for (\S+):", line);
+        if(m):
+            current_sub_command=m.group(1)
+            continue
+        sub_command_arg_raw[current_sub_command].append(line)
+    sub_command_args = defaultdict(list)
+    for sub_command in sub_command_arg_raw:
+        sub_command_string = " ".join(sub_command_arg_raw[sub_command])
+        valid_args = re.findall(r"(?:(-[\S_]+),(--[\S_]+))\s+(?:<[\S_]+>)?\s+([\S\s]+?(?=-[\S_]+,--[\S_]+))", sub_command_string, re.M)
+        sub_command_args[sub_command]=valid_args
+    return (sub_command_args, None)
+
+if __name__ =='__main__':
+    #partially parse options to get versin/subcommand and add more options
+    preparser = argparse.ArgumentParser(description="run gatk", add_help=False)
+    preparser.add_argument("--version", choices=cmo.util.programs['gatk'].keys(), default="default")
+    preparser.add_argument("--java-version", choices=cmo.util.programs['java'].keys(), default="default")
+    preparser.add_argument("--sub-command", required=True)
+    options, _ = preparser.parse_known_args()
+    #time for monkey business
+    gatk_helper = cmo.gatk.Gatk(java_version=options.version, version=options.version)
+    (sub_command_options, error_msg) = find_sub_command_options(gatk_helper, options.sub_command)
+    if sub_command_options == None:
+        print >>sys.stderr, error_msg
+        sys.exit(1)
+    #ok it was a valid subcommand, add the options we found and the genome option
+    parser = argparse.ArgumentParser(parents= [ preparser ] , add_help= True,
+            formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    for group in sub_command_options:
+        parser_group=parser.add_argument_group(group)
+        for (arg, long_arg, help) in sub_command_options[group]:
+            #we want to add our ref seqs ourselves
+            if(arg == "-R"):
+                parser_group.add_argument("-R", "--reference_sequence", required=True, choices=cmo.util.genomes.keys())
+                continue
+            #we want to not add this, argparse will
+            if(arg == "-h"):
+                continue
+            parser_group.add_argument(arg,long_arg, action="store", help=help) 
+    args = parser.parse_args()
+    command_specific_args = vars(args)
+    command_specific_args['reference_sequence']=cmo.util.genomes[args.reference_sequence]['fasta']
+    for key in  ["version", "java_version", "sub_command"]:
+        del command_specific_args[key]
+    print gatk_helper.gatk_cmd(options.sub_command, command_specific_args=command_specific_args)
+     
