@@ -14,6 +14,8 @@ def find_sub_command_options(gatk_helper, sub_command):
         if(m):
             current_sub_command=m.group(1)
             continue
+        if re.search("Available Reference Ordered", line):
+            break
         sub_command_arg_raw[current_sub_command].append(line)
     sub_command_args = defaultdict(list)
     for sub_command in sub_command_arg_raw:
