@@ -31,7 +31,32 @@
          "jdk1.8.0_25":"/opt/common/CentOS_6/java/jdk1.8.0_25/bin/java",
          "jdk1.8.0_31":"/opt/common/CentOS_6/java/jdk1.8.0_31/bin/java",
          "jre1.7.0_75":"/opt/common/CentOS_6/java/jre1.7.0_75/bin/java"
+        },
+        "vcf2maf":
+        {
+         "default":"/opt/common/CentOS_6-dev/vcf2maf/v1.5.4/vcf2maf.pl",
+         "1.5.1":"/opt/common/CentOS_6-dev/vcf2maf/v1.5.1/vcf2maf.pl",
+         "1.5.3":"/opt/common/CentOS_6-dev/vcf2maf/v1.5.3/vcf2maf.pl",
+         "1.5.2":"/opt/common/CentOS_6-dev/vcf2maf/v1.5.2/vcf2maf.pl",
+         "1.5.4":"/opt/common/CentOS_6-dev/vcf2maf/v1.5.4/vcf2maf.pl"
+        },
+        "maf2maf":
+        {
+         "default":"/opt/common/CentOS_6-dev/maf2maf/v1.5.4/maf2maf.pl",
+         "1.5.1":"/opt/common/CentOS_6-dev/maf2maf/v1.5.1/maf2maf.pl",
+         "1.5.3":"/opt/common/CentOS_6-dev/maf2maf/v1.5.3/maf2maf.pl",
+         "1.5.2":"/opt/common/CentOS_6-dev/maf2maf/v1.5.2/maf2maf.pl",
+         "1.5.4":"/opt/common/CentOS_6-dev/maf2maf/v1.5.4/maf2maf.pl"
+        },
+        "maf2vcf":
+        {
+         "default":"/opt/common/CentOS_6-dev/maf2vcf/v1.5.4/maf2vcf.pl",
+         "1.5.1":"/opt/common/CentOS_6-dev/maf2vcf/v1.5.1/maf2vcf.pl",
+         "1.5.3":"/opt/common/CentOS_6-dev/maf2vcf/v1.5.3/maf2vcf.pl",
+         "1.5.2":"/opt/common/CentOS_6-dev/maf2vcf/v1.5.2/maf2vcf.pl",
+         "1.5.4":"/opt/common/CentOS_6-dev/maf2vcf/v1.5.4/maf2vcf.pl"
         }
+
 },
 
  "genomes" :
