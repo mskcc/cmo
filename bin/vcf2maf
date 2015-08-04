@@ -1,0 +1,38 @@
+#!/opt/common/CentOS_6-dev/python/python-2.7.10/bin/python
+
+import argparse, os, sys, re, subprocess,itertools
+import cmo
+
+def parse_vcf2maf_help(vcf2maf_cmd):
+    bwa_help = subprocess.Popen("perl " + vcf2maf_cmd +" -h",stdout=subprocess.PIPE,shell=True).communicate()[0]
+    valid_args = re.findall(r"\s+(--[\S_]+)\s+([\S \t]+)\n?", bwa_help, re.M)
+    print valid_args
+    return dict(valid_args)
+
+if __name__ =='__main__':
+    preparser = argparse.ArgumentParser(description="run vcf2maf", add_help=False)
+    preparser.add_argument("--genome", choices=cmo.util.genomes.keys(), required=True)
+    preparser.add_argument("--version", required=True, choices=cmo.util.programs['vcf2maf'].keys())
+    options, _ = preparser.parse_known_args()
+    vcf2maf_script = cmo.util.programs['vcf2maf'][options.version]
+    args_dict = parse_vcf2maf_help(vcf2maf_script)
+    parser = argparse.ArgumentParser(parents = [preparser], add_help=True, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    for arg, description in args_dict.items():
+        if arg == "--help":
+            continue
+        parser.add_argument(arg,action="store", help=description)
+    args = parser.parse_args()
+    fasta = cmo.util.genomes[args.genome]['fasta']
+    args_dict = vars(args)
+    for key in ["genome", "version"]:
+        del args_dict[key]
+    args_dict['ref-fasta']=fasta
+    cmd = ["perl", vcf2maf_script]
+    args_dict = dict((k, v) for k, v in args_dict.iteritems() if v)
+    for arg, value in args_dict.items():
+        arg= arg.replace("_","-")
+        cmd = cmd + ["--"+arg, value]
+    print " ".join(cmd)
+
+
+
