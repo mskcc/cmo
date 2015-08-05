@@ -16,34 +16,31 @@ def find_sub_command_options(gatk_helper, sub_command):
             continue
         if re.search("Available Reference Ordered", line):
             break
-        sub_command_arg_raw[current_sub_command].append(line)
+        if not re.search("\[", line) and not re.search("^--", line):
+            sub_command_arg_raw[current_sub_command].append(line)
     sub_command_args = defaultdict(list)
     for sub_command in sub_command_arg_raw:
         sub_command_string = " ".join(sub_command_arg_raw[sub_command])
-        valid_args = re.findall(r"(?:(-[\S_]+),(--[\S_]+))\s+(?:<[\S_]+>)?\s+([\S\s]+?(?=(?:-[\S_]+,--[\S_]+)|$))", sub_command_string, re.M)
+        valid_args = re.findall(r"(?:(?:(-[\S_]+),)?(--[\S_]+))\s+(?:<[\S_]+>)?\s+([\S\s]+?(?=(?:(?:(?:-[\S_]+),)?--[\S_]+)|$))", sub_command_string, re.M)
         sub_command_args[sub_command]=valid_args
     return (sub_command_args, None)
 
 if __name__ =='__main__':
     #partially parse options to get versin/subcommand and add more options
     preparser = argparse.ArgumentParser(description="run gatk", add_help=False)
-    preparser.add_argument("--version", choices=cmo.util.programs['gatk'].keys(), default="default")
+    preparser.add_argument("--version", choices=cmo.util.programs['mutect'].keys(), default="default")
     preparser.add_argument("--java-version", choices=cmo.util.programs['java'].keys(), default="default")
-    preparser.add_argument("-T", "--sub-command", required=True)
     options, _ = preparser.parse_known_args()
     #time for monkey business
-    gatk_helper = cmo.gatk.Gatk(java_version=options.version, version=options.version)
-    (sub_command_options, error_msg) = find_sub_command_options(gatk_helper, options.sub_command)
-    if sub_command_options == None:
-        print >>sys.stderr, error_msg
-        sys.exit(1)
-    #ok it was a valid subcommand, add the options we found and the genome option
+    gatk_helper = cmo.gatk.Gatk(java_version=options.version, version=options.version, mutect=True)
+    (sub_command_options, error_msg) = find_sub_command_options(gatk_helper, "MuTect")
     parser = argparse.ArgumentParser(parents= [ preparser ] , add_help= True, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument("--java_args", default=gatk_helper.java_args, help="args to pass to java")
     parser.add_argument("--java-temp", help="java.io.temp_dir, if you want to set it")
     for group in sub_command_options:
         parser_group=parser.add_argument_group(group)
         for (arg, long_arg, help) in sub_command_options[group]:
+            print arg, long_arg, group
             #we want to add our ref seqs ourselves
             if(arg == "-R"):
                 parser_group.add_argument("-R", "--reference_sequence", required=True, choices=cmo.util.genomes.keys())
@@ -51,17 +48,20 @@ if __name__ =='__main__':
             #we want to not add this, argparse will
             if(arg == "-h" or arg =="-T" or arg=="-version"):
                 continue
-            parser_group.add_argument(arg,long_arg, action="append", metavar='',help=help) 
+            elif arg!='':
+                parser_group.add_argument(arg,long_arg, action="append", metavar='',help=help)
+            else: 
+                parser_group.add_argument(long_arg, action="append", metavar='', help=help)
     args = parser.parse_args()
     if args.java_args:
         gatk_helper.java_args=args.java_args
     if args.java_temp:
-        gatk_helper.temp_dir = java_temp
+        gatk_helper.temp_dir = args.java_temp
     command_specific_args = vars(args)
     command_specific_args = dict((k, v) for k, v in command_specific_args.iteritems() if v)
     command_specific_args['reference_sequence']=cmo.util.genomes[args.reference_sequence]['fasta']
     for key in  ["version", "java_version", "sub_command", "java_args", "java_temp"]:
         if key in command_specific_args:
             del command_specific_args[key]
-    print gatk_helper.gatk_cmd(options.sub_command, command_specific_args=command_specific_args)
+    print gatk_helper.gatk_cmd("MuTect", command_specific_args=command_specific_args)
      

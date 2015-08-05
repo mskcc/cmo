@@ -19,7 +19,7 @@ if __name__ =='__main__':
     for arg, description in args_dict.items():
         if arg == "--help":
             continue
-        parser.add_argument(arg,action="store", help=description)
+        parser.add_argument(arg,action="store", metavar='', help=description)
     args = parser.parse_args()
     fasta = cmo.util.genomes[args.genome]['fasta']
     args_dict = vars(args)

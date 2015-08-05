@@ -5,9 +5,12 @@ from . import util
 
 
 class Gatk:
-    def __init__(self,version="default", java_version="default", java_args="-Xmx48g -Xms256m -XX:-UseGCOverheadLimit", temp_dir=None):
+    def __init__(self,version="default", java_version="default", java_args="-Xmx48g -Xms256m -XX:-UseGCOverheadLimit", temp_dir=None, mutect=False):
         try:
-            self.gatk_jar=util.programs["gatk"][version]
+            if mutect:
+                self.gatk_jar=util.programs["mutect"][version]
+            else:
+                self.gatk_jar=util.programs["gatk"][version]
         except KeyError, e:
             print >>sys.stderr, "Cannot find specified version of piard in configuration file: %s" % version
             sys.exit(1)
@@ -16,6 +19,7 @@ class Gatk:
         except KeyError, e:
             print >>sys.stderr, "Cannot find specified version of java to run gatk with: %s" % version
             sys.exit(1)
+        self.temp_dir=None
         if temp_dir:
             self.temp_dir = temp_dir
         self.java_args = java_args 
