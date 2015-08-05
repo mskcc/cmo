@@ -33,8 +33,10 @@ class Gatk:
                 if isinstance(value, list):
                     for val in value:
                         cmd = cmd + ["--"+arg,  val]
-                else:
-                    cmd = cmd + ["--"+arg,  value]
+                elif value == True:
+                    cmd = cmd + ["--"+arg]
+                elif value != False:
+                    cmd = cmd + ["--"+arg, value]
         return " ".join(cmd)
     def gatk_cmd_help(self, command):
         cmd = [self.java_cmd, self.java_args, "-jar", self.gatk_jar, "-T", command, " --help"]
