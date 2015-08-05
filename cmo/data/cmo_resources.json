@@ -57,9 +57,15 @@
          "1.5.4":"/opt/common/CentOS_6-dev/vcf2maf/v1.5.4/maf2vcf.pl"
         },
         "mutect":
-       {"default":"/opt/common/CentOS_6/muTect/muTect-1.1.7/mutect-1.1.7.jar",
-        "1.1.7":"/opt/common/CentOS_6/muTect/muTect-1.1.7/mutect-1.1.7.jar"
-       }
+        {
+         "default":"/opt/common/CentOS_6/muTect/muTect-1.1.7/mutect-1.1.7.jar",
+         "1.1.7":"/opt/common/CentOS_6/muTect/muTect-1.1.7/mutect-1.1.7.jar"
+        },
+        "bedtools":
+        {
+         "default":"/opt/common/CentOS_6/bedtools/bedtools-2.22.0/bin",
+         "2.22.0":"/opt/common/CentOS_6/bedtools/bedtools-2.22.0/bin"
+        }
 
 },
 
