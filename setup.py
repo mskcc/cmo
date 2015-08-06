@@ -9,12 +9,13 @@ setup(name='cmo',
         licence='GPLv3',
         packages=['cmo'],
         install_requires=['argparse'],
-        scripts=['bin/bwa_sampe',
-                 'bin/bwa_align_paired_end',
-                 'bin/bwa_aln',
-                 'bin/bwa_mem',
-                 'bin/picard',
-                 'bin/gatk'
+        scripts=['bin/cmo_bwa_sampe',
+                 'bin/cmo_bwa_aln',
+                 'bin/cmo_bwa_mem',
+                 'bin/cmo_picard',
+                 'bin/cmo_gatk',
+                 'bin/cmo_mutect',
+                 'bin/cmo_bedtools'
                  ],
         zip_safe=False)
 

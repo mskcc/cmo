@@ -3,3 +3,4 @@ build/
 dist/
 cmo.egg-info/
 **.swp
+doc/build/
