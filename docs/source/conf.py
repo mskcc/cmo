@@ -29,7 +29,7 @@ import shlex
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
-extensions = []
+extensions = ['sphinxcontrib.programoutput']
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -223,7 +223,7 @@ latex_elements = {
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
   (master_doc, 'CMO.tex', u'CMO Documentation',
-   u'Chris Harris, Cyriac Kandoth', 'manual'),
+   u'CMO', 'manual'),
 ]
 
 # The name of an image file (relative to this directory) to place at the top of

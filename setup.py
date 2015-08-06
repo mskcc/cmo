@@ -15,7 +15,10 @@ setup(name='cmo',
                  'bin/cmo_picard',
                  'bin/cmo_gatk',
                  'bin/cmo_mutect',
-                 'bin/cmo_bedtools'
+                 'bin/cmo_bedtools',
+                 'bin/cmo_maf2maf',
+                 'bin/cmo_vcf2maf',
+                 'bin/cmo_maf2vcf'
                  ],
         zip_safe=False)
 

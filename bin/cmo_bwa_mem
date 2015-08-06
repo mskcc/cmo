@@ -22,7 +22,6 @@ if __name__ =='__main__':
         args_dict['-hh']=args_dict['-h']
         del args_dict['-h']
     for arg, description in args_dict.items():
-        print arg, description
         description=description.replace("%","%%")
         parser.add_argument(arg, dest=arg[1:],action="store", help=description)
     args = parser.parse_args()

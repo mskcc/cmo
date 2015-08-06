@@ -10,8 +10,8 @@ def parse_maf2maf_help(maf2maf_cmd):
 
 if __name__ =='__main__':
     preparser = argparse.ArgumentParser(description="run maf2maf", add_help=False)
-    preparser.add_argument("--genome", choices=cmo.util.genomes.keys(), required=True)
-    preparser.add_argument("--version", required=True, choices=cmo.util.programs['maf2maf'].keys())
+    preparser.add_argument("--genome", choices=cmo.util.genomes.keys(), default="hg19")
+    preparser.add_argument("--version", choices=cmo.util.programs['maf2maf'].keys(), default="default" )
     options, _ = preparser.parse_known_args()
     maf2maf_script = cmo.util.programs['maf2maf'][options.version]
     args_dict = parse_maf2maf_help(maf2maf_script)

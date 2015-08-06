@@ -29,11 +29,11 @@ if __name__ =='__main__':
     preparser = argparse.ArgumentParser(description="run gatk", add_help=False)
     preparser.add_argument("--version", choices=cmo.util.programs['gatk'].keys(), default="default")
     preparser.add_argument("--java-version", choices=cmo.util.programs['java'].keys(), default="default")
-    preparser.add_argument("-T", "--sub-command", required=True)
+    preparser.add_argument("-T", "--cmd", required=True)
     options, _ = preparser.parse_known_args()
     #time for monkey business
     gatk_helper = cmo.gatk.Gatk(java_version=options.version, version=options.version)
-    (sub_command_options, error_msg) = find_sub_command_options(gatk_helper, options.sub_command)
+    (sub_command_options, error_msg) = find_sub_command_options(gatk_helper, options.cmd)
     if sub_command_options == None:
         print >>sys.stderr, error_msg
         sys.exit(1)
@@ -66,5 +66,5 @@ if __name__ =='__main__':
     for key in  ["version", "java_version", "sub_command", "java_args", "java_temp"]:
         if key in command_specific_args:
             del command_specific_args[key]
-    print gatk_helper.gatk_cmd(options.sub_command, command_specific_args=command_specific_args)
+    print gatk_helper.gatk_cmd(options.cmd, command_specific_args=command_specific_args)
      

@@ -7,7 +7,6 @@ def find_sub_command_options(bedtools_command):
     bedtools_help = subprocess.Popen(bedtools_command + " -h",stderr=subprocess.PIPE,shell=True).communicate()[1]
     #FIXME only captures one line of bedtools help, more better regex needed
     valid_args = re.findall(r"(?:[^E](-\S+))[\t ]([^-][\S \t]+)", bedtools_help, re.M)
-    print valid_args
     args_dict = dict()
     for (arg, value) in valid_args: 
         if arg not in args_dict:
@@ -29,22 +28,24 @@ if __name__ =='__main__':
     verparser.add_argument("--version", choices=cmo.util.programs['bedtools'].keys(), default="default")
     options, _ = verparser.parse_known_args()
     preparser = argparse.ArgumentParser(parents=[verparser], add_help=False)
-    preparser.add_argument("--sub-command", required=True, choices=find_sub_commands(cmo.util.programs['bedtools'][options.version]))
+    preparser.add_argument("--cmd", required=True, choices=find_sub_commands(cmo.util.programs['bedtools'][options.version]), metavar='BEDTOOLS COMMAND')
     selection,_ = preparser.parse_known_args()
-    bedtools_command = os.path.join(cmo.util.programs['bedtools'][options.version], selection.sub_command)
+    bedtools_command = os.path.join(cmo.util.programs['bedtools'][options.version], selection.cmd)
     sub_command_options = find_sub_command_options(bedtools_command)
     #ok it was a valid subcommand, add the options we found and the genome option
     parser = argparse.ArgumentParser(parents= [ preparser ], add_help=True, 
             formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    group = parser.add_argument_group(selection.cmd)
     for arg, help in sub_command_options.items():
+        help = help.replace("%","%%")
         if(arg =="-fi"):
-            parser.add_argument(arg, action="store", choices=cmo.util.genomes.keys())
+            group.add_argument(arg, action="store", choices=cmo.util.genomes.keys())
         elif re.search("\.\.",help): #more than one arg is accepted
-            parser.add_argument(arg, action="store", nargs="+", metavar='')
+            group.add_argument(arg, action="store", nargs="+", metavar='')
         elif re.search("(FLOAT|INTEGER|Float|Integer|Default)", help):
-            parser.add_argument(arg, action="store", metavar='', help=help)
+            group.add_argument(arg, action="store", metavar='', help=help)
         else:
-            parser.add_argument(arg, action="store_true", help=help) 
+            group.add_argument(arg, action="store_true", help=help) 
 #    parser.add_argument("--genome", required=True, choices=cmo.util.genomes.keys())
     args = parser.parse_args()
     command_specific_args = vars(args)

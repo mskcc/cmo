@@ -10,8 +10,8 @@ def parse_vcf2maf_help(vcf2maf_cmd):
 
 if __name__ =='__main__':
     preparser = argparse.ArgumentParser(description="run vcf2maf", add_help=False)
-    preparser.add_argument("--genome", choices=cmo.util.genomes.keys(), required=True)
-    preparser.add_argument("--version", required=True, choices=cmo.util.programs['vcf2maf'].keys())
+    preparser.add_argument("--genome", choices=cmo.util.genomes.keys(), default="hg19")
+    preparser.add_argument("--version", default="default", choices=cmo.util.programs['vcf2maf'].keys())
     options, _ = preparser.parse_known_args()
     vcf2maf_script = cmo.util.programs['vcf2maf'][options.version]
     args_dict = parse_vcf2maf_help(vcf2maf_script)

@@ -40,7 +40,6 @@ if __name__ =='__main__':
     for group in sub_command_options:
         parser_group=parser.add_argument_group(group)
         for (arg, long_arg, help) in sub_command_options[group]:
-            print arg, long_arg, group
             #we want to add our ref seqs ourselves
             if(arg == "-R"):
                 parser_group.add_argument("-R", "--reference_sequence", required=True, choices=cmo.util.genomes.keys())

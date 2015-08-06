@@ -19,11 +19,11 @@ if __name__ =='__main__':
     preparser = argparse.ArgumentParser(description="run picard", add_help=False)
     preparser.add_argument("--version", choices=cmo.util.programs['picard'].keys(), default="default")
     preparser.add_argument("--java-version", choices=cmo.util.programs['java'].keys(), default="default")
-    preparser.add_argument("--sub-command", required=True)
+    preparser.add_argument("--cmd", required=True)
     options, _ = preparser.parse_known_args()
     #time for monkey business
     picard_helper = cmo.picard.Picard(java_version=options.version, version=options.version)
-    (sub_command_options, error_msg) = find_sub_command_options(picard_helper, options.sub_command)
+    (sub_command_options, error_msg) = find_sub_command_options(picard_helper, options.cmd)
     if sub_command_options == None:
         print >>sys.stderr, error_msg
         sys.exit(1)
@@ -44,5 +44,5 @@ if __name__ =='__main__':
         del command_specific_args[key]
     #default_args is handled a little crappily, but not a big deal for now
     default_args_override = { "REFERENCE_SEQUENCE": cmo.util.genomes[genome]['fasta'] }
-    print picard_helper.picard_cmd(options.sub_command, default_args_override=default_args_override, command_specific_args=command_specific_args)
+    print picard_helper.picard_cmd(options.cmd, default_args_override=default_args_override, command_specific_args=command_specific_args)
      
