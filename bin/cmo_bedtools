@@ -5,8 +5,36 @@ import cmo
 
 def find_sub_command_options(bedtools_command):
     bedtools_help = subprocess.Popen(bedtools_command + " -h",stderr=subprocess.PIPE,shell=True).communicate()[1]
+    lines = bedtools_help.split("\n")
+    options_block = False
+    usage = ''
+    options = ''
+    last_option = ''
+    last_option_help = ' ' 
+    valid_args = []
+    for line in lines:
+        if re.search("Usage:", line):
+            usage = line
+            continue
+        elif re.search("Options:", line):
+            options_block = True
+            continue
+        if re.search("Notes:", line):
+            options_block = False
+        if options_block:
+            m = re.match(r"^[\t ]+(-\w+)[\t ]+(.*)$", line)
+            if m:
+                if last_option != '':
+                    valid_args.append((last_option, last_option_help))
+                last_option = m.group(1)
+                last_option_help = m.group(2)
+            elif last_option:
+                last_option_help += line
+    valid_args.append((last_option, last_option_help))
+    print usage
+    valid_args = valid_args +  re.findall(r"(?:(-\S+) ([^-]+))", usage)
+    print valid_args
     #FIXME only captures one line of bedtools help, more better regex needed
-    valid_args = re.findall(r"(?:[^E](-\S+))[\t ]([^-][\S \t]+)", bedtools_help, re.M)
     args_dict = dict()
     for (arg, value) in valid_args: 
         if arg not in args_dict:
@@ -42,7 +70,7 @@ if __name__ =='__main__':
             group.add_argument(arg, action="store", choices=cmo.util.genomes.keys())
         elif re.search("\.\.",help): #more than one arg is accepted
             group.add_argument(arg, action="store", nargs="+", metavar='')
-        elif re.search("(FLOAT|INTEGER|Float|Integer|Default)", help):
+        elif re.search("(FLOAT|INTEGER|Float|Integer|Default|<.*>)", help):
             group.add_argument(arg, action="store", metavar='', help=help)
         else:
             group.add_argument(arg, action="store_true", help=help) 
@@ -51,7 +79,7 @@ if __name__ =='__main__':
     command_specific_args = vars(args)
     if 'fi' in command_specific_args:
         command_specific_args['fi']=cmo.util.genomes[args.fi]['fasta']
-    for key in  ["version", "sub_command"]:
+    for key in  ["version", "cmd"]:
         del command_specific_args[key]
     command_specific_args = dict((k, v) for k, v in command_specific_args.iteritems() if v)
     cmd = [bedtools_command]
