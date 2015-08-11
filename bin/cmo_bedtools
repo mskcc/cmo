@@ -31,9 +31,7 @@ def find_sub_command_options(bedtools_command):
             elif last_option:
                 last_option_help += line
     valid_args.append((last_option, last_option_help))
-    print usage
     valid_args = valid_args +  re.findall(r"(?:(-\S+) ([^-]+))", usage)
-    print valid_args
     #FIXME only captures one line of bedtools help, more better regex needed
     args_dict = dict()
     for (arg, value) in valid_args: 
