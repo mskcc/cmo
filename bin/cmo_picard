@@ -31,6 +31,7 @@ if __name__ =='__main__':
     parser = argparse.ArgumentParser(parents= [ preparser ] , add_help= True,
             formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     for arg, help in sub_command_options.items():
+        help = help.replace("%","%%")
         if re.search("Required.", help) != None:
             required=True
         else:

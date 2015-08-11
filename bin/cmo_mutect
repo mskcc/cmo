@@ -21,7 +21,7 @@ def find_sub_command_options(gatk_helper, sub_command):
     sub_command_args = defaultdict(list)
     for sub_command in sub_command_arg_raw:
         sub_command_string = " ".join(sub_command_arg_raw[sub_command])
-        valid_args = re.findall(r"(?:(?:(-[\S_]+),)?(--[\S_]+))\s+(?:<[\S_]+>)?\s+([\S\s]+?(?=(?:(?:(?:-[\S_]+),)?--[\S_]+)|$))", sub_command_string, re.M)
+        valid_args = re.findall(r"(?:(?:(-[\S_]+),)?(--[\S_]+))\s+(<[\S_]+>)?\s+([\S\s]+?(?=(?:(?:(?:-[\S_]+),)?--[\S_]+)|$))", sub_command_string, re.M)
         sub_command_args[sub_command]=valid_args
     return (sub_command_args, None)
 
@@ -39,7 +39,11 @@ if __name__ =='__main__':
     parser.add_argument("--java-temp", help="java.io.temp_dir, if you want to set it")
     for group in sub_command_options:
         parser_group=parser.add_argument_group(group)
-        for (arg, long_arg, help) in sub_command_options[group]:
+        for (arg, long_arg,param,help) in sub_command_options[group]:
+            if param=='':
+                action = "store_true"
+            else:
+                action = "append"
             #we want to add our ref seqs ourselves
             if(arg == "-R"):
                 parser_group.add_argument("-R", "--reference_sequence", required=True, choices=cmo.util.genomes.keys())
@@ -48,9 +52,9 @@ if __name__ =='__main__':
             if(arg == "-h" or arg =="-T" or arg=="-version"):
                 continue
             elif arg!='':
-                parser_group.add_argument(arg,long_arg, action="append", metavar='',help=help)
+                parser_group.add_argument(arg,long_arg, action=action, help=help)
             else: 
-                parser_group.add_argument(long_arg, action="append", metavar='', help=help)
+                parser_group.add_argument(long_arg, action=action,  help=help)
     args = parser.parse_args()
     if args.java_args:
         gatk_helper.java_args=args.java_args
