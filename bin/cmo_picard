@@ -32,18 +32,24 @@ if __name__ =='__main__':
             formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     for arg, help in sub_command_options.items():
         help = help.replace("%","%%")
+        if(arg == "R"):
+           parser.add_argument("--R","--genome", required=True, choices=cmo.util.genomes.keys())
+           continue
         if re.search("Required.", help) != None:
             required=True
         else:
             required=False
-        parser.add_argument("--"+arg, action="store", help=help, required=required) 
-    parser.add_argument("--genome", required=True, choices=cmo.util.genomes.keys())
+        parser.add_argument("--"+arg, action="store", help=help, required=required)
+    cmo.util.add_logging_options(parser)
     args = parser.parse_args()
     command_specific_args = vars(args)
-    genome = args.genome
-    for key in  ["version", "java_version", "sub_command", "genome"]:
+    genome = args.R
+    stdout = args.stdout
+    stderr = args.stderr
+    for key in  ["version", "java_version", "cmd", "R"]:
         del command_specific_args[key]
+    cmo.util.remove_logging_options_from_dict(command_specific_args)
     #default_args is handled a little crappily, but not a big deal for now
-    default_args_override = { "REFERENCE_SEQUENCE": cmo.util.genomes[genome]['fasta'] }
-    print picard_helper.picard_cmd(options.cmd, default_args_override=default_args_override, command_specific_args=command_specific_args)
+    default_args_override = { "REFERENCE": cmo.util.genomes[genome]['fasta'] }
+    cmo.util.call_cmd(picard_helper.picard_cmd(options.cmd, default_args_override=default_args_override, command_specific_args=command_specific_args), stdout=stdout, stderr=stderr)
      
