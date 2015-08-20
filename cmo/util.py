@@ -16,7 +16,7 @@ json_config = json.load(open("/opt/common/CentOS_6-dev/cmo/cmo_resources.json"))
 programs = json_config['programs']
 genomes = json_config['genomes']
 
-def call_cmd(cmd, shell=True, stderr=None, stdout=None):
+def call_cmd(cmd, shell=True, stderr=None, stdout=None, stdin=None):
     try:
         if(stderr):
             error_fh = open(stderr, "w")
@@ -26,7 +26,7 @@ def call_cmd(cmd, shell=True, stderr=None, stdout=None):
             out_fh = open(stdout, "w")
             stdout = out_fh
             #FIXME log that this happened
-        return_code = subprocess.check_call(cmd, shell=shell, stderr=stderr, stdout=stdout)
+        return_code = subprocess.check_call(cmd, shell=shell, stderr=stderr, stdout=stdout, stdin=stdin)
     except subprocess.CalledProcessError, e:
         print >>sys.stderr, "Non Zero Exit Code %s from %s" % (e.returncode, cmd)
         print >>sys.stderr, "Bailing out!"
@@ -48,6 +48,7 @@ def add_logging_options(parser):
 def remove_logging_options_from_dict(dict):
         for (arg, help) in logging_options:
             key = arg.replace("--","")
-            del dict[key]
+            if key in dict:
+                del dict[key]
 
 
