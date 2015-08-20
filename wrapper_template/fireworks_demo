@@ -1,0 +1,25 @@
+#!/opt/common/CentOS_6-dev/python/python-2.7.10/bin/python
+
+from fireworks import ScriptTask, LaunchPad, Firework, Workflow, FWorker
+from fireworks.queue.queue_launcher import rapidfire
+from fireworks.utilities.fw_serializers import load_object_from_file
+launchpad=LaunchPad.auto_load()
+
+
+task1 = ScriptTask.from_str('echo "Ingrid is the CEO"')
+task2 = ScriptTask.from_str('echo "Jill is a manager."')
+task3 = ScriptTask.from_str('echo "Jack is a manager."')
+task4 = ScriptTask.from_str('echo "Kip is an intern."')
+
+fw1 = Firework(task1)
+fw2 = Firework(task2)
+fw3 = Firework(task3)
+fw4 = Firework(task4)
+
+# assemble Workflow from FireWorks and their connections by id
+workflow = Workflow([fw1, fw2, fw3, fw4], {fw1: [fw2, fw3], fw2: [fw4], fw3: [fw4]})
+
+# store workflow and launch it locally
+common_adapter  = load_object_from_file("/opt/common/CentOS_6-dev/cmo/qadapter_LSF.yaml")
+launchpad.add_wf(workflow)
+rapidfire(launchpad, FWorker(), common_adapter)
