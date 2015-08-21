@@ -1,10 +1,10 @@
 #!/opt/common/CentOS_6-dev/python/python-2.7.10/bin/python
 
 import argparse
-import time
 import re
 import subprocess
 
+import time
 import cmo
 
 '''
@@ -74,6 +74,14 @@ def process_options(parser, cmd_options):
     for arg, help in cmd_options.items():
         if (arg == "--ref"):
             parser.add_argument("--ref", "--reference_sequence", required=True, choices=cmo.util.genomes.keys())
+        elif (arg == "--in"):
+            parser.add_argument(arg, required=True, help=help)
+        elif (arg == "--out"):
+            parser.add_argument(arg, required=True, help=help)
+        elif (arg == "--bwa-ref"):
+            parser.add_argument(arg, required=True, help=help)
+        elif (arg == "--targets"):
+            parser.add_argument(arg, required=True, help=help)
         elif (arg == "--lr"):
             parser.add_argument(arg, action="store_true", help=help)
         elif (arg == "--ib"):
@@ -81,7 +89,7 @@ def process_options(parser, cmd_options):
         elif (arg == "--sv"):
             parser.add_argument(arg, action="store_true", help=help)
         else:
-            parser.add_argument(arg, action="store", metavar='', help=help)
+            parser.add_argument(arg, action="store", help=help)
 
     return (parser)
 
