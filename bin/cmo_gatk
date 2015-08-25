@@ -46,7 +46,7 @@ if __name__ =='__main__':
         for (arg, long_arg, param, help) in sub_command_options[group]:
             #we want to add our ref seqs ourselves
             if(arg == "-R"):
-                parser_group.add_argument("-R", "--reference_sequence", required=True, choices=cmo.util.genomes.keys())
+                parser_group.add_argument("-R", "--reference_sequence", choices=cmo.util.genomes.keys())
                 continue
             #we want to not add this, argparse will
             if(arg == "-h" or arg =="-T" or arg=="-version"):
@@ -55,16 +55,22 @@ if __name__ =='__main__':
                 parser_group.add_argument(arg,long_arg, action="append", metavar='',help=help)
             else:
                 parser_group.add_argument(arg,long_arg, action="store_true", help=help)
+    cmo.util.add_logging_options(parser)
     args = parser.parse_args()
     if args.java_args:
         gatk_helper.java_args=args.java_args
     if args.java_temp:
         gatk_helper.temp_dir = java_temp
     command_specific_args = vars(args)
+    if(args.reference_sequence):
+        command_specific_args['reference_sequence']=cmo.util.genomes[args.reference_sequence]['fasta']
     command_specific_args = dict((k, v) for k, v in command_specific_args.iteritems() if v)
-    command_specific_args['reference_sequence']=cmo.util.genomes[args.reference_sequence]['fasta']
-    for key in  ["version", "java_version", "sub_command", "java_args", "java_temp"]:
+    for key in  ["version", "java_version", "cmd", "java_args", "java_temp"]:
         if key in command_specific_args:
             del command_specific_args[key]
-    print gatk_helper.gatk_cmd(options.cmd, command_specific_args=command_specific_args)
+    stderr=args.stderr
+    stdout=args.stdout
+    cmo.util.remove_logging_options_from_dict(command_specific_args)
+    cmo.util.call_cmd(gatk_helper.gatk_cmd(options.cmd, command_specific_args=command_specific_args), stderr=stderr, stdout=stdout)
+    
      

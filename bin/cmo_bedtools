@@ -73,21 +73,30 @@ if __name__ =='__main__':
         else:
             group.add_argument(arg, action="store_true", help=help) 
 #    parser.add_argument("--genome", required=True, choices=cmo.util.genomes.keys())
+    cmo.util.add_logging_options(parser)
     args = parser.parse_args()
     command_specific_args = vars(args)
+    stderr=args.stderr
+    stdout=args.stdout
+    cmo.util.remove_logging_options_from_dict(command_specific_args)
     if 'fi' in command_specific_args:
         command_specific_args['fi']=cmo.util.genomes[args.fi]['fasta']
     for key in  ["version", "cmd"]:
         del command_specific_args[key]
     command_specific_args = dict((k, v) for k, v in command_specific_args.iteritems() if v)
     cmd = [bedtools_command]
+    stdin=None
     for option, value in command_specific_args.items():
         if isinstance(value, list):
             cmd = cmd + ["-"+option] + value
+            #bedtools edge case read from stdin
         else:
             if value ==True:
                 cmd = cmd + ["-"+option]
             elif value!=False:
                 cmd = cmd + ["-"+option, value]
-    print " ".join(cmd)
+                if value == "stdin":
+                    stdin=sys.stdin
+    cmo.util.call_cmd(" ".join(cmd), stderr=stderr, stdout=stdout, stdin=stdin)
+
      

@@ -18,7 +18,7 @@ if __name__ =='__main__':
     parser.add_argument("--version", required=True, choices=cmo.util.programs['progname'].keys())
     args = parser.parse_args()
     #look up specific subfiles for your genomes
-    fasta = cmo.util.genomes[args.genome]['fastq']
+    fasta = cmo.util.genomes[args.genome]['fasta']
     dbsnp = cmo.util.genomes[args.genome]['dbsnp']
     fastq = args.fastq
     output = args.output

@@ -26,8 +26,8 @@ class Picard:
                 "MAX_RECORDS_IN_RAM": "500000",
                 "CREATE_INDEX": "false",
                 "CREATE_MD5_FILE": "false",
-                "REFERENCE_SEQUENCE": "null",
-                "GA4GH_CLIENT_SECRETS":"null",
+                "REFERENCE": "null",
+           #     "GA4GH_CLIENT_SECRETS":"null",
                 }
     def picard_cmd(self, command, default_args_override={}, command_specific_args={}):
         cmd = [self.java_cmd, self.java_args, "-jar", self.picard_jar, command]
