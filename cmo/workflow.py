@@ -3,6 +3,7 @@ from fireworks.queue import queue_launcher
 from fireworks.core import rocket_launcher
 from fireworks.utilities.fw_serializers import load_object_from_file
 from pymongo import MongoClient
+import getpass
 FW_LPAD_CONFIG_LOC = "/opt/common/CentOS_6-dev/cmo/fireworks_config_files"
 FW_WFLOW_LAUNCH_LOC = "/opt/common/CentOS_6-dev/fireworks_workflows"
 class Job(fireworks.Firework):
@@ -30,12 +31,12 @@ class Job(fireworks.Firework):
             self.name=name
        
 class Workflow():
-    def __init__(self, jobs_list, job_dependencies, name=name):
+    def __init__(self, jobs_list, job_dependencies, name=None):
         self.jobs_list = jobs_list
         self.job_dependencies = job_dependencies
-        self.launchpad=fireworks.LaunchPad.auto_load() # need an FW config in ENV OR similar for this to work
         self.workflow = fireworks.Workflow(jobs_list, job_dependencies)
-        self.launchpad.add_wf(self.workflow)
+        db = DatabaseManager()
+        launchpad = LaunchPad.from_file(db.find_lpad_config())
     def run(self, processing_mode):
         if processing_mode=='serial':
             #load user launchpad
@@ -43,14 +44,10 @@ class Workflow():
             #init if necessary
             rocket_launcher.rapidfire(self.launchpad, fireworks.FWorker())
         elif processing_mode=='LSF':
-            #load user launchpad
-            #create user collection
-            #init if necessary
-            common_adapter  = load_object_from_file("/opt/common/CentOS_6-dev/cmo/qadapter_LSF.yaml")
-            queue_launcher.rapidfire(self.launchpad, fireworks.FWorker(), common_adapter, reserve=True, nlaunches=len(self.jobs_list))
+            self.launchpad.add_wf(self.workflow)
 
 class DatabaseManager():
-    def __init__(host="plvcbiocmo2.mskcc.org", port="27017" user=getpass.getuser()):
+    def __init__(host="plvcbiocmo2.mskcc.org", port="27017", user=getpass.getuser()):
         self.host=host
         self.port=port
         self.client=MongoClient(host+":"+port)
@@ -58,7 +55,10 @@ class DatabaseManager():
     def lpad_cfg_filename(self):
         return self.user+".yaml"
     def find_lpad_config(self):
-        return os.path.join(FW_LPAD_CONFIG_LOC, self.lpad_cfg_filename)
+        lpad_file = os.path.join(FW_LPAD_CONFIG_LOC, self.lpad_cfg_filename)
+        if not os.path.exists(lpad_file):
+            self.create_lpad_config()
+        return lpad_file
     def create_lpad_config(self):
         if os.path.exists(find_lpad_config):
             print >>sys.stderr, "Config already exists: %s" % self.find_lpad_config
@@ -66,7 +66,7 @@ class DatabaseManager():
             fh.open(self.find_lpad_config(),"w")
             yaml_dict =  { "username" : self.user,
                     "name" : self.user,
-                    "strm_lvl", "INFO",
+                    "strm_lvl": "INFO",
                     "host" : self.host,
                     "logdir" : "null",
                     "password" : "speakfriendandenter",
@@ -74,7 +74,12 @@ class DatabaseManager():
             for key, value in yaml_dict:
                 fh.write(key + ": " + value + "\n")
             fh.close()
+            client.admin.authenticate("fireworks", "speakfriendandenter")
+            client.charris.add_user("charris","speakfriendandenter", roles=[{'role':'readWrite', 'db':'testdb'}])
+            lpad = fireworks.LaunchPad.from_file(self.find_lpad_config())
+            lpad.reset()
         return self.find_lpad_config()
+        
 
 
 
