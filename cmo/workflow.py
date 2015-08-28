@@ -3,7 +3,7 @@ from fireworks.queue import queue_launcher
 from fireworks.core import rocket_launcher
 from fireworks.utilities.fw_serializers import load_object_from_file
 from pymongo import MongoClient
-import getpass, os, sys
+import getpass, os, sys, time
 FW_LPAD_CONFIG_LOC = "/opt/common/CentOS_6-dev/cmo/fireworks_config_files"
 FW_WFLOW_LAUNCH_LOC = "/opt/common/CentOS_6-dev/fireworks_workflows"
 class Job(fireworks.Firework):
@@ -20,8 +20,8 @@ class Job(fireworks.Firework):
         if len(bsub_options_dict.keys()) > 0:
             spec = {}
             spec['_queueadapter']=bsub_options_dict
-        if name in kwargs:
-            name=name
+        if 'name' in kwargs:
+            name=kwargs['name']
         return fireworks.Firework(fireworks.ScriptTask.from_str(command), name=name, spec=spec)
     def __init__(self, command, rusage=None, name=None, queue=None, walltime=None):
         self.rusage = rusage
@@ -34,7 +34,7 @@ class Workflow():
     def __init__(self, jobs_list, job_dependencies, name=None):
         self.jobs_list = jobs_list
         self.job_dependencies = job_dependencies
-        self.workflow = fireworks.Workflow(jobs_list, job_dependencies)
+        self.name=name
         db = DatabaseManager()
         self.launchpad = fireworks.LaunchPad.from_file(db.find_lpad_config())
     def run(self, processing_mode):
@@ -42,9 +42,32 @@ class Workflow():
             #load user launchpad
             #create user collection if necessary
             #init if necessary
-            rocket_launcher.rapidfire(self.launchpad, fireworks.FWorker())
+            #rocket_launcher.rapidfire(self.launchpad, fireworks.FWorker())
+            print >>sys.stderr, "serial not implemented yet"
+            sys.exit(1)
         elif processing_mode=='LSF':
+            self.set_launch_dir(jobs_list)
+            self.workflow = fireworks.Workflow(jobs_list, job_dependencies, name=name)
             self.launchpad.add_wf(self.workflow)
+    def set_launch_dir(self, jobs_list):
+        if self.name:
+            keepcharacters = (' ','.','_')
+            sanitized_workflow_name = "".join(c for c in self.name if c.isalnum() or c in keepcharacters).rstrip() + "-"+ uuid.uuid4()
+        else:
+            sanitized_workflow_name = time.strftime("%m-%d-%Y-%I-%M-%S") +  uid.uuid4()
+        workflow_dir = os.path.join(FW_WFLOW_LAUNCH_LOC, self.user, sanitized_workflow_name)
+        os.makedirs(workflow_dir)
+        for job in jobs_list:
+            if job.name:
+                keepcharacters = (' ','.','_')
+                sanitized_job_name = "".join(c for c in job.name if c.isalnum() or c in keepcharacters).rstrip() + "-"+ uuid.uuid4()
+            else:
+                sanitized_job_name = time.strftime("%m-%d-%Y-%I-%M-%S") +  uid.uuid4()
+            job_launch_dir = os.path.join(workflow_dir, sanitized_job_name, None)
+            os.makedirs(job_launch_dir)
+            job.spec['_launch_dir']=job_launch_dir
+
+
 
 class DatabaseManager():
     def __init__(self, host="plvcbiocmo2.mskcc.org", port="27017", user=getpass.getuser()):
