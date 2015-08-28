@@ -3,7 +3,7 @@ from fireworks.queue import queue_launcher
 from fireworks.core import rocket_launcher
 from fireworks.utilities.fw_serializers import load_object_from_file
 from pymongo import MongoClient
-import getpass, os, sys, time, uuid
+import getpass, os, sys, time, uuid, daemon
 FW_LPAD_CONFIG_LOC = "/opt/common/CentOS_6-dev/cmo/fireworks_config_files"
 FW_WFLOW_LAUNCH_LOC = "/opt/common/CentOS_6-dev/fireworks_workflows"
 class Job(fireworks.Firework):
@@ -37,7 +37,7 @@ class Workflow():
         self.name=name
         db = DatabaseManager()
         self.launchpad = fireworks.LaunchPad.from_file(db.find_lpad_config())
-    def run(self, processing_mode):
+    def run(self, processing_mode, daemon_log=None):
         if processing_mode=='serial':
             #load user launchpad
             #create user collection if necessary
@@ -49,6 +49,7 @@ class Workflow():
             self.set_launch_dir()
             self.workflow = fireworks.Workflow(self.jobs_list, self.job_dependencies, name=self.name)
             self.launchpad.add_wf(self.workflow)
+            self.watcher_daemon(daemon_log)
     def set_launch_dir(self):
         if self.name:
             keepcharacters = ('.','_')
@@ -66,6 +67,35 @@ class Workflow():
             job_launch_dir = os.path.join(workflow_dir, sanitized_job_name, "")
             os.makedirs(job_launch_dir)
             job.spec['_launch_dir']=job_launch_dir
+    def watcher_daemon(self, log_file):
+        log=None
+        if(log_file):
+            log = open(log_file, "w")
+        with daemon.DaemonContext( stdout=log, stderr=log):
+            dbm = DatabaseManager()
+            #reconnect to mongo after fork
+            self.launchpad=fireworks.LaunchPad.from_file(dbm.find_lpad_config())
+            dbm.client.admin.authenticate("fireworks", "speakfriendandenter")
+            db = dbm.client.daemons
+            db.daemons.insert_one({"user":getpass.getuser(), "pid":os.getpid()})
+            while(True):
+                common_adapter  = load_object_from_file("/opt/common/CentOS_6-dev/cmo/qadapter_LSF.yaml")
+                launcher_log_dir = os.path.join(FW_WFLOW_LAUNCH_LOC, getpass.getuser(), "")
+                queue_launcher.rapidfire(self.launchpad, fireworks.FWorker(), common_adapter, reserve=True, nlaunches=0, launch_dir=launcher_log_dir, sleep_time=10)
+                failed_fws = []
+                time.sleep(10)
+                offline_runs =  self.launchpad.offline_runs.find({"completed": False, "deprecated": False}, {"launch_id": 1}).count()
+                self.launchpad.m_logger.info("%s offline runs found" % offline_runs)
+                if(offline_runs == 0):
+                    break
+                for l in self.launchpad.offline_runs.find({"completed": False, "deprecated": False}, {"launch_id": 1}):
+                    fw = self.launchpad.recover_offline(l['launch_id'], True)
+                    if fw:
+                        failed_fws.append(fw)
+                self.launchpad.m_logger.info("FINISHED recovering offline runs.")
+                if failed_fws:
+                    self.launchpad.m_logger.info("FAILED to recover offline fw_ids: {}".format(failed_fws))
+            db.daemons.remove({"user":getpass.getuser()})
 
 
 
