@@ -3,7 +3,7 @@ from fireworks.queue import queue_launcher
 from fireworks.core import rocket_launcher
 from fireworks.utilities.fw_serializers import load_object_from_file
 from pymongo import MongoClient
-import getpass
+import getpass, os, sys
 FW_LPAD_CONFIG_LOC = "/opt/common/CentOS_6-dev/cmo/fireworks_config_files"
 FW_WFLOW_LAUNCH_LOC = "/opt/common/CentOS_6-dev/fireworks_workflows"
 class Job(fireworks.Firework):
@@ -36,7 +36,7 @@ class Workflow():
         self.job_dependencies = job_dependencies
         self.workflow = fireworks.Workflow(jobs_list, job_dependencies)
         db = DatabaseManager()
-        launchpad = LaunchPad.from_file(db.find_lpad_config())
+        self.launchpad = fireworks.LaunchPad.from_file(db.find_lpad_config())
     def run(self, processing_mode):
         if processing_mode=='serial':
             #load user launchpad
@@ -47,7 +47,7 @@ class Workflow():
             self.launchpad.add_wf(self.workflow)
 
 class DatabaseManager():
-    def __init__(host="plvcbiocmo2.mskcc.org", port="27017", user=getpass.getuser()):
+    def __init__(self, host="plvcbiocmo2.mskcc.org", port="27017", user=getpass.getuser()):
         self.host=host
         self.port=port
         self.client=MongoClient(host+":"+port)
@@ -55,7 +55,7 @@ class DatabaseManager():
     def lpad_cfg_filename(self):
         return self.user+".yaml"
     def find_lpad_config(self):
-        lpad_file = os.path.join(FW_LPAD_CONFIG_LOC, self.lpad_cfg_filename)
+        lpad_file = os.path.join(FW_LPAD_CONFIG_LOC, self.lpad_cfg_filename())
         if not os.path.exists(lpad_file):
             self.create_lpad_config()
         return lpad_file
