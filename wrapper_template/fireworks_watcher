@@ -1,0 +1,24 @@
+#!/opt/common/CentOS_6-dev/python/python-2.7.10/bin/python
+from fireworks import ScriptTask, LaunchPad, Firework, Workflow, FWorker
+from fireworks.queue.queue_launcher import rapidfire
+from fireworks.scripts import lpad_run
+from fireworks.utilities.fw_serializers import load_object_from_file
+from cmo import workflow
+import time, getpass, os
+
+lpad_file = workflow.DatabaseManager().find_lpad_config() 
+
+launchpad = LaunchPad.from_file(lpad_file)
+common_adapter  = load_object_from_file("/opt/common/CentOS_6-dev/cmo/qadapter_LSF.yaml")
+while(True):
+    launcher_log_dir = os.path.join(workflow.FW_WFLOW_LAUNCH_LOC, getpass.getuser(), "")
+    rapidfire(launchpad, FWorker(), common_adapter, reserve=True, nlaunches=1, launch_dir=launcher_log_dir)
+    failed_fws = []
+    time.sleep(10)
+    for l in launchpad.offline_runs.find({"completed": False, "deprecated": False}, {"launch_id": 1}):
+        fw = launchpad.recover_offline(l['launch_id'], True)
+        if fw:
+            failed_fws.append(fw)
+    launchpad.m_logger.info("FINISHED recovering offline runs.")
+    if failed_fws:
+        launchpad.m_logger.info("FAILED to recover offline fw_ids: {}".format(failed_fws))
