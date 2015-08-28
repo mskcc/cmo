@@ -3,7 +3,7 @@ from fireworks.queue import queue_launcher
 from fireworks.core import rocket_launcher
 from fireworks.utilities.fw_serializers import load_object_from_file
 from pymongo import MongoClient
-import getpass, os, sys, time
+import getpass, os, sys, time, uuid
 FW_LPAD_CONFIG_LOC = "/opt/common/CentOS_6-dev/cmo/fireworks_config_files"
 FW_WFLOW_LAUNCH_LOC = "/opt/common/CentOS_6-dev/fireworks_workflows"
 class Job(fireworks.Firework):
@@ -46,24 +46,24 @@ class Workflow():
             print >>sys.stderr, "serial not implemented yet"
             sys.exit(1)
         elif processing_mode=='LSF':
-            self.set_launch_dir(jobs_list)
-            self.workflow = fireworks.Workflow(jobs_list, job_dependencies, name=name)
+            self.set_launch_dir()
+            self.workflow = fireworks.Workflow(self.jobs_list, self.job_dependencies, name=self.name)
             self.launchpad.add_wf(self.workflow)
-    def set_launch_dir(self, jobs_list):
+    def set_launch_dir(self):
         if self.name:
-            keepcharacters = (' ','.','_')
-            sanitized_workflow_name = "".join(c for c in self.name if c.isalnum() or c in keepcharacters).rstrip() + "-"+ uuid.uuid4()
+            keepcharacters = ('.','_')
+            sanitized_workflow_name = "".join(c for c in self.name.replace(" ", "_") if c.isalnum() or c in keepcharacters).rstrip() + "-"+ str(uuid.uuid4())
         else:
-            sanitized_workflow_name = time.strftime("%m-%d-%Y-%I-%M-%S") +  uid.uuid4()
-        workflow_dir = os.path.join(FW_WFLOW_LAUNCH_LOC, self.user, sanitized_workflow_name)
+            sanitized_workflow_name = time.strftime("%m-%d-%Y-%I-%M-%S") +  str(uid.uuid4())
+        workflow_dir = os.path.join(FW_WFLOW_LAUNCH_LOC, getpass.getuser(), sanitized_workflow_name, "")
         os.makedirs(workflow_dir)
-        for job in jobs_list:
+        for job in self.jobs_list:
             if job.name:
-                keepcharacters = (' ','.','_')
-                sanitized_job_name = "".join(c for c in job.name if c.isalnum() or c in keepcharacters).rstrip() + "-"+ uuid.uuid4()
+                keepcharacters = ('.','_')
+                sanitized_job_name = "".join(c for c in job.name.replace(" ", "_") if c.isalnum() or c in keepcharacters).rstrip() + "-"+ str(uuid.uuid4())
             else:
-                sanitized_job_name = time.strftime("%m-%d-%Y-%I-%M-%S") +  uid.uuid4()
-            job_launch_dir = os.path.join(workflow_dir, sanitized_job_name, None)
+                sanitized_job_name = time.strftime("%m-%d-%Y-%I-%M-%S") +  str(uid.uuid4())
+            job_launch_dir = os.path.join(workflow_dir, sanitized_job_name, "")
             os.makedirs(job_launch_dir)
             job.spec['_launch_dir']=job_launch_dir
 
