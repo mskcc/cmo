@@ -1,0 +1,168 @@
+#!/opt/common/CentOS_6-dev/python/python-2.7.10/bin/python
+
+import argparse
+import re
+import subprocess
+
+import time
+import cmo
+
+'''
+This method adds custom arguments to run the wrapper
+'''
+
+
+def makepreparser():
+    # Creating First Arguments that are specific to the wrapper
+    preparser = argparse.ArgumentParser(description="run abra", add_help=False)
+    preparser.add_argument("--version", choices=cmo.util.programs['abra'].keys(), default="default")
+    preparser.add_argument("--java-version", choices=cmo.util.programs['java'].keys(), default="default")
+    # Parse the wrapper arguments
+    options, _ = preparser.parse_known_args()
+    # Store them as variables
+    java = cmo.util.programs['java'][options.java_version]
+    abra_jar = cmo.util.programs['abra'][options.version]
+    # Add preparser to parser as a parent
+    parser = argparse.ArgumentParser(parents=[preparser], add_help=True)
+
+    return (parser, java, abra_jar)
+
+
+'''
+This method gets command-line option for the tool being wrapped.
+'''
+
+
+def find_command_options(java, abra_jar):
+    # Make command to be run
+    cmd = [java, "-jar", abra_jar, "--help"]
+    # Run the command and get the help
+    abra_help = subprocess.Popen(cmd, stderr=subprocess.PIPE).communicate()[1]
+    # Convert help in lines by separating at new line character
+    lines = abra_help.split("\n")
+    # string variable to store options
+    last_option = ''
+    # string variable to store help
+    last_option_help = ''
+    # dictionary variable to store all arguments
+    valid_args = {}
+    # traverse through the help to separate options from the option_help mesaage.
+    for line in lines:
+        if re.search("^---", line):
+            continue
+        m = re.match(r"^(--\S+) ?(?:[\[<]\w+[]>])?\s+([\S\s]+)$", line)
+        if m:
+            if last_option != '':
+                valid_args[last_option] = last_option_help
+            last_option = m.group(1)
+            last_option_help = m.group(2)
+        elif last_option:
+            last_option_help += line
+
+    valid_args[last_option] = last_option_help
+    return (valid_args, None)
+
+
+'''
+This method will process all the options of the tool
+It will update common options across tool
+It will update how the arguments get stored for Flags
+'''
+
+
+def process_options(parser, cmd_options):
+    for arg, help in cmd_options.items():
+        if (arg == "--ref"):
+            parser.add_argument("--ref", "--reference_sequence", required=True, choices=cmo.util.genomes.keys())
+        elif (arg == "--in"):
+            parser.add_argument(arg, required=True, help=help)
+        elif (arg == "--out"):
+            parser.add_argument(arg, required=True, help=help)
+        elif (arg == "--bwa-ref"):
+            parser.add_argument(arg, required=True, help=help)
+        elif (arg == "--targets"):
+            parser.add_argument(arg, required=True, help=help)
+        elif (arg == "--lr"):
+            parser.add_argument(arg, action="store_true", help=help)
+        elif (arg == "--ib"):
+            parser.add_argument(arg, action="store_true", help=help)
+        elif (arg == "--sv"):
+            parser.add_argument(arg, action="store_true", help=help)
+        else:
+            parser.add_argument(arg, action="store", help=help)
+
+    return (parser)
+
+
+'''
+This method takes the parser and converts the default values to paths from the json
+'''
+
+
+def convert_default_variables(parser):
+    args = parser.parse_args()
+    command_specific_args = vars(args)
+    command_specific_args = dict((k, v) for k, v in command_specific_args.iteritems() if v)
+    command_specific_args['ref'] = cmo.util.genomes[args.ref]['fasta']
+    return (args, command_specific_args)
+
+
+'''
+This method deletes the keys from the command_specific_args dict that belongs to the wrapper
+'''
+
+
+def delete_wrapper_specific_args(command_specific_args):
+    for key in ["version", "java_version"]:
+        if key in command_specific_args:
+            del command_specific_args[key]
+    return (command_specific_args)
+
+
+'''
+This method makes the final command as a list and returns the list
+'''
+
+
+def make_command_to_run(java, abra_jar, command_specific_args):
+    cmd = [java, "-jar", abra_jar]
+    for option, value in command_specific_args.items():
+        if value == True:
+            cmd = cmd + ["--" + option]
+        elif value != False:
+            cmd = cmd + ["--" + option, value]
+    return (cmd)
+
+
+'''
+This method runs all the methods in this wrapper
+'''
+
+
+def main():
+    # Make a preparser and append to parser as a parent.
+    (parser, java, abra_jar) = makepreparser()
+    # Parse args to find command options
+    (cmd_options, error_msg) = find_command_options(java, abra_jar)
+    # Process the command line to reflect correct option and to make sure flags have action="store_true"
+    parser = process_options(parser, cmd_options)
+    # Process the default variable to reflect true paths from json
+    (args, command_specific_args) = convert_default_variables(parser)
+    # Delete keys that are created by wrapper before making the command
+    command_specific_args = delete_wrapper_specific_args(command_specific_args)
+    # Make the command that needs to be launched
+    # To get the time
+    start_time = time.time()
+    print "Start Time:", time.ctime(start_time)
+    cmd = make_command_to_run(java, abra_jar, command_specific_args)
+    print " ".join(cmd)
+    end_time = time.time()
+    print "End Time:", time.ctime(end_time)
+    print("Elapsed time was %g seconds" % (end_time - start_time))
+
+
+'''
+This will help to initiate the main
+'''
+if __name__ == '__main__':
+    main()
