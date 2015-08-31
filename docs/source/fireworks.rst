@@ -9,6 +9,9 @@ Writing your first workflow
 
 Example Script
 ##############
+
+This is the source code of the above link::
+
     import cmo
     from cmo import workflow
     #create jobs- any command line you can imagine should be OK
