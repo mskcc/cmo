@@ -4,6 +4,7 @@ from fireworks.core import rocket_launcher
 from fireworks.utilities.fw_serializers import load_object_from_file
 from pymongo import MongoClient
 import getpass, os, sys, time, uuid, daemon
+import logging
 FW_LPAD_CONFIG_LOC = "/opt/common/CentOS_6-dev/cmo/fireworks_config_files"
 FW_WFLOW_LAUNCH_LOC = "/opt/common/CentOS_6-dev/fireworks_workflows"
 class Job(fireworks.Firework):
@@ -71,12 +72,27 @@ class Workflow():
         log=None
         if(log_file):
             log = open(log_file, "w")
+        #about to fork a process, throw away all handlers.
+        #fireworks will create a new queue log handler to write to test with
+        #lil hacky but who cares right now
+        logging.handlers=[]
+        old_sys_stdout = sys.stdout
         with daemon.DaemonContext( stdout=log, stderr=log):
             dbm = DatabaseManager()
             #reconnect to mongo after fork
             self.launchpad=fireworks.LaunchPad.from_file(dbm.find_lpad_config())
+            #add our pid as a running process so new daemons don't get started
             dbm.client.admin.authenticate("fireworks", "speakfriendandenter")
             db = dbm.client.daemons
+            #FIXME POSSIBLE CRITICAL RAISE FOR EXTREMELY RAPID WORKFLOW STARTS
+            #ADD MUTEX?
+            running_daemons = db.daemons.find({"user":getpass.getuser()}).count()
+            if running_daemons >0:
+            #todo, check pid is alive
+                print >>old_sys_stdout, "Not Forking Daemon- daemon process found"
+            #don't start daemon
+                sys.exit(0)
+
             db.daemons.insert_one({"user":getpass.getuser(), "pid":os.getpid()})
             while(True):
                 common_adapter  = load_object_from_file("/opt/common/CentOS_6-dev/cmo/qadapter_LSF.yaml")
