@@ -40,14 +40,17 @@ class Workflow():
         self.launchpad = fireworks.LaunchPad.from_file(db.find_lpad_config())
     def run(self, processing_mode, daemon_log=None):
         if processing_mode=='serial':
-            #load user launchpad
-            #create user collection if necessary
-            #init if necessary
-            #rocket_launcher.rapidfire(self.launchpad, fireworks.FWorker())
-            print >>sys.stderr, "serial not implemented yet"
-            sys.exit(1)
+            unique_serial_key = str(uuid.uuid4())
+            serial_worker = fireworks.FWorker(name=unique_serial_key)
+            for job in self.jobs_list:
+                job.spec['_fworker']=unique_serial_key
+            self.workflow = fireworks.Workflow(self.jobs_list, self.job_dependencies, name=self.name)
+            self.launchpad.add_wf(self.workflow)
+            rocket_launcher.rapidfire(self.launchpad, fworker=serial_worker)
         elif processing_mode=='LSF':
             self.set_launch_dir()
+            for job in self.jobs_list:
+                job.spec['_fworker']='LSF'
             self.workflow = fireworks.Workflow(self.jobs_list, self.job_dependencies, name=self.name)
             self.launchpad.add_wf(self.workflow)
             self.watcher_daemon(daemon_log)
@@ -76,6 +79,7 @@ class Workflow():
         #fireworks will create a new queue log handler to write to test with
         #lil hacky but who cares right now
         logging.handlers=[]
+        #FIXME this seems not to have fixed it all the time?
         old_sys_stdout = sys.stdout
         with daemon.DaemonContext( stdout=log, stderr=log):
             dbm = DatabaseManager()
@@ -97,7 +101,7 @@ class Workflow():
             while(True):
                 common_adapter  = load_object_from_file("/opt/common/CentOS_6-dev/cmo/qadapter_LSF.yaml")
                 launcher_log_dir = os.path.join(FW_WFLOW_LAUNCH_LOC, getpass.getuser(), "")
-                queue_launcher.rapidfire(self.launchpad, fireworks.FWorker(), common_adapter, reserve=True, nlaunches=0, launch_dir=launcher_log_dir, sleep_time=10)
+                queue_launcher.rapidfire(self.launchpad, fireworks.FWorker(name="LSF"), common_adapter, reserve=True, nlaunches=0, launch_dir=launcher_log_dir, sleep_time=10)
                 failed_fws = []
                 time.sleep(10)
                 offline_runs =  self.launchpad.offline_runs.find({"completed": False, "deprecated": False}, {"launch_id": 1}).count()
