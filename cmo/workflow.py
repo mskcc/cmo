@@ -15,7 +15,7 @@ class Job(fireworks.Firework):
         bsub_options_dict={}
         spec = None
         name = None
-        for key in['queue', 'resources', 'walltime']:
+        for key in['queue', 'resources', 'walltime', 'est_wait_time']:
             if key in kwargs:
                 bsub_options_dict[key]=kwargs[key]
         if len(bsub_options_dict.keys()) > 0:
@@ -24,8 +24,8 @@ class Job(fireworks.Firework):
         if 'name' in kwargs:
             name=kwargs['name']
         return fireworks.Firework(fireworks.ScriptTask.from_str(command), name=name, spec=spec)
-    def __init__(self, command, rusage=None, name=None, queue=None, walltime=None):
-        self.rusage = rusage
+    def __init__(self, command, resources=None, name=None, queue=None, walltime=None):
+        self.resources=resources
         self.queue= queue
         self.walltime=walltime
         if name:

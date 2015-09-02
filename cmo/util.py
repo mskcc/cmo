@@ -26,9 +26,9 @@ def infer_fasta_from_bam(bam_file):
     for candidate in chr1_fingerprints:
         if chr1_fingerprints[candidate]['name']==chr_name and chr1_fingerprints[candidate]['length']==int(length):
             print >>sys.stderr, "Inferred genome to be %s" % candidate
-            return genomes[candidate]['fasta']
+            return (candidate, genomes[candidate]['fasta'])
     print >>sys.stderr, "Chromoosome 1 name %s, length %s, doesn't match any standard refs?" % (chr_name, length)
-    return None
+    return (None, None)
 
 
 def call_cmd(cmd, shell=True, stderr=None, stdout=None, stdin=None):
