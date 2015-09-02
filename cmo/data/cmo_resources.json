@@ -82,8 +82,13 @@
         {
          "default":"/opt/common/CentOS_6-dev/FACETS/0.9.3/run.sh",
          "0.9.3":"/opt/common/CentOS_6-dev/FACETS/0.9.3/run.sh"
+        },
+        "getbasecounts":
+        {
+         "default":"/opt/common/CentOS_6-dev/getbasecounts/1.4.0/GetBaseCounts",
+         "1.4.0":"/opt/common/CentOS_6-dev/getbasecounts/1.4.0/GetBaseCounts"
         }
-       
+  
 },
 
  "genomes" :
@@ -93,7 +98,31 @@
         "hg18":
         {"fasta":"/ifs/depot/assemblies/H.sapiens/hg18/hg18.fasta"},
         "GRCh37":
-        {"fasta":"/ifs/depot/assemblies/H.sapiens/GRCh37/gr37.fasta"}
-     }
-}
- 
+        {"fasta":"/ifs/depot/assemblies/H.sapiens/GRCh37/gr37.fasta"},
+        "mm9":
+        {"fasta":"/ifs/depot/assemblies/M.musculus/mm9/mm9.fasta"}
+    },
+  "chr1_fingerprints" :
+    {
+       "mm9":
+          {
+           "name":"chr1",
+           "length":197195432
+           },
+       "hg18":
+          {
+           "name":"chr1",
+           "length":247249719
+           },
+       "hg19":
+          {
+           "name":"chr1",
+           "length":249250621
+           },
+       "GRCh37":
+          {
+           "name":"1",
+           "length":249250621
+           }
+    } 
+} 

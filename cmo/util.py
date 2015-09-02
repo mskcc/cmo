@@ -15,6 +15,22 @@ import json, subprocess, sys
 json_config = json.load(open("/opt/common/CentOS_6-dev/cmo/cmo_resources.json"))
 programs = json_config['programs']
 genomes = json_config['genomes']
+chr1_fingerprints = json_config['chr1_fingerprints']
+
+def infer_fasta_from_bam(bam_file):
+    get_chr1_cmd= [programs['samtools']['default'], "view -H", bam_file, "| fgrep \"@SQ\" |  head -1 | awk '{print $2,$3}'"]
+    chr1_tag = subprocess.Popen(" ".join(get_chr1_cmd), shell=True, stdout=subprocess.PIPE).communicate()[0]
+    print chr1_tag
+    (chr_name, length) = chr1_tag.strip().split(" ")
+    chr_name = chr_name[3:]
+    length = length[3:]
+    for candidate in chr1_fingerprints:
+        if chr1_fingerprints[candidate]['name']==chr_name and chr1_fingerprints[candidate]['length']==int(length):
+            print >>sys.stderr, "Inferred genome to be %s" % candidate
+            return genomes[candidate]['fasta']
+    print >>sys.stderr, "Chromoosome 1 name %s, length %s, doesn't match any standard refs?" % (chr_name, length)
+    return None
+
 
 def call_cmd(cmd, shell=True, stderr=None, stdout=None, stdin=None):
     try:

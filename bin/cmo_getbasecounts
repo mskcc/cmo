@@ -44,7 +44,7 @@ if __name__ =='__main__':
     for arg, help in command_options.items():
         help = help.replace("%","%%")
         if(arg =="--fasta"):
-            parser.add_argument(arg, action="store", choices=cmo.util.genomes.keys(), required=True)
+            parser.add_argument(arg, action="store", choices=cmo.util.genomes.keys())
         elif(arg =="--help"):
             continue
         elif arg in ['--sort_output', '--compress_output']:
@@ -54,26 +54,34 @@ if __name__ =='__main__':
 #    parser.add_argument("--genome", required=True, choices=cmo.util.genomes.keys())
     cmo.util.add_logging_options(parser)
     args = parser.parse_args()
+    if not args.fasta:
+        if not args.bam:
+            print >>sys.stderr, parser.usage
+            print >>sys.stderr, "You must supply a bam!"
+            sys.exit(1)
+        fasta = cmo.util.infer_fasta_from_bam(args.bam)
+        if not fasta:
+            print >>sys.stderr, "Unable to infer fasta from bam- supply fasta"
+            sys.exit(1)
+        else:
+            args.fasta = fasta
+    else:
+        args.fasta=cmo.util.genomes[args.fasta]['fasta']
+
     command_specific_args = vars(args)
     stderr=args.stderr
     stdout=args.stdout
     cmo.util.remove_logging_options_from_dict(command_specific_args)
-    if 'fasta' in command_specific_args:
-        command_specific_args['fasta']=cmo.util.genomes[args.fasta]['fasta']
     for key in  ["version"]:
         del command_specific_args[key]
     command_specific_args = dict((k, v) for k, v in command_specific_args.iteritems() if v)
     cmd = [command]
     stdin=None
     for option, value in command_specific_args.items():
-        if isinstance(value, list):
-            cmd = cmd + ["-"+option] + value
-            #bedtools edge case read from stdin
-        else:
             if value ==True:
-                cmd = cmd + ["-"+option]
+                cmd = cmd + ["--"+option]
             elif value!=False:
-                cmd = cmd + ["-"+option, value]
+                cmd = cmd + ["--"+option, value]
                 if value == "stdin":
                     stdin=sys.stdin
     cmo.util.call_cmd(" ".join(cmd), stderr=stderr, stdout=stdout, stdin=stdin)
