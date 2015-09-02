@@ -19,8 +19,7 @@ chr1_fingerprints = json_config['chr1_fingerprints']
 
 def infer_fasta_from_bam(bam_file):
     get_chr1_cmd= [programs['samtools']['default'], "view -H", bam_file, "| fgrep \"@SQ\" |  head -1 | awk '{print $2,$3}'"]
-    chr1_tag = subprocess.Popen(" ".join(get_chr1_cmd), shell=True, stdout=subprocess.PIPE).communicate()[0]
-    print chr1_tag
+    chr1_tag = subprocess.Popen(" ".join(get_chr1_cmd), shell=True, stdout=subprocess.PIPE, stderr=open("/dev/null")).communicate()[0]
     (chr_name, length) = chr1_tag.strip().split(" ")
     chr_name = chr_name[3:]
     length = length[3:]

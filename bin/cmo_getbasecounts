@@ -56,7 +56,7 @@ if __name__ =='__main__':
     args = parser.parse_args()
     if not args.fasta:
         if not args.bam:
-            print >>sys.stderr, parser.usage
+            parser.print_help()
             print >>sys.stderr, "You must supply a bam!"
             sys.exit(1)
         fasta = cmo.util.infer_fasta_from_bam(args.bam)
