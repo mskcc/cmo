@@ -1,0 +1,81 @@
+#!/opt/common/CentOS_6-dev/python/python-2.7.10/bin/python
+
+import argparse, os, sys, re, subprocess,itertools
+import cmo
+
+def find_command_options(getbasecounts_command):
+    help = subprocess.Popen(getbasecounts_command + " -h",stderr=subprocess.PIPE,shell=True).communicate()[1]
+    lines = help.split("\n")
+    last_option = ''
+    last_option_help = ' ' 
+    valid_args = []
+    for line in lines:
+        #m = re.match(r"^[\t ]+(--\w+)[\t ]+(?:[<[]\S+[>\]])[\t ]+(.*)$", line)
+        m = re.match(r"^[\t ]+(--\w+)[\t ]+(.*)$", line)
+        if m:
+            if last_option != '':
+                valid_args.append((last_option, last_option_help))
+            last_option = m.group(1)
+            last_option_help = m.group(2)
+        else:
+            pass
+    valid_args.append((last_option, last_option_help))
+    #FIXME only captures one line of bedtools help, more better regex needed
+    args_dict = dict()
+    for (arg, value) in valid_args: 
+        if arg not in args_dict:
+            args_dict[arg]=value
+        else:
+            if len(value) > len(args_dict[arg]):
+                #more informative help, presumably(?)
+                args_dict[arg]=value
+    return args_dict
+
+
+if __name__ =='__main__':
+    #partially parse options to get versin/subcommand and add more options
+    verparser = argparse.ArgumentParser(description="run GetBaseCounts", add_help=False)
+    verparser.add_argument("--version", choices=cmo.util.programs['getbasecounts'].keys(), default="default")
+    options, _ = verparser.parse_known_args()
+    #ok it was a valid subcommand, add the options we found and the genome option
+    parser = argparse.ArgumentParser(parents= [ verparser ], add_help=True)
+    command = cmo.util.programs['getbasecounts'][options.version]
+    command_options = find_command_options(command)
+    for arg, help in command_options.items():
+        help = help.replace("%","%%")
+        if(arg =="--fasta"):
+            parser.add_argument(arg, action="store", choices=cmo.util.genomes.keys(), required=True)
+        elif(arg =="--help"):
+            continue
+        elif arg in ['--sort_output', '--compress_output']:
+            parser.add_argument(arg, action="store_true", help=help)
+        else:
+            parser.add_argument(arg, action="store", help=help) 
+#    parser.add_argument("--genome", required=True, choices=cmo.util.genomes.keys())
+    cmo.util.add_logging_options(parser)
+    args = parser.parse_args()
+    command_specific_args = vars(args)
+    stderr=args.stderr
+    stdout=args.stdout
+    cmo.util.remove_logging_options_from_dict(command_specific_args)
+    if 'fasta' in command_specific_args:
+        command_specific_args['fasta']=cmo.util.genomes[args.fasta]['fasta']
+    for key in  ["version"]:
+        del command_specific_args[key]
+    command_specific_args = dict((k, v) for k, v in command_specific_args.iteritems() if v)
+    cmd = [command]
+    stdin=None
+    for option, value in command_specific_args.items():
+        if isinstance(value, list):
+            cmd = cmd + ["-"+option] + value
+            #bedtools edge case read from stdin
+        else:
+            if value ==True:
+                cmd = cmd + ["-"+option]
+            elif value!=False:
+                cmd = cmd + ["-"+option, value]
+                if value == "stdin":
+                    stdin=sys.stdin
+    cmo.util.call_cmd(" ".join(cmd), stderr=stderr, stdout=stdout, stdin=stdin)
+
+     

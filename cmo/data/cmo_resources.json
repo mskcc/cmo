@@ -58,15 +58,32 @@
         },
         "mutect":
         {
-         "default":"/opt/common/CentOS_6/muTect/muTect-1.1.7/mutect-1.1.7.jar",
-         "1.1.7":"/opt/common/CentOS_6/muTect/muTect-1.1.7/mutect-1.1.7.jar"
+         "default":"/opt/common/CentOS_6-dev/mutect/v1.1.8/mutect.jar",
+         "1.1.4":"/opt/common/CentOS_6-dev/mutect/v1.1.4/mutect.jar",
+         "1.1.7":"/opt/common/CentOS_6-dev/mutect/v1.1.7/mutect.jar",
+         "1.1.8":"/opt/common/CentOS_6-dev/mutect/v1.1.8/mutect.jar"
         },
         "bedtools":
         {
          "default":"/opt/common/CentOS_6/bedtools/bedtools-2.22.0/bin",
          "2.22.0":"/opt/common/CentOS_6/bedtools/bedtools-2.22.0/bin"
+        },
+        "pindel":
+        {
+         "default":"/opt/common/CentOS_6-dev/pindel/v0.2.5b4/pindel",
+         "0.2.5b4":"/opt/common/CentOS_6-dev/pindel/v0.2.5b4/pindel"
+        },
+        "pindel2vcf":
+        {
+         "default":"/opt/common/CentOS_6-dev/pindel/v0.2.5b4/pindel2vcf",
+         "0.2.5b4":"/opt/common/CentOS_6-dev/pindel/v0.2.5b4/pindel2vcf"
+        },
+        "facets":
+        {
+         "default":"/opt/common/CentOS_6-dev/FACETS/0.9.3/run.sh",
+         "0.9.3":"/opt/common/CentOS_6-dev/FACETS/0.9.3/run.sh"
         }
-
+       
 },
 
  "genomes" :
@@ -76,8 +93,7 @@
         "hg18":
         {"fasta":"/ifs/depot/assemblies/H.sapiens/hg18/hg18.fasta"},
         "GRCh37":
-        {"fasta":"/ifs/depot/asemblies/H.sapiens/GRCh37/GRCh37.fasta"}
+        {"fasta":"/ifs/depot/assemblies/H.sapiens/GRCh37/gr37.fasta"}
      }
 }
-
  
