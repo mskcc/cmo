@@ -1,0 +1,36 @@
+#!/opt/common/CentOS_6-dev/python/python-2.7.10/bin/python
+
+import argparse, os, sys, signal
+import cmo
+from cmo import workflow
+
+if __name__ =='__main__':
+    parser = argparse.ArgumentParser(description="restart watcher daemon")
+    parser.add_argument('-f', action='store_true', help="force kill the previous watcher")
+    parser.add_argument('-l', '--log-file', action="store", help="optional log file for daemon")
+    args = parser.parse_args()
+    if not args.log_file:
+        args.log_file = sys.stdout
+    dummy = workflow.Workflow([],{})
+    if(args.f):
+        db = workflow.DatabaseManager()
+        #db.client.admin.authenticate("fireworks", "speakfriendandenter")
+        pid = db.get_daemon_pid()
+        print >>sys.stderr, "Found process pid for Daemon: %s\nKilling..." % pid
+        try:
+            os.kill(pid,0)
+        except OSError:
+            print >>sys.stderr, "PID No Longer Extant"
+        else:
+            try:
+                os.kill(pid, signal.sigTERM)
+            except:
+                print >>sys.stderr, "Something went wrong in process kill..l bailing out"
+                sys.exit(1)
+        #shit is removed and we didn't quit
+        print >>sys.stderr, "Removing database record!"
+        print >>sys.stderr, db.remove_daemon_pid()
+    dummy.watcher_daemon(log_file=args.log_file)
+
+
+

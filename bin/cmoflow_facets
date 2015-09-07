@@ -1,0 +1,84 @@
+from cmo import workflow
+import argparse, os
+import cmo 
+#WHOA, existentially troubling, man
+PYTHON = cmo.util.programs['python']['default']
+
+def main(tumorbam, normalbam, tag, facets_args, output_dir,):
+    (tumor_base, bam_ext) = os.path.splitext(os.path.basename(args.tumor_bam))
+    (normal_base, bam_ext) = os.path.splitext(os.path.basename(args.normal_bam))
+    if not tag:
+        tag = tumor_base + "__" + normal_base
+    tumorbam = os.path.abspath(tumorbam)
+    normalbam = os.path.abspath(normalbam)
+    default_basecount_options = [ "--sort_output", "--compress_output"]
+    if not output_dir:
+        output_dir = os.path.join(os.path.getcwd, tag, '')
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    #count jobs
+    count_jobs = []
+    tumor_normal_counts = []
+    for (bam, base) in [(tumorbam, tumor_base), (normalbam, normal_base)]:
+        out_file = os.path.abspath(os.path.join(output_dir, base + ".dat"))
+        if os.path.exists(out_file + ".gz"):
+            #pretend we did this shitty slow step
+            tumor_normal_counts.append(out_file)
+            continue
+        #first we add tumor, then normal - the order mergeTN expects them
+        tumor_normal_counts.append(out_file)
+
+        basecount_cmd = ["cmo_getbasecounts", "--bam", bam, "--out", out_file] + default_basecount_options
+        print " ".join(basecount_cmd)
+        job = workflow.Job(" ".join(basecount_cmd), est_wait_time="59", resources="rusage[mem=40]", name="getBasecounts " + base)
+        count_jobs.append(job)
+    #merge job
+    merged_counts = os.path.join(output_dir, "countsMerged____" + tag + ".dat.gz")
+    merge_job= None
+    if not os.path.exists(merged_counts):
+        merge_cmd = ["cmo_facets mergeTN"] + tumor_normal_counts + [merged_counts]
+        print " ".join(merge_cmd)
+        merge_job = workflow.Job(" ".join(merge_cmd), est_wait_time="59", resources="rusage[mem=60]", name="mergeTN " + tag)
+    #facets job
+    facets_cmd = ["cmo_facets run"] + [merged_counts, tag, output_dir]
+    facets_job = workflow.Job(" ".join(facets_cmd), est_wait_Time="59", name="Run Facets")
+    dependencies = {}
+    #FIXME: can we have a merge exist without the counts file?
+    #if so this set of ifs needs to be redone
+    jobs = []
+    if len(count_jobs) > 0:
+        dependencies[count_jobs[0]]=[merge_job]
+        dependencies[count_jobs[1]]=[merge_job]
+        jobs = jobs + count_jobs
+    if(merge_job):
+        dependencies[merge_job]=[facets_job]
+        jobs.append(merge_job)
+    jobs.append(facets_job)
+    facets_workflow = workflow.Workflow(jobs, dependencies, name="Facets job " + tag)
+    facets_workflow.run("serial")
+
+
+    
+
+
+
+
+
+
+
+
+
+
+if __name__=='__main__':
+    parser = argparse.ArgumentParser(description="Run Facets on luna!")
+    parser.add_argument("--normal-bam", required=True, help="The normal bam file")
+    parser.add_argument("--tumor-bam", required=True, help="The Tumor bam file")
+    parser.add_argument("--tag", required=True, help="The optional tag with which to identify this pairing, default TUMOR_BASE__NORMAL_BASE")
+    parser.add_argument("--output-dir", required=True, help="output dir, will default to $CWD/TAG_NAME/")
+    parser.add_argument("facets_args",help="all other args will be passed to facets", nargs=argparse.REMAINDER)
+    args = parser.parse_args()
+    main(args.tumor_bam, args.normal_bam, args.tag, args.facets_args, os.path.abspath(args.output_dir))
+
+         
+
+

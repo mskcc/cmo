@@ -3,10 +3,10 @@ from fireworks.queue import queue_launcher
 from fireworks.core import rocket_launcher
 from fireworks.utilities.fw_serializers import load_object_from_file
 from pymongo import MongoClient
-import getpass, os, sys, time, uuid, daemon
+import getpass, os, sys, time, uuid, daemon, atexit
 import logging
 FW_LPAD_CONFIG_LOC = "/opt/common/CentOS_6-dev/cmo/fireworks_config_files"
-FW_WFLOW_LAUNCH_LOC = "/opt/common/CentOS_6-dev/fireworks_workflows"
+FW_WFLOW_LAUNCH_LOC = "/ifs/res/pwg/logs/fireworks_workflows"
 class Job(fireworks.Firework):
     #FIXME inherit from Firework?
     #TODO type checking
@@ -39,6 +39,9 @@ class Workflow():
         db = DatabaseManager()
         self.launchpad = fireworks.LaunchPad.from_file(db.find_lpad_config())
     def run(self, processing_mode, daemon_log=None):
+        if not daemon_log:
+            daemon_log = os.path.join(FW_WFLOW_LAUNCH_LOC, getpass.getuser(), "daemon.log")
+        self.set_launch_dir()
         if processing_mode=='serial':
             unique_serial_key = str(uuid.uuid4())
             serial_worker = fireworks.FWorker(name=unique_serial_key)
@@ -48,12 +51,12 @@ class Workflow():
             self.launchpad.add_wf(self.workflow)
             rocket_launcher.rapidfire(self.launchpad, fworker=serial_worker)
         elif processing_mode=='LSF':
-            self.set_launch_dir()
             for job in self.jobs_list:
                 job.spec['_fworker']='LSF'
             self.workflow = fireworks.Workflow(self.jobs_list, self.job_dependencies, name=self.name)
             self.launchpad.add_wf(self.workflow)
             self.watcher_daemon(daemon_log)
+
     def set_launch_dir(self):
         if self.name:
             keepcharacters = ('.','_')
@@ -71,10 +74,16 @@ class Workflow():
             job_launch_dir = os.path.join(workflow_dir, sanitized_job_name, "")
             os.makedirs(job_launch_dir)
             job.spec['_launch_dir']=job_launch_dir
+    def cleanup_daemon(self, db):
+            print >>sys.stderr, "Cleaning up Daemon record..."
+            db.daemons.remove({"user":getpass.getuser()})
     def watcher_daemon(self, log_file):
         log=None
         if(log_file):
-            log = open(log_file, "w")
+            try:
+                log = open(log_file, "w")
+            except:
+                log = log_file #hope its a filehandle instead!
         #about to fork a process, throw away all handlers.
         #fireworks will create a new queue log handler to write to test with
         #lil hacky but who cares right now
@@ -82,12 +91,14 @@ class Workflow():
         #FIXME this seems not to have fixed it all the time?
         old_sys_stdout = sys.stdout
         with daemon.DaemonContext( stdout=log, stderr=log):
+
             dbm = DatabaseManager()
             #reconnect to mongo after fork
             self.launchpad=fireworks.LaunchPad.from_file(dbm.find_lpad_config())
             #add our pid as a running process so new daemons don't get started
             dbm.client.admin.authenticate("fireworks", "speakfriendandenter")
             db = dbm.client.daemons
+            atexit.register(self.cleanup_daemon(db))
             #FIXME POSSIBLE CRITICAL RAISE FOR EXTREMELY RAPID WORKFLOW STARTS
             #ADD MUTEX?
             running_daemons = db.daemons.find({"user":getpass.getuser()}).count()
@@ -152,6 +163,15 @@ class DatabaseManager():
             lpad = fireworks.LaunchPad.from_file(self.find_lpad_config())
             lpad.reset()
         return self.find_lpad_config()
+    def get_daemon_pid(self, user=getpass.getuser()):
+        daemon_record = self.client.daemons.daemons.find_one({"user":user})
+        return daemon_record['pid']
+    def remove_daemon_pid(self, user=getpass.getuser()):
+        return self.client.daemons.daemons.remove({"user":user})
+        
+
+
+        
         
 
 
