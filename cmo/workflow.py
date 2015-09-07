@@ -37,6 +37,7 @@ class Workflow():
         self.job_dependencies = job_dependencies
         self.name=name
         db = DatabaseManager()
+        self.db = db
         self.launchpad = fireworks.LaunchPad.from_file(db.find_lpad_config())
     def run(self, processing_mode, daemon_log=None):
         if not daemon_log:
@@ -74,9 +75,10 @@ class Workflow():
             job_launch_dir = os.path.join(workflow_dir, sanitized_job_name, "")
             os.makedirs(job_launch_dir)
             job.spec['_launch_dir']=job_launch_dir
-    def cleanup_daemon(self, db):
+    def cleanup_daemon(self):
             print >>sys.stderr, "Cleaning up Daemon record..."
-            db.daemons.remove({"user":getpass.getuser()})
+            daemons = self.db.client.daemons
+            daemons.daemons.remove({"user":getpass.getuser()})
     def watcher_daemon(self, log_file):
         log=None
         if(log_file):
@@ -93,12 +95,12 @@ class Workflow():
         with daemon.DaemonContext( stdout=log, stderr=log):
 
             dbm = DatabaseManager()
+            self.db = dbm
             #reconnect to mongo after fork
             self.launchpad=fireworks.LaunchPad.from_file(dbm.find_lpad_config())
             #add our pid as a running process so new daemons don't get started
             dbm.client.admin.authenticate("fireworks", "speakfriendandenter")
             db = dbm.client.daemons
-            atexit.register(self.cleanup_daemon(db))
             #FIXME POSSIBLE CRITICAL RAISE FOR EXTREMELY RAPID WORKFLOW STARTS
             #ADD MUTEX?
             running_daemons = db.daemons.find({"user":getpass.getuser()}).count()
@@ -107,7 +109,7 @@ class Workflow():
                 print >>old_sys_stdout, "Not Forking Daemon- daemon process found"
             #don't start daemon
                 sys.exit(0)
-
+            atexit.register(self.cleanup_daemon)
             db.daemons.insert_one({"user":getpass.getuser(), "pid":os.getpid()})
             while(True):
                 common_adapter  = load_object_from_file("/opt/common/CentOS_6-dev/cmo/qadapter_LSF.yaml")
