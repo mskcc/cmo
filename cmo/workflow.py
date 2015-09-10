@@ -144,8 +144,6 @@ class DatabaseManager():
         return self.user+".yaml"
     def find_lpad_config(self):
         lpad_file = os.path.join(FW_LPAD_CONFIG_LOC, self.lpad_cfg_filename())
-        if not os.path.exists(lpad_file):
-            self.create_lpad_config()
         return lpad_file
     def create_lpad_config(self):
         if os.path.exists(self.find_lpad_config()):
