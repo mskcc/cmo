@@ -3,7 +3,7 @@ CMO Wrappers
 ============
 What's the point of this?
 ------------------------
-The CMO python package provides a serious of lightweight python wrappers to common Bioinformatics tools to abstract away a few things that are annoying to everybody:
+The CMO python package provides a series of lightweight python wrappers to common Bioinformatics tools to abstract away a few things that are annoying to everybody:
 
 - it calls java for you with appropriate but overrideable java args
 - it keeps track of reference sequences
