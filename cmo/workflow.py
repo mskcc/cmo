@@ -92,11 +92,13 @@ class Workflow():
         logging.handlers=[]
         #FIXME this seems not to have fixed it all the time?
         old_sys_stdout = sys.stdout
+        self.db.client.close()
+        self.launchpad.connection.close()
         with daemon.DaemonContext( stdout=log, stderr=log):
-
             dbm = DatabaseManager()
             self.db = dbm
             #reconnect to mongo after fork
+            print dbm.find_lpad_config()
             self.launchpad=fireworks.LaunchPad.from_file(dbm.find_lpad_config())
             #add our pid as a running process so new daemons don't get started
             dbm.client.admin.authenticate("fireworks", "speakfriendandenter")
@@ -146,8 +148,8 @@ class DatabaseManager():
             self.create_lpad_config()
         return lpad_file
     def create_lpad_config(self):
-        if os.path.exists(find_lpad_config):
-            print >>sys.stderr, "Config already exists: %s" % self.find_lpad_config
+        if os.path.exists(self.find_lpad_config()):
+            print >>sys.stderr, "Config already exists: %s" % self.find_lpad_config()
         else:
             fh.open(self.find_lpad_config(),"w")
             yaml_dict =  { "username" : self.user,

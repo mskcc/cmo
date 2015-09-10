@@ -30,6 +30,29 @@ def infer_fasta_from_bam(bam_file):
     print >>sys.stderr, "Chromoosome 1 name %s, length %s, doesn't match any standard refs?" % (chr_name, length)
     return (None, None)
 
+def infer_sample_from_bam(bam_file):
+    get_rg_cmd= [programs['samtools']['default'], "view -H", bam_file, "| fgrep \"@RG\" "]
+    rg_lines = subprocess.Popen(" ".join(get_rg_cmd), shell=True, stdout=subprocess.PIPE, stderr=open("/dev/null")).communicate()[0]
+    sample_dict = {}
+    for rg in rg_lines.splitlines():
+        print rg
+        tags = rg.split("\t")
+        for tag in tags:
+            if tag[0:2]=="SM":
+                sample_dict[tag[3:]]=1
+    if len(sample_dict.keys()) > 1:
+                    print >>sys.stderr, "Mixed sample tags in Read Group header for %, can't infer a single sample name from this bam naively" % bam_file
+    elif len(sample_dict.keys()) == 1:
+        print >>sys.stderr, "Found one sample key for this bam: %s" % sample_dict.keys()[0]
+        return sample_dict.keys()[0]
+    else:
+        #we didnt find any RG with SM: at all :(
+        print >>sys.stderr, "No @RG lines with SM: tags found in %s, can't infer sample" % bam_file
+    return None
+
+        
+
+
 
 def call_cmd(cmd, shell=True, stderr=None, stdout=None, stdin=None):
     try:
