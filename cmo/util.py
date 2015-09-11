@@ -50,7 +50,9 @@ def infer_sample_from_bam(bam_file):
         print >>sys.stderr, "No @RG lines with SM: tags found in %s, can't infer sample" % bam_file
     return None
 
-        
+def filesafe_string(string):
+    keepcharacters = ('.','_')
+    return  "".join(c for c in string if c.isalnum() or c in keepcharacters).rstrip()
 
 
 

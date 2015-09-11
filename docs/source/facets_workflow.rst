@@ -1,20 +1,24 @@
-=========
+=========================
 Facets via Fireworks/LSF
-=========
+=========================
 Instructions
 ###########################
 1. ssh to s01 (ask for help if you don't know what this means)
 2. download and install the CMO package at https://github.com/mskcc/cmo (install for your user with setup.py install \-\-user, as the directions say
-2. add ~/.local/bin to your path if you haven't already done this for a previous cmo install
-3. you should now have cmoflow_facets available at the command line
-4. Minimally you need to supply --tumor-bam and --normal-bam
-5. CMO package will attempt to read all @RG headers and find the SM: tags, and if they all match, it will use that id
-6. If the SM: ids betweeen the two bams you supply are IDENTICAL, if they are ABSENT, or if there is MORE THAN ONE PER BAM, you will need to supply --tumor-name and normal-name as well, to manually fill in these values
-7. it will autocreate a sub of the format TUMOR_SAMPLE_NAME__NORMAL_SAMPLE_NAME in the dir you launch from if you don't specify OUTPUT DIR
-8. it will use the same string as the TAG to identify any merged files, etc.
-9. you can specify --workflow_mode=serial to avoid running on LSF 
-10. the workflow will take about 1 hr on lsf, 1.5hr serially
-11. check on your workflow at plvcbiocmo2:8080/your_cbio_username/
+3. add ~/.local/bin to your path if you haven't already done this for a previous cmo install
+4. you should now have cmoflow_facets available at the command line
+5. Minimally you need to supply \-\-tumor-bam and \-\-normal-bam
+6. CMO package will attempt to read all @RG headers and find the SM: tags, and if they all match, it will use that id
+7. If the SM: ids betweeen the two bams you supply are IDENTICAL, if they are ABSENT, or if there is MORE THAN ONE PER BAM, you will need to supply --tumor-name and normal-name as well, to manually fill in these values
+8. it will autocreate a sub of the format TUMOR_SAMPLE_NAME__NORMAL_SAMPLE_NAME in the dir you launch from if you don't specify OUTPUT DIR
+9. it will use the same string as the TAG to identify any merged files, etc.
+10. you can specify --workflow_mode=serial to avoid running on LSF 
+11. the workflow will take about 1 hr on lsf, 1.5hr serially for 5gb input bams
+12. check on your workflow at plvcbiocmo2:8080/your_cbio_username/
+13. facets runs that start in the same output directory will shortcut on both the readcounts and the counts merged gzipped files
+14. facets runs will autocreate a subdir of the form "facets\_\[first_param_char\]\[value\]_..." 
+15. if it detects a facets run it already has performed it will refuse to do work
+16. we should add a --force to overcome some of these shortcuts sooner or later
 
 Notes
 ###########################
@@ -27,13 +31,13 @@ Once the daemon is satisfied all jobs have completed, it will exit on its own.
 
 
 Code sample for coding other worfklows
-#####################################
+#########################################
 
 .. code-block:: python
 
     #!/opt/common/CentOS_6-dev/python/python-2.7.10/bin/python
     from cmo import workflow
-    import argparse, os
+    import argparse, os, sys
     import cmo 
     #WHOA, existentially troubling, man
     PYTHON = cmo.util.programs['python']['default']
@@ -61,6 +65,8 @@ Code sample for coding other worfklows
             output_dir = os.path.join(os.getcwd(), tag, '')
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
+        #if the idiot user supplied relative path we must fix
+        output_dir = os.path.abspath(output_dir)
         
         #count jobs
         count_jobs = []
@@ -83,7 +89,7 @@ Code sample for coding other worfklows
 
             count_jobs.append(job)
        
-       #merge job
+        #merge job
         merged_counts = os.path.join(output_dir, "countsMerged____" + tag + ".dat.gz")
         merge_job= None
         if not os.path.exists(merged_counts):
@@ -91,8 +97,25 @@ Code sample for coding other worfklows
             print " ".join(merge_cmd)
             merge_job = workflow.Job(" ".join(merge_cmd), est_wait_time="59", resources="rusage[mem=60]", name="mergeTN " + tag)
       
-      #facets job
-        facets_cmd = ["cmo_facets run"] + [merged_counts, tag, output_dir]
+        #facets job
+        #args will be [--foo, value] or [-f, value] in this list
+        it = iter(facets_args)
+        facets_dir = "facets_"
+        if len(facets_args) ==0:
+            facets_dir += "default"
+        else:
+            for val in it:
+                arg = val.lstrip("-")[0]
+                value = next(it)
+                facets_dir += "%s-%s" % (arg, value)
+        facets_dir = os.path.join(output_dir, cmo.util.filesafe_string(facets_dir))
+        if os.path.exists(facets_dir):
+            print >>sys.stderr, "This facets setting directory already exists- bailing out - RM it to force rerun"
+            sys.exit(1)
+        else:
+            print >>sys.stderr, "created facets subdir for these settings: %s" % facets_dir
+            os.makedirs(facets_dir)
+        facets_cmd = ["cmo_facets run"] + [merged_counts, tag, facets_dir] + facets_args
         facets_job = workflow.Job(" ".join(facets_cmd), est_wait_Time="59", name="Run Facets")
         dependencies = {}
       
@@ -114,7 +137,7 @@ Code sample for coding other worfklows
 
 
     if __name__=='__main__':
-        parser = argparse.ArgumentParser(description="Run Facets on luna!")
+        parser = argparse.ArgumentParser(description="Run Facets on luna!", epilog="Include any FACETS args directly on this command line and they will be passed through")
         parser.add_argument("--normal-bam", required=True, help="The normal bam file")
         parser.add_argument("--tumor-bam", required=True, help="The Tumor bam file")
         parser.add_argument("--tag", help="The optional tag with which to identify this pairing, default TUMOR_SAMPLE__NORMAL_SAMPLE")
@@ -123,17 +146,10 @@ Code sample for coding other worfklows
         parser.add_argument("--normal-name", help="Override this if you don't want to use the SM: tag on the @RG tags within the bam you supply-- required if your bam doesn't have well formatted @RG SM: tags")
         parser.add_argument("--tumor-name", help="Override this if you don't want to use the SM: tag on the @RG tags in the tumor bam you supply-- required if your bam doesnt have well formatted @RG SM: tags")
         parser.add_argument("--workflow-mode", choices=["serial","LSF"], default="LSF", help="select 'serial' to run all jobs on the launching box. select 'LSF' to parallelize jobs as much as possible on luna")
-        parser.add_argument("facets_args",help="all other args will be passed to facets", nargs=argparse.REMAINDER)
-        args = parser.parse_args()
+        (args, facets_args) = parser.parse_known_args()
         if args.output_dir:
             args.output_dir = os.path.abspath(output_dir)
         args.tumor_bam = os.path.abspath(args.tumor_bam)
         args.normal_bam = os.path.abspath(args.normal_bam)
-        main(args.tumor_bam, args.normal_bam, args.tag, args.facets_args, args.output_dir, snps=args.vcf, tumor_sample = args.tumor_name, normal_sample=args.normal_name, workflow_mode=args.workflow_mode)
-
-
-
-
-
-
+        main(args.tumor_bam, args.normal_bam, args.tag, facets_args, args.output_dir, snps=args.vcf, tumor_sample = args.tumor_name, normal_sample=args.normal_name, workflow_mode=args.workflow_mode)
 

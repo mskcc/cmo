@@ -144,27 +144,32 @@ class DatabaseManager():
         return self.user+".yaml"
     def find_lpad_config(self):
         lpad_file = os.path.join(FW_LPAD_CONFIG_LOC, self.lpad_cfg_filename())
+        if not os.path.exists(lpad_file):
+            self.create_lpad_config()
+        print >>sys.stderr, "Using %s launchpad config" % lpad_file
         return lpad_file
     def create_lpad_config(self):
-        if os.path.exists(self.find_lpad_config()):
-            print >>sys.stderr, "Config already exists: %s" % self.find_lpad_config()
-        else:
-            fh.open(self.find_lpad_config(),"w")
-            yaml_dict =  { "username" : self.user,
-                    "name" : self.user,
-                    "strm_lvl": "INFO",
-                    "host" : self.host,
-                    "logdir" : "null",
-                    "password" : "speakfriendandenter",
-                    "port" : self.port }
-            for key, value in yaml_dict:
-                fh.write(key + ": " + value + "\n")
-            fh.close()
-            client.admin.authenticate("fireworks", "speakfriendandenter")
-            client.charris.add_user("charris","speakfriendandenter", roles=[{'role':'readWrite', 'db':'testdb'}])
-            lpad = fireworks.LaunchPad.from_file(self.find_lpad_config())
-            lpad.reset()
-        return self.find_lpad_config()
+        print >>sys.stderr, "Writing new config file for your user"
+        print >>sys.stderr, "Initializing a new DB will destroy any data in Mongo if you have anything there"
+        date = raw_input("Enter today's date in YYYY-MM-DD to confirm:")
+        lpad_file = os.path.join(FW_LPAD_CONFIG_LOC, self.lpad_cfg_filename())
+        fh = open(lpad_file,"w")
+        yaml_dict =  { "username" : self.user,
+                "name" : self.user,
+                "strm_lvl": "INFO",
+                "host" : self.host,
+                "logdir" : "null",
+                "password" : "speakfriendandenter",
+                "port" : self.port }
+        for key, value in yaml_dict.items():
+            print >>sys.stderr, "Config: %s:%s" % (key, value)
+            fh.write(key + ": " + value + "\n")
+        fh.close()
+        self.client.admin.authenticate("fireworks", "speakfriendandenter")
+        self.client.charris.add_user("charris","speakfriendandenter", roles=[{'role':'readWrite', 'db':'testdb'}])
+        lpad = fireworks.LaunchPad.from_file(lpad_file)
+        lpad.reset(date)
+        return lpad_file
     def get_daemon_pid(self, user=getpass.getuser()):
         daemon_record = self.client.daemons.daemons.find_one({"user":user})
         return daemon_record['pid']
