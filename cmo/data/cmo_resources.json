@@ -94,13 +94,19 @@
  "genomes" :
     {
         "hg19":
-        {"fasta":"/ifs/depot/assemblies/H.sapiens/hg19/hg19.fasta"},
+        {"fasta":"/ifs/depot/assemblies/H.sapiens/hg19/hg19.fasta",
+         "facets_snps":"/opt/common/CentOS_6-dev/FACETS/0.9.3/lib/dbsnp_137.hg19__RmDupsClean__plusPseudo50__DROP_SORT.vcf.gz"
+        },
         "hg18":
         {"fasta":"/ifs/depot/assemblies/H.sapiens/hg18/hg18.fasta"},
         "GRCh37":
-        {"fasta":"/ifs/depot/assemblies/H.sapiens/GRCh37/gr37.fasta"},
+        {"fasta":"/ifs/depot/assemblies/H.sapiens/GRCh37/gr37.fasta",
+         "facets_snps":"/opt/common/CentOS_6-dev/FACETS/0.9.3/lib/dbsnp_137.b37__RmDupsClean__plusPseudo50__DROP_SORT.vcf.gz"
+        },
         "mm9":
-        {"fasta":"/ifs/depot/assemblies/M.musculus/mm9/mm9.fasta"}
+        {"fasta":"/ifs/depot/assemblies/M.musculus/mm9/mm9.fasta",
+         "facets_snps":"/opt/common/CentOS_6-dev/FACETS/0.9.3/lib/ucsc_mm9_dbsnp128_NoDups.vcf.gz"
+        }
     },
   "chr1_fingerprints" :
     {
@@ -124,5 +130,6 @@
            "name":"1",
            "length":249250621
            }
-    } 
+    }
+   
 } 

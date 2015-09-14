@@ -3,10 +3,10 @@ from fireworks.queue import queue_launcher
 from fireworks.core import rocket_launcher
 from fireworks.utilities.fw_serializers import load_object_from_file
 from pymongo import MongoClient
-import getpass, os, sys, time, uuid, daemon
+import getpass, os, sys, time, uuid, daemon, atexit
 import logging
 FW_LPAD_CONFIG_LOC = "/opt/common/CentOS_6-dev/cmo/fireworks_config_files"
-FW_WFLOW_LAUNCH_LOC = "/opt/common/CentOS_6-dev/fireworks_workflows"
+FW_WFLOW_LAUNCH_LOC = "/ifs/res/pwg/logs/fireworks_workflows"
 class Job(fireworks.Firework):
     #FIXME inherit from Firework?
     #TODO type checking
@@ -15,7 +15,7 @@ class Job(fireworks.Firework):
         bsub_options_dict={}
         spec = None
         name = None
-        for key in['queue', 'resources', 'walltime']:
+        for key in['queue', 'resources', 'walltime', 'est_wait_time']:
             if key in kwargs:
                 bsub_options_dict[key]=kwargs[key]
         if len(bsub_options_dict.keys()) > 0:
@@ -24,8 +24,8 @@ class Job(fireworks.Firework):
         if 'name' in kwargs:
             name=kwargs['name']
         return fireworks.Firework(fireworks.ScriptTask.from_str(command), name=name, spec=spec)
-    def __init__(self, command, rusage=None, name=None, queue=None, walltime=None):
-        self.rusage = rusage
+    def __init__(self, command, resources=None, name=None, queue=None, walltime=None):
+        self.resources=resources
         self.queue= queue
         self.walltime=walltime
         if name:
@@ -37,8 +37,12 @@ class Workflow():
         self.job_dependencies = job_dependencies
         self.name=name
         db = DatabaseManager()
+        self.db = db
         self.launchpad = fireworks.LaunchPad.from_file(db.find_lpad_config())
     def run(self, processing_mode, daemon_log=None):
+        if not daemon_log:
+            daemon_log = os.path.join(FW_WFLOW_LAUNCH_LOC, getpass.getuser(), "daemon.log")
+        self.set_launch_dir()
         if processing_mode=='serial':
             unique_serial_key = str(uuid.uuid4())
             serial_worker = fireworks.FWorker(name=unique_serial_key)
@@ -48,12 +52,12 @@ class Workflow():
             self.launchpad.add_wf(self.workflow)
             rocket_launcher.rapidfire(self.launchpad, fworker=serial_worker)
         elif processing_mode=='LSF':
-            self.set_launch_dir()
             for job in self.jobs_list:
                 job.spec['_fworker']='LSF'
             self.workflow = fireworks.Workflow(self.jobs_list, self.job_dependencies, name=self.name)
             self.launchpad.add_wf(self.workflow)
             self.watcher_daemon(daemon_log)
+
     def set_launch_dir(self):
         if self.name:
             keepcharacters = ('.','_')
@@ -71,19 +75,30 @@ class Workflow():
             job_launch_dir = os.path.join(workflow_dir, sanitized_job_name, "")
             os.makedirs(job_launch_dir)
             job.spec['_launch_dir']=job_launch_dir
+    def cleanup_daemon(self):
+            print >>sys.stderr, "Cleaning up Daemon record..."
+            daemons = self.db.client.daemons
+            daemons.daemons.remove({"user":getpass.getuser()})
     def watcher_daemon(self, log_file):
         log=None
         if(log_file):
-            log = open(log_file, "w")
+            try:
+                log = open(log_file, "w")
+            except:
+                log = log_file #hope its a filehandle instead!
         #about to fork a process, throw away all handlers.
         #fireworks will create a new queue log handler to write to test with
         #lil hacky but who cares right now
         logging.handlers=[]
         #FIXME this seems not to have fixed it all the time?
         old_sys_stdout = sys.stdout
+        self.db.client.close()
+        self.launchpad.connection.close()
         with daemon.DaemonContext( stdout=log, stderr=log):
             dbm = DatabaseManager()
+            self.db = dbm
             #reconnect to mongo after fork
+            print dbm.find_lpad_config()
             self.launchpad=fireworks.LaunchPad.from_file(dbm.find_lpad_config())
             #add our pid as a running process so new daemons don't get started
             dbm.client.admin.authenticate("fireworks", "speakfriendandenter")
@@ -96,7 +111,7 @@ class Workflow():
                 print >>old_sys_stdout, "Not Forking Daemon- daemon process found"
             #don't start daemon
                 sys.exit(0)
-
+            atexit.register(self.cleanup_daemon)
             db.daemons.insert_one({"user":getpass.getuser(), "pid":os.getpid()})
             while(True):
                 common_adapter  = load_object_from_file("/opt/common/CentOS_6-dev/cmo/qadapter_LSF.yaml")
@@ -131,27 +146,39 @@ class DatabaseManager():
         lpad_file = os.path.join(FW_LPAD_CONFIG_LOC, self.lpad_cfg_filename())
         if not os.path.exists(lpad_file):
             self.create_lpad_config()
+        print >>sys.stderr, "Using %s launchpad config" % lpad_file
         return lpad_file
     def create_lpad_config(self):
-        if os.path.exists(find_lpad_config):
-            print >>sys.stderr, "Config already exists: %s" % self.find_lpad_config
-        else:
-            fh.open(self.find_lpad_config(),"w")
-            yaml_dict =  { "username" : self.user,
-                    "name" : self.user,
-                    "strm_lvl": "INFO",
-                    "host" : self.host,
-                    "logdir" : "null",
-                    "password" : "speakfriendandenter",
-                    "port" : self.port }
-            for key, value in yaml_dict:
-                fh.write(key + ": " + value + "\n")
-            fh.close()
-            client.admin.authenticate("fireworks", "speakfriendandenter")
-            client.charris.add_user("charris","speakfriendandenter", roles=[{'role':'readWrite', 'db':'testdb'}])
-            lpad = fireworks.LaunchPad.from_file(self.find_lpad_config())
-            lpad.reset()
-        return self.find_lpad_config()
+        print >>sys.stderr, "Writing new config file for your user"
+        print >>sys.stderr, "Initializing a new DB will destroy any data in Mongo if you have anything there"
+        date = raw_input("Enter today's date in YYYY-MM-DD to confirm:")
+        lpad_file = os.path.join(FW_LPAD_CONFIG_LOC, self.lpad_cfg_filename())
+        fh = open(lpad_file,"w")
+        yaml_dict =  { "username" : self.user,
+                "name" : self.user,
+                "strm_lvl": "INFO",
+                "host" : self.host,
+                "logdir" : "null",
+                "password" : "speakfriendandenter",
+                "port" : self.port }
+        for key, value in yaml_dict.items():
+            print >>sys.stderr, "Config: %s:%s" % (key, value)
+            fh.write(key + ": " + value + "\n")
+        fh.close()
+        self.client.admin.authenticate("fireworks", "speakfriendandenter")
+        self.client[self.user].add_user(self.user,"speakfriendandenter", roles=[{'role':'readWrite', 'db':'testdb'}])
+        lpad = fireworks.LaunchPad.from_file(lpad_file)
+        lpad.reset(date)
+        return lpad_file
+    def get_daemon_pid(self, user=getpass.getuser()):
+        daemon_record = self.client.daemons.daemons.find_one({"user":user})
+        return daemon_record['pid']
+    def remove_daemon_pid(self, user=getpass.getuser()):
+        return self.client.daemons.daemons.remove({"user":user})
+        
+
+
+        
         
 
 

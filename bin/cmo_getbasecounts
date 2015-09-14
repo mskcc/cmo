@@ -59,7 +59,13 @@ if __name__ =='__main__':
             parser.print_help()
             print >>sys.stderr, "You must supply a bam!"
             sys.exit(1)
-        fasta = cmo.util.infer_fasta_from_bam(args.bam)
+        (genome, fasta) = cmo.util.infer_fasta_from_bam(args.bam)
+        if not args.vcf:
+            if 'facets_snps' in cmo.util.genomes[genome]:
+                args.vcf = cmo.util.genomes[genome]['facets_snps']
+            else:
+                print >>sys.stderr, "SNPs are not stored for this fasta- please supply a SNP file"
+                sys.exit(1)
         if not fasta:
             print >>sys.stderr, "Unable to infer fasta from bam- supply fasta"
             sys.exit(1)
@@ -84,6 +90,7 @@ if __name__ =='__main__':
                 cmd = cmd + ["--"+option, value]
                 if value == "stdin":
                     stdin=sys.stdin
+    print >>sys.stderr, " ".join(cmd)
     cmo.util.call_cmd(" ".join(cmd), stderr=stderr, stdout=stdout, stdin=stdin)
 
      

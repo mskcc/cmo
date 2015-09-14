@@ -13,6 +13,7 @@ Contents:
    
    philosophy
    wrappers
+   Facets Workflow <facets_workflow>
    fireworks
    List of Wrappers <wrapperlist>
 
