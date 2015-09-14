@@ -166,7 +166,7 @@ class DatabaseManager():
             fh.write(key + ": " + value + "\n")
         fh.close()
         self.client.admin.authenticate("fireworks", "speakfriendandenter")
-        self.client.charris.add_user("charris","speakfriendandenter", roles=[{'role':'readWrite', 'db':'testdb'}])
+        self.client[self.user].add_user(self.user,"speakfriendandenter", roles=[{'role':'readWrite', 'db':'testdb'}])
         lpad = fireworks.LaunchPad.from_file(lpad_file)
         lpad.reset(date)
         return lpad_file
