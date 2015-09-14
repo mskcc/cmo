@@ -1,6 +1,6 @@
 #!/opt/common/CentOS_6-dev/python/python-2.7.10/bin/python
 from cmo import workflow
-import argparse, os
+import argparse, os, sys
 import cmo 
 #WHOA, existentially troubling, man
 PYTHON = cmo.util.programs['python']['default']
@@ -28,6 +28,8 @@ def main(tumorbam, normalbam, tag, facets_args, output_dir,snps=None, tumor_samp
         output_dir = os.path.join(os.getcwd(), tag, '')
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
+    #if the idiot user supplied relative path we must fix
+    output_dir = os.path.abspath(output_dir)
     
     #count jobs
     count_jobs = []
@@ -50,7 +52,7 @@ def main(tumorbam, normalbam, tag, facets_args, output_dir,snps=None, tumor_samp
 
         count_jobs.append(job)
    
-   #merge job
+    #merge job
     merged_counts = os.path.join(output_dir, "countsMerged____" + tag + ".dat.gz")
     merge_job= None
     if not os.path.exists(merged_counts):
@@ -58,8 +60,25 @@ def main(tumorbam, normalbam, tag, facets_args, output_dir,snps=None, tumor_samp
         print " ".join(merge_cmd)
         merge_job = workflow.Job(" ".join(merge_cmd), est_wait_time="59", resources="rusage[mem=60]", name="mergeTN " + tag)
   
-  #facets job
-    facets_cmd = ["cmo_facets run"] + [merged_counts, tag, output_dir]
+    #facets job
+    #args will be [--foo, value] or [-f, value] in this list
+    it = iter(facets_args)
+    facets_dir = "facets_"
+    if len(facets_args) ==0:
+        facets_dir += "default"
+    else:
+        for val in it:
+            arg = val.lstrip("-")[0]
+            value = next(it)
+            facets_dir += "%s-%s" % (arg, value)
+    facets_dir = os.path.join(output_dir, cmo.util.filesafe_string(facets_dir))
+    if os.path.exists(facets_dir):
+        print >>sys.stderr, "This facets setting directory already exists- bailing out - RM it to force rerun"
+        sys.exit(1)
+    else:
+        print >>sys.stderr, "created facets subdir for these settings: %s" % facets_dir
+        os.makedirs(facets_dir)
+    facets_cmd = ["cmo_facets run"] + [merged_counts, tag, facets_dir] + facets_args
     facets_job = workflow.Job(" ".join(facets_cmd), est_wait_Time="59", name="Run Facets")
     dependencies = {}
   
@@ -81,7 +100,7 @@ def main(tumorbam, normalbam, tag, facets_args, output_dir,snps=None, tumor_samp
 
 
 if __name__=='__main__':
-    parser = argparse.ArgumentParser(description="Run Facets on luna!")
+    parser = argparse.ArgumentParser(description="Run Facets on luna!", epilog="Include any FACETS args directly on this command line and they will be passed through")
     parser.add_argument("--normal-bam", required=True, help="The normal bam file")
     parser.add_argument("--tumor-bam", required=True, help="The Tumor bam file")
     parser.add_argument("--tag", help="The optional tag with which to identify this pairing, default TUMOR_SAMPLE__NORMAL_SAMPLE")
@@ -90,13 +109,12 @@ if __name__=='__main__':
     parser.add_argument("--normal-name", help="Override this if you don't want to use the SM: tag on the @RG tags within the bam you supply-- required if your bam doesn't have well formatted @RG SM: tags")
     parser.add_argument("--tumor-name", help="Override this if you don't want to use the SM: tag on the @RG tags in the tumor bam you supply-- required if your bam doesnt have well formatted @RG SM: tags")
     parser.add_argument("--workflow-mode", choices=["serial","LSF"], default="LSF", help="select 'serial' to run all jobs on the launching box. select 'LSF' to parallelize jobs as much as possible on luna")
-    parser.add_argument("facets_args",help="all other args will be passed to facets", nargs=argparse.REMAINDER)
-    args = parser.parse_args()
+    (args, facets_args) = parser.parse_known_args()
     if args.output_dir:
         args.output_dir = os.path.abspath(output_dir)
     args.tumor_bam = os.path.abspath(args.tumor_bam)
     args.normal_bam = os.path.abspath(args.normal_bam)
-    main(args.tumor_bam, args.normal_bam, args.tag, args.facets_args, args.output_dir, snps=args.vcf, tumor_sample = args.tumor_name, normal_sample=args.normal_name, workflow_mode=args.workflow_mode)
+    main(args.tumor_bam, args.normal_bam, args.tag, facets_args, args.output_dir, snps=args.vcf, tumor_sample = args.tumor_name, normal_sample=args.normal_name, workflow_mode=args.workflow_mode)
 
          
 
