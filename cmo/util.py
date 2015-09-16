@@ -128,7 +128,8 @@ def tabix_file(vcf_file):
     ''' index a vcf file with tabix for random access'''
     with magic.Magic(flags=magic.MAGIC_MIME_TYPE) as m:
         if(m.id_filename(vcf_file).find('gz') == -1):
-            logger.critical('VCF File needs to be bgzipped for tabix random access. tabix-0.26/bgzip should be compiled for use')
+            print >> stderr, 'VCF File needs to be bgzipped for tabix random access. tabix-0.26/bgzip should be compiled for use'
+            #logger.critical('VCF File needs to be bgzipped for tabix random access. tabix-0.26/bgzip should be compiled for use')
             sys.exit(1)
     cmd = [TABIX_LOCATION, '-p' , 'vcf', vcf_file]
     print >> sys.stdout, 'Tabix command: %s'%(' '.join(cmd))
