@@ -95,7 +95,7 @@ def remove_logging_options_from_dict(dict):
 VT_LOCATION = '/home/charris/code/VCF_accuracy_evaluator/vt/vt'
 TABIX_LOCATION = '/opt/common/CentOS_6/samtools/samtools-1.2/htslib-1.2.1/tabix'
 BGZIP_LOCATION = '/opt/common/CentOS_6/samtools/samtools-1.2/htslib-1.2.1/bgzip'
-
+SORTBED_LOCATION = '/opt/common/CentOS_6/bedtools/bedtools-2.22.0/bin/sortBed'
 
 def sort_vcf(vcf):
 
