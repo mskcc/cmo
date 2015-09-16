@@ -116,12 +116,14 @@ class Workflow():
             while(True):
                 common_adapter  = load_object_from_file("/opt/common/CentOS_6-dev/cmo/qadapter_LSF.yaml")
                 launcher_log_dir = os.path.join(FW_WFLOW_LAUNCH_LOC, getpass.getuser(), "")
-                queue_launcher.rapidfire(self.launchpad, fireworks.FWorker(name="LSF"), common_adapter, reserve=True, nlaunches=0, launch_dir=launcher_log_dir, sleep_time=10)
+                queue_launcher.rapidfire(self.launchpad, fireworks.FWorker(name="LSF"), common_adapter, reserve=True, nlaunches=0, launch_dir=launcher_log_dir, sleep_time=10, njobs_queue=50)
                 failed_fws = []
                 time.sleep(10)
                 offline_runs =  self.launchpad.offline_runs.find({"completed": False, "deprecated": False}, {"launch_id": 1}).count()
                 self.launchpad.m_logger.info("%s offline runs found" % offline_runs)
-                if(offline_runs == 0):
+                ready_lsf_jobs = self.launchpad.fireworks.find({"state":"READY", "spec._fworker" : "LSF"}).count()
+                self.launchpad.m_logger.info("%s ready lsf jobs found" % ready_lsf_jobs)
+                if(offline_runs == 0 and ready_lsf_jobs == 0):
                     break
                 for l in self.launchpad.offline_runs.find({"completed": False, "deprecated": False}, {"launch_id": 1}):
                     fw = self.launchpad.recover_offline(l['launch_id'], True)
