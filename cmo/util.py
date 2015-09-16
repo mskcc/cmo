@@ -118,7 +118,8 @@ def bgzip(vcf):
         return vcf
     outfile = '%s.gz'%(vcf)
     cmd = [BGZIP_LOCATION, '-c', vcf]
-    logger.debug('BGZIP COMMAND: %s'%(' '.join(cmd)))
+    #logger.debug('BGZIP COMMAND: %s'%(' '.join(cmd)))
+    print >> stderr, 'BGZIP COMMAND: %s'%(' '.join(cmd))
     subprocess.call(cmd, stdout=open(outfile, 'w'))
     return outfile
 
