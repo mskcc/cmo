@@ -1,6 +1,18 @@
 =========
 Fireworks
 =========
+HEADS UP! ITS A GUI
+###################
+
+http://plvcbiocmo2.mskcc.org:8080/cmo/
+
+.. image:: images/PLEHG.gif
+
+Check this webpage for the status of launched fireworks workflows (even serial ones!)
+
+
+
+
 Writing your first workflow
 ###########################
 1. ssh to s01 (ask for help if you don't know what this means)

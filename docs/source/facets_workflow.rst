@@ -20,6 +20,9 @@ Instructions
 15. if it detects a facets run it already has performed it will refuse to do work
 16. we should add a --force to overcome some of these shortcuts sooner or later
 
+.. image:: images/ZiGyS.gif
+
+
 Notes
 ###########################
 
