@@ -1,5 +1,5 @@
 from collections import defaultdict
-import json, subprocess, sys, re
+import json, subprocess, sys, re, magic
 #STRAWMAN FIXME
 #THIS WOULD BE A PROGRAMMATICALLY INGESTED JSON ON MODULE LOAD IN REAL LIFE
 #DONT HATE THIS PART
