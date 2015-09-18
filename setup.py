@@ -1,14 +1,14 @@
 from setuptools import setup
 
 setup(name='cmo',
-        version='0.333',
+        version='0.4',
         description='Center for Molecular Oncology Python Package for Great Convenience and Enhanced Double Plus User Experiences',
         url='github.com/mskcc/mskcmo.git',
         author='Chris Harris',
         author_email='harrisc2@mskcc.org',
         licence='GPLv3',
         packages=['cmo'],
-        install_requires=['argparse', 'fireworks', 'python-daemon'],
+        install_requires=['argparse', 'fireworks', 'python-daemon', 'filemagic'],
         scripts=['bin/cmo_bwa_sampe',
                  'bin/cmo_getbasecounts',
                  'bin/cmo_facets',
