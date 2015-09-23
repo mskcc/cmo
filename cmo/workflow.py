@@ -116,7 +116,7 @@ class Workflow():
             while(True):
                 common_adapter  = load_object_from_file("/opt/common/CentOS_6-dev/cmo/qadapter_LSF.yaml")
                 launcher_log_dir = os.path.join(FW_WFLOW_LAUNCH_LOC, getpass.getuser(), "")
-                queue_launcher.rapidfire(self.launchpad, fireworks.FWorker(name="LSF"), common_adapter, reserve=True, nlaunches=0, launch_dir=launcher_log_dir, sleep_time=10, njobs_queue=50)
+                queue_launcher.rapidfire(self.launchpad, fireworks.FWorker(name="LSF"), common_adapter, reserve=True, nlaunches=0, launch_dir=launcher_log_dir, sleep_time=10, njobs_queue=100)
                 failed_fws = []
                 time.sleep(10)
                 offline_runs =  self.launchpad.offline_runs.find({"completed": False, "deprecated": False}, {"launch_id": 1}).count()
