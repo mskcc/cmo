@@ -1,0 +1,43 @@
+#!/opt/common/CentOS_6-dev/python/python-2.7.10/bin/python
+
+import argparse, os, sys 
+import cmo
+
+#FIXME this SHOULD NOT take pairing file as input in long term
+#first version is for pipeline parity
+def main(source_file, bedtools_genome, genome_fasta, genome, impact_genome_targets, output_seq, output_impact):
+    output_files = ["temp_bed", output_seq, output_impact]
+    bed_cmd = [ "cat", source_file, "|", " grep -v '(^#|^Hugo)'", "|", "awk print '{print $5,$6-1, $7}'",
+             "|", "tr ' ' '\t'", ">", temp_bed]
+    cmo.util.call_cmd(" ".join(bed_cmd))
+    bedtools_slop = ["cmo_bedtools", "--cmd slop", "-b 1", "-g", bedtools_genome, "-i", temp_bed, 
+            "|" , "cmo_bedtools", "--cmd getfasta", "-tab", "-fi", genome, "-fo", output_files[1], "-bed -"]
+    cmo.util.call_cmd(" ".join(bedtools_slop))
+    bedtools_intersect = [ "cmo_bedtools", "intersect", "-a", impact_genome_targets, "-b", output_file, "-wa", 
+        "|", "cmo_bedtools", "sort", "-i", "-", "|", """ awk '{print $1":"$2+1"-"$3}' """
+        "|", "uniq", ">", output_files[2]]
+    cmo.util.call_cmd(" ".join(bedtools_intersect))
+            
+
+
+#$BEDTOOLS slop -g ~/lib/bedtools/genomes/human.hg19.genome -b 1 -i $TDIR/merge_maf3.bed \
+#| $BEDTOOLS getfasta -tab \
+#-fi $GENOME -fo $TDIR/merge_maf3.seq -bed -
+
+#$BEDTOOLS intersect -a $TDIR/merge_maf3.bed \
+#-b $SDIR/db/IMPACT_410_hg19_targets_plus3bp.bed -wa \
+#:| $BEDTOOLS sort -i - | awk '{print $1":"$2+1"-"$3}' | uniq >$TDIR/merge_maf3.impact410
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Do Dat PostProcessing")
+    parser.add_argument("--output-seq", required=True, help="destination of filtered output")
+    parser.add_argument("--output-impact", required=True, help="impact positions membership")
+    parser.add_argument("--genome", required=True, choices=cmo.util.genomes.keys())
+    parser.add_argument("--source-file", required=True, help="input MAF")
+    #FIXME
+#    parser.add_argument("--temp-dir", help="temp directroy for intermediate files")
+    args = parser.parse_args()
+    bedtools_genome = cmo.util.genomes[args.genome]['bedtools_db']
+    main(os.path.abspath(args.source_file), bedtools_genome, cmo.util.genomes[args.genome]['fasta'], args.genome, os.path.abspath(args.output_seq), os.path.abspath(args.output_impact))
+
+

@@ -1,0 +1,25 @@
+#!/opt/common/CentOS_6-dev/python/python-2.7.10/bin/python
+
+import argparse, os, sys 
+import cmo
+
+#FIXME this SHOULD NOT take pairing file as input in long term
+#first version is for pipeline parity
+def main(source_file_list, output_file, column_range):
+    fh = open(output_file, "w")
+    for file in source_file_list:
+        cmd = ["cat", file, "|", "cut", "-f%s" % column_range]
+        cmo.util.call_cmd(" ".join(cmd), stdout=fh)
+
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Do Dat PostProcessing")
+    parser.add_argument("--output-file", required=True, help="destination of filtered output")
+    parser.add_argument("--column-range", default="-39", help="Same syntax as cut")
+    parser.add_argument("maf files", nargs='+', help="2 or more maf files")
+    args = parser.parse_args()
+    maf_files = [os.path.abspath(file) for file in vars(args)['maf files']]
+    main(maf_files, os.path.abspath(args.output_file), args.column_range)
+
+
