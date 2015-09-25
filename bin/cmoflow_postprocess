@@ -37,8 +37,11 @@ def main(pairing_file, pipeline_output_dir, project_id, output_dir):
         mutect_cmds.append(cmd)
     merged_maf_name = os.path.join(output_dir, "merge_maf3")
     merge_mafs_cmd = ["cmo_merge_mafs", " ".join(maf_outputs), "--output-file", merged_maf_name]
+    merged_seq = os.path.join(output_dir, "merged_maf3.seq")
+    merged_impact_pos = os.path.join(output_dir, "merged_maf3.impact410")
     trinuc_cmd = ["cmo_trinuc_and_impact" , "--source-file", merged_maf_name, "--genome", "hg19", 
-            "--output-file", output_file]
+            "--output-seq", merged_seq, "--output-impact", merged_impact_pos]
+
     
 
 
@@ -149,6 +152,7 @@ if __name__=='__main__':
     parser.add_argument("--pairing-file", required=True, help="The pairing filee")
     parser.add_argument("--pipeline-output-dir", required=True, help="The pipeline output directory")
     parser.add_argument("--project-id", help="Optionally override project ID dir name searching...")
+
     args = parser.parse_args()
     main(args.pairing_file, args.pipeline_output_dir, args.project_id)
 

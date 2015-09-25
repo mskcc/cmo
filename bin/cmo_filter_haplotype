@@ -20,7 +20,7 @@ def main(pairing_file, haplotype_vcf, pipeline_dir, final_output_file, temp_dir=
     somhc_output.close()
     vcf2maf_fh.close()
     tcga_maf = os.path.join(pipeline_dir, "oldMAF2tcgaMAF.py")
-    tcga_maf_cmd = [tcga_maf, "hg19", somhc_output, outputs[2]
+    tcga_maf_cmd = [tcga_maf, "hg19", somhc_output, outputs[2]]
     cmo.util.call_cmd(" ".join(tcga_maf_cmd))
     tcga_maf_output = open(outputs[2], "r")
     indel_only_output = open(outputs[3], "w")
