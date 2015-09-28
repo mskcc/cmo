@@ -6,7 +6,7 @@
   <default revision="refs/heads/master"
       remote="github"/>
 
-  <project name="cmo" remote="github" path="cmo"/>
-  <project name="cmo_facets" remote="github" path="cmo/lib/facets/"/>
+  <project name="mskcc/cmo" remote="github" path="cmo"/>
+  <project name="mskcc/facets-suite" remote="github" path="cmo/lib/facets/"/>
 
 </manifest>
