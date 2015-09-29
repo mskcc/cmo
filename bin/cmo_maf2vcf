@@ -4,16 +4,16 @@ import argparse, os, sys, re, subprocess,itertools
 import cmo
 
 def parse_maf2vcf_help(maf2vcf_cmd):
-    bwa_help = subprocess.Popen("perl " + maf2vcf_cmd +"maf2vcf.pl -h",stdout=subprocess.PIPE,shell=True).communicate()[0]
+    bwa_help = subprocess.Popen("perl " + maf2vcf_cmd +" -h",stdout=subprocess.PIPE,shell=True).communicate()[0]
     valid_args = re.findall(r"\s+(--[\S_]+)\s+([\S \t]+)\n?", bwa_help, re.M)
     return dict(valid_args)
 
 if __name__ =='__main__':
     preparser = argparse.ArgumentParser(description="run maf2vcf", add_help=False)
     preparser.add_argument("--genome", choices=cmo.util.genomes.keys(), default="hg19")
-    preparser.add_argument("--version", default="default", choices=cmo.util.programs['maf2vcf'].keys())
+    preparser.add_argument("--version", default="default", choices=cmo.util.programs['vcf2maf'].keys())
     options, _ = preparser.parse_known_args()
-    maf2vcf_script = cmo.util.programs['maf2vcf'][options.version] + "maf2vcf.pl"
+    maf2vcf_script = cmo.util.programs['vcf2maf'][options.version] + "maf2vcf.pl"
     args_dict = parse_maf2vcf_help(maf2vcf_script)
     parser = argparse.ArgumentParser(parents = [preparser], add_help=True, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     for arg, description in args_dict.items():

@@ -4,7 +4,7 @@ import argparse, os, sys, re, subprocess,itertools
 import cmo
 
 def parse_vcf2maf_help(vcf2maf_cmd):
-    bwa_help = subprocess.Popen("perl " + vcf2maf_cmd +"vcf2maf.pl -h",stdout=subprocess.PIPE,shell=True).communicate()[0]
+    bwa_help = subprocess.Popen("perl " + vcf2maf_cmd +" -h",stdout=subprocess.PIPE,shell=True).communicate()[0]
     valid_args = re.findall(r"\s+(--[\S_]+)\s+([\S \t]+)\n?", bwa_help, re.M)
     return dict(valid_args)
 
