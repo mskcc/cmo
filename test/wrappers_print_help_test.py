@@ -2,9 +2,9 @@ import os,subprocess, sys
 
 def test_bin_scripts():
     (current_dir,_) = os.path.split(os.path.realpath(__file__))
-    bin_dir = "../bin/"
+    bin_dir = os.path.join(current_dir, "../bin/")
     for file in os.listdir(bin_dir):
-        yield check_for_help, os.path.join(current_dir, bin_dir, file)
+        yield check_for_help, os.path.join(bin_dir, file)
 
 def check_for_help(file):
     proc = subprocess.Popen(["/opt/common/CentOS_6-dev/python/python-2.7.10/bin/python", file,"-h"], stderr=subprocess.PIPE, stdout=subprocess.PIPE)
