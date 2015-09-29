@@ -55,17 +55,13 @@ def filesafe_string(string):
     return  "".join(c for c in string if c.isalnum() or c in keepcharacters).rstrip()
 
 
-
 def call_cmd(cmd, shell=True, stderr=None, stdout=None, stdin=None):
+    for file_thingy in [stderr, stdout]:
+        if file_thingy and not hasattr(file_thingy, "write"):
+            file_thingy=open(file_thingy, "w")
+    if stdin and not hasattr(stdin, "r"):
+        stdin=open(stdin, "r")
     try:
-        if(stderr):
-            error_fh = open(stderr, "w")
-            stderr = error_fh
-            #FIXME log that this happened
-        if(stdout):
-            out_fh = open(stdout, "w")
-            stdout = out_fh
-            #FIXME log that this happened
         return_code = subprocess.check_call(cmd, shell=shell, stderr=stderr, stdout=stdout, stdin=stdin)
     except subprocess.CalledProcessError, e:
         print >>sys.stderr, "Non Zero Exit Code %s from %s" % (e.returncode, cmd)
@@ -143,12 +139,13 @@ def tabix_file(vcf_file):
         sys.exit(1)
 
 
-def normalize_vcf(vcf_file, ref_fasta):
+def normalize_vcf(vcf_file, ref_fasta, vt_version="default"):
+    vt_command = programs['vt'][vt_version]
     sorted_vcf = sort_vcf(vcf_file)
     zipped_file = bgzip(sorted_vcf)
     tabix_file(zipped_file)
     output_vcf = zipped_file.replace('.vcf', '.normalized.vcf')
-    cmd = [VT_LOCATION, 'normalize', '-r', ref_fasta, zipped_file, '-o', output_vcf, '-q']
+    cmd = [VT_LOCATION, 'normalize', '-r', ref_fasta, zipped_file, '-o', output_vcf, '-q', '-n']
     print >> sys.stdout, 'VT Command: %s'%(' '.join(cmd))
     #logger.debug('VT Command: %s'%(' '.join(cmd)))
     #cmd = [BCFTOOLS_LOCATION, 'norm', '-m', '-', '-O', 'b', '-o', output_vcf, zipped_file] #Python vcf parser doesn't like bcftools norm output
