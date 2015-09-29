@@ -8,7 +8,7 @@ fi
     # Create virtualenv and install necessary packages
     $PYTHON_HOME/virtualenv --no-site-packages $PYENV_HOME
     . $PYENV_HOME/bin/activate
-    $PYTHON_HOME/pip install --quiet nosexcover
-    $PYTHON_HOME/pip install --quiet $WORKSPACE/  # where your setup.py lives
+    pip install --quiet nosexcover
+    pip install --quiet $WORKSPACE/  # where your setup.py lives
     nosetests --with-xunit
 #    pylint -f parseable myapp/ | tee pylint.out
