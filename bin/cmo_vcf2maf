@@ -20,7 +20,7 @@ if __name__ =='__main__':
         if arg == "--help":
             continue
         parser.add_argument(arg,action="store", metavar='', help=description)
-    cmo.util.add_logging_options(args)
+    cmo.util.add_logging_options(parser)
     args = parser.parse_args()
     fasta = cmo.util.genomes[args.genome]['fasta']
     args_dict = vars(args)
