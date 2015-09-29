@@ -1,5 +1,5 @@
 PYENV_HOME=$WORKSPACE/.pyenv/
-PYTHON_HOME=/opt/common/CentOS_6-dev/python/python-2.7.10/bin/virtualenv
+PYTHON_HOME=/opt/common/CentOS_6-dev/python/python-2.7.10/bin/
 # Delete previously built virtualenv
 if [ -d $PYENV_HOME ]; then
         rm -rf $PYENV_HOME
