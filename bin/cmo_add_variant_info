@@ -32,7 +32,8 @@ def vcf2mafEvent(chrom,pos,ref,alt):
         altN=altN[1:]
     return (chrom,startPos,endPos,refN,altN)
 
-def main(original_maf_file, exacFile, impact410File, seqDataFile):
+def main(original_maf_file, exacFile, impact410File, seqDataFile, output_file):
+    outfh = open(output_file, "w")
     seqDb=dict()
     with open(seqDataFile) as fp:
         for line in fp:
@@ -48,24 +49,7 @@ def main(original_maf_file, exacFile, impact410File, seqDataFile):
         for line in fp:
             impact410.add(line.strip())
 
-    exacDb=dict()
-    with open(exacFile) as fp:
-        line=fp.readline()
-        while line.startswith("##"):
-            line=fp.readline()
-        header=line[1:].strip().split()
-        cin=csv.DictReader(fp,fieldnames=header,delimiter="\t")
-        for r in cin:
-            if r["INFO"]!=".":
-                info=dict()
-                parseInfo=[x.split("=") for x in r["INFO"].split(";")]
-                for ((key,val),cType) in izip(parseInfo,(int,int,float)):
-                    info[key]=cType(val)
-
-                (chrom,start,end,ref,alt)=vcf2mafEvent(r["CHROM"],r["POS"],r["REF"],r["ALT"])
-
-                exacDb["chr%s:%s-%s" % (chrom,start,end)]=info
-
+ 
     events=dict()
     with open(origMAFFile) as fp:
         commentHeader=fp.readline().strip()
@@ -112,16 +96,11 @@ def main(original_maf_file, exacFile, impact410File, seqDataFile):
                 else:
                     r["n_var_freq"]=0.0
 
-            if pos in exacDb:
-                r["ExAC_AC"]=exacDb[pos]["AC"]
-                r["ExAC_AF"]=exacDb[pos]["AF"]
-                r["ExAC_AN"]=exacDb[pos]["AN"]
 
             events[label]=r
 
-    outFields=cin.fieldnames+["POS","TAG","LABEL","TriNuc","IMPACT_410","t_var_freq","n_var_freq",
-                                "ExAC_AC","ExAC_AF","ExAC_AN"]
-    cout=csv.DictWriter(sys.stdout,outFields,delimiter="\t")
+    outFields=cin.fieldnames+["POS","TAG","LABEL","TriNuc","IMPACT_410","t_var_freq","n_var_freq"]
+    cout=csv.DictWriter(outfh,outFields,delimiter="\t")
 
     print commentHeader
 
@@ -139,6 +118,7 @@ if __name__=="__main__":
     parser.add_argument("--impact-positions", required=True, help="List of chr:start-stop positiions that are in IMPACT")
     parser.add_argument("--exac-file", required=True, help="Exac annotations")
     parser.add_argument("--original-maf", required=True, help="MAF to add annotations to, you dummy")
+    parser.add_argument("--output-file", required=True, help="Final product name")
     args = parser.parse_args()
     main(os.path.abspath(args.original_maf), os.path.abspath(args.exac_file), os.path.abspath(args.impact_positions), os.path.abspath(args.SeqDataFile))
 

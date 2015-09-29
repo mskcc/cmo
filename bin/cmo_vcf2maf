@@ -4,7 +4,7 @@ import argparse, os, sys, re, subprocess,itertools
 import cmo
 
 def parse_vcf2maf_help(vcf2maf_cmd):
-    bwa_help = subprocess.Popen("perl " + vcf2maf_cmd +" -h",stdout=subprocess.PIPE,shell=True).communicate()[0]
+    bwa_help = subprocess.Popen("perl " + vcf2maf_cmd +"vcf2maf.pl -h",stdout=subprocess.PIPE,shell=True).communicate()[0]
     valid_args = re.findall(r"\s+(--[\S_]+)\s+([\S \t]+)\n?", bwa_help, re.M)
     return dict(valid_args)
 
@@ -13,13 +13,14 @@ if __name__ =='__main__':
     preparser.add_argument("--genome", choices=cmo.util.genomes.keys(), default="hg19")
     preparser.add_argument("--version", choices=cmo.util.programs['vcf2maf'].keys(), default="default")
     options, _ = preparser.parse_known_args()
-    vcf2maf_script = cmo.util.programs['vcf2maf'][options.version]
+    vcf2maf_script = cmo.util.programs['vcf2maf'][options.version] + "vcf2maf.pl"
     args_dict = parse_vcf2maf_help(vcf2maf_script)
     parser = argparse.ArgumentParser(parents = [preparser], add_help=True, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     for arg, description in args_dict.items():
         if arg == "--help":
             continue
         parser.add_argument(arg,action="store", metavar='', help=description)
+    cmo.util.add_logging_options(args)
     args = parser.parse_args()
     fasta = cmo.util.genomes[args.genome]['fasta']
     args_dict = vars(args)
@@ -27,11 +28,15 @@ if __name__ =='__main__':
         del args_dict[key]
     args_dict['ref-fasta']=fasta
     cmd = ["perl", vcf2maf_script]
+    stderr=args.stderr
+    stdout=args.stdout
     args_dict = dict((k, v) for k, v in args_dict.iteritems() if v)
+    cmo.util.remove_logging_options_from_dict(args_dict)
     for arg, value in args_dict.items():
         arg= arg.replace("_","-")
         cmd = cmd + ["--"+arg, value]
-    print " ".join(cmd)
+    cmo.util.call_cmd(" ".join(cmd), stdout=stdout, stderr=stderr)
+
 
 
 

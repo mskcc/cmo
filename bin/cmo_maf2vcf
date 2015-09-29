@@ -3,35 +3,40 @@
 import argparse, os, sys, re, subprocess,itertools
 import cmo
 
-def parse_vcf2maf_help(vcf2maf_cmd):
-    bwa_help = subprocess.Popen("perl " + vcf2maf_cmd +" -h",stdout=subprocess.PIPE,shell=True).communicate()[0]
+def parse_maf2vcf_help(maf2vcf_cmd):
+    bwa_help = subprocess.Popen("perl " + maf2vcf_cmd +"maf2vcf.pl -h",stdout=subprocess.PIPE,shell=True).communicate()[0]
     valid_args = re.findall(r"\s+(--[\S_]+)\s+([\S \t]+)\n?", bwa_help, re.M)
     return dict(valid_args)
 
 if __name__ =='__main__':
-    preparser = argparse.ArgumentParser(description="run vcf2maf", add_help=False)
+    preparser = argparse.ArgumentParser(description="run maf2vcf", add_help=False)
     preparser.add_argument("--genome", choices=cmo.util.genomes.keys(), default="hg19")
-    preparser.add_argument("--version", default="default", choices=cmo.util.programs['vcf2maf'].keys())
+    preparser.add_argument("--version", default="default", choices=cmo.util.programs['maf2vcf'].keys())
     options, _ = preparser.parse_known_args()
-    vcf2maf_script = cmo.util.programs['vcf2maf'][options.version]
-    args_dict = parse_vcf2maf_help(vcf2maf_script)
+    maf2vcf_script = cmo.util.programs['maf2vcf'][options.version] + "maf2vcf.pl"
+    args_dict = parse_maf2vcf_help(maf2vcf_script)
     parser = argparse.ArgumentParser(parents = [preparser], add_help=True, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     for arg, description in args_dict.items():
         if arg == "--help":
             continue
         parser.add_argument(arg,action="store", metavar='', help=description)
+    cmo.util.add_logging_options(parser)
     args = parser.parse_args()
     fasta = cmo.util.genomes[args.genome]['fasta']
     args_dict = vars(args)
     for key in ["genome", "version"]:
         del args_dict[key]
     args_dict['ref-fasta']=fasta
-    cmd = ["perl", vcf2maf_script]
+    cmd = ["perl", maf2vcf_script]
+    stderr=args.stderr
+    stdout=args.stdout
     args_dict = dict((k, v) for k, v in args_dict.iteritems() if v)
+    cmo.util.remove_logging_options_from_dict(args_dict)
     for arg, value in args_dict.items():
         arg= arg.replace("_","-")
         cmd = cmd + ["--"+arg, value]
-    print " ".join(cmd)
+    cmo.util.call_cmd(" ".join(cmd), stdout=stdout, stderr=stderr)
+
 
 
 
