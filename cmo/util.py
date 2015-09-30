@@ -56,9 +56,10 @@ def filesafe_string(string):
 
 
 def call_cmd(cmd, shell=True, stderr=None, stdout=None, stdin=None):
-    for file_thingy in [stderr, stdout]:
-        if file_thingy and not hasattr(file_thingy, "write"):
-            file_thingy=open(file_thingy, "w")
+    if stdout and not hasattr(stdout, "w"):
+        stdout=open(stdout, "w")
+    if stderr and not hasattr(stderr, "w"):
+        stderr=open(stderr, "w")
     if stdin and not hasattr(stdin, "r"):
         stdin=open(stdin, "r")
     try:
@@ -88,7 +89,6 @@ def remove_logging_options_from_dict(dict):
                 del dict[key]
 
 
-VT_LOCATION = '/home/charris/code/VCF_accuracy_evaluator/vt/vt'
 TABIX_LOCATION = '/opt/common/CentOS_6/samtools/samtools-1.2/htslib-1.2.1/tabix'
 BGZIP_LOCATION = '/opt/common/CentOS_6/samtools/samtools-1.2/htslib-1.2.1/bgzip'
 SORTBED_LOCATION = '/opt/common/CentOS_6/bedtools/bedtools-2.22.0/bin/sortBed'
@@ -145,7 +145,7 @@ def normalize_vcf(vcf_file, ref_fasta, vt_version="default"):
     zipped_file = bgzip(sorted_vcf)
     tabix_file(zipped_file)
     output_vcf = zipped_file.replace('.vcf', '.normalized.vcf')
-    cmd = [VT_LOCATION, 'normalize', '-r', ref_fasta, zipped_file, '-o', output_vcf, '-q', '-n']
+    cmd = [vt_command, 'normalize', '-r', ref_fasta, zipped_file, '-o', output_vcf, '-q', '-n']
     print >> sys.stdout, 'VT Command: %s'%(' '.join(cmd))
     #logger.debug('VT Command: %s'%(' '.join(cmd)))
     #cmd = [BCFTOOLS_LOCATION, 'norm', '-m', '-', '-O', 'b', '-o', output_vcf, zipped_file] #Python vcf parser doesn't like bcftools norm output
