@@ -56,11 +56,11 @@ def filesafe_string(string):
 
 
 def call_cmd(cmd, shell=True, stderr=None, stdout=None, stdin=None):
-    if stdout and not hasattr(stdout, "w"):
+    if stdout and not hasattr(stdout, "write"):
         stdout=open(stdout, "w")
-    if stderr and not hasattr(stderr, "w"):
+    if stderr and not hasattr(stderr, "write"):
         stderr=open(stderr, "w")
-    if stdin and not hasattr(stdin, "r"):
+    if stdin and not hasattr(stdin, "read"):
         stdin=open(stdin, "r")
     try:
         return_code = subprocess.check_call(cmd, shell=shell, stderr=stderr, stdout=stdout, stdin=stdin)
