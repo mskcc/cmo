@@ -4,13 +4,13 @@ import argparse, os, sys, re, subprocess,itertools
 import cmo
 
 def parse_maf2maf_help(maf2maf_cmd):
-    bwa_help = subprocess.Popen("perl " + maf2maf_cmd +" -h",stdout=subprocess.PIPE,shell=True).communicate()[0]
+    perl = cmo.util.programs['perl']['default']
+    bwa_help = subprocess.Popen(" ".join([perl, maf2maf_cmd, "-h"]),stdout=subprocess.PIPE,shell=True).communicate()[0]
     valid_args = re.findall(r"\s+(--[\S_]+)\s+([\S \t]+)\n?", bwa_help, re.M)
     return dict(valid_args)
 
 if __name__ =='__main__':
     preparser = argparse.ArgumentParser(description="run maf2maf", add_help=False)
-    preparser.add_argument("--genome", choices=cmo.util.genomes.keys(), default="hg19")
     preparser.add_argument("--version", choices=cmo.util.programs['vcf2maf'].keys(), default="default" )
     options, _ = preparser.parse_known_args()
     maf2maf_script = cmo.util.programs['vcf2maf'][options.version] + "maf2maf.pl"
@@ -22,12 +22,12 @@ if __name__ =='__main__':
         parser.add_argument(arg,action="store", metavar='', help=description)
     cmo.util.add_logging_options(parser)
     args = parser.parse_args()
-    fasta = cmo.util.genomes[args.genome]['fasta']
+    fasta = "/ifs/res/pwg/data/assemblies/homo_sapiens/hg19/hg19.fasta"
     args_dict = vars(args)
-    for key in ["genome", "version"]:
+    for key in ["version"]:
         del args_dict[key]
     args_dict['ref-fasta']=fasta
-    cmd = ["perl", maf2maf_script]
+    cmd = [cmo.util.programs['perl']['default'], maf2maf_script]
     stderr = args.stderr
     stdout = args.stdout
     args_dict = dict((k, v) for k, v in args_dict.iteritems() if v)
