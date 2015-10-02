@@ -32,6 +32,7 @@ def infer_fasta_from_bam(bam_file):
 
 def infer_sample_from_bam(bam_file):
     get_rg_cmd= [programs['samtools']['default'], "view -H", bam_file, "| fgrep \"@RG\" "]
+    print >>sys.stderr, " ".join(get_rg_cmd)
     rg_lines = subprocess.Popen(" ".join(get_rg_cmd), shell=True, stdout=subprocess.PIPE, stderr=open("/dev/null")).communicate()[0]
     sample_dict = {}
     for rg in rg_lines.splitlines():

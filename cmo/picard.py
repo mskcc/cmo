@@ -21,12 +21,12 @@ class Picard:
                 "TMP_DIR" : "None",
                 "VERBOSITY" : "INFO",
                 "QUIET": "false",
-                "VALIDATION_STRINGENCY":"STRICT",
+                "VALIDATION_STRINGENCY":"SILENT",
                 "COMPRESSION_LEVEL": "5",
                 "MAX_RECORDS_IN_RAM": "500000",
                 "CREATE_INDEX": "false",
                 "CREATE_MD5_FILE": "false",
-                "REFERENCE": "null",
+                "REFERENCE_SEQUENCE": "null",
            #     "GA4GH_CLIENT_SECRETS":"null",
                 }
     def picard_cmd(self, command, default_args_override={}, command_specific_args={}):

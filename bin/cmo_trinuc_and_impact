@@ -9,7 +9,14 @@ def main(source_file, bedtools_genome, genome, impact_genome_targets, output_seq
     temp_bed = "temp_bed"
     if temp_dir:
         if not os.path.exists(temp_dir):
-            os.makedirs(temp_dir)
+            try:
+                os.makedirs(temp_dir)
+            except OSError, e:
+                if os.errno == 17:
+                    pass
+                else:
+                    print >>sys.stderr, e
+                    sys.exit(1)
         temp_bed = os.path.join(temp_dir, temp_bed)
     bed_cmd = [ "cat", source_file, "|", " grep -E -v '(^#|^Hugo)'", "|", """awk 'BEGIN {FS="\t";OFS=FS}{print $5,$6-1, $7}' """, ">", temp_bed]
     print >>sys.stderr, " ".join(bed_cmd)

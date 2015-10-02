@@ -10,7 +10,15 @@ def main(pairing_file, haplotype_vcf, pipeline_dir, final_output_file, temp_dir=
     outputs = ["hap_maf0", "hap_maf1", "hap_maf2", "hap_maf2b"]
     if temp_dir:
         if not os.path.exists(temp_dir):
-            os.makedirs(temp_dir)
+            try:
+                os.makedirs(temp_dir)
+            except OSError, e:
+                if e.errno == 17: #file exists, some other step already made it critical race
+                    pass
+                else:
+                    print >> sys.stderr, e
+                    sys.exit(1)
+
         [ os.path.join(temp_dir, file) for file in outputs]
     vcf2maf0_cmd = [vcf2maf0, "-c haplotypecaller", "-p" ,pairing_file, "-i", haplotype_vcf, "-o", outputs[0]]
     cmo.util.call_cmd(" ".join(vcf2maf0_cmd))

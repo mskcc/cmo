@@ -109,12 +109,13 @@ if __name__=='__main__':
     parser.add_argument("--normal-name", help="Override this if you don't want to use the SM: tag on the @RG tags within the bam you supply-- required if your bam doesn't have well formatted @RG SM: tags")
     parser.add_argument("--tumor-name", help="Override this if you don't want to use the SM: tag on the @RG tags in the tumor bam you supply-- required if your bam doesnt have well formatted @RG SM: tags")
     parser.add_argument("--workflow-mode", choices=["serial","LSF"], default="LSF", help="select 'serial' to run all jobs on the launching box. select 'LSF' to parallelize jobs as much as possible on luna")
+    parser.add_argument('--single-chrom', help="supply a single chrom processing argument to facets itself")
     (args, facets_args) = parser.parse_known_args()
     if args.output_dir:
         args.output_dir = os.path.abspath(output_dir)
     args.tumor_bam = os.path.abspath(args.tumor_bam)
     args.normal_bam = os.path.abspath(args.normal_bam)
-    main(args.tumor_bam, args.normal_bam, args.tag, facets_args, args.output_dir, snps=args.vcf, tumor_sample = args.tumor_name, normal_sample=args.normal_name, workflow_mode=args.workflow_mode)
+    main(args.tumor_bam, args.normal_bam, args.tag, facets_args, args.output_dir, snps=args.vcf, tumor_sample = args.tumor_name, normal_sample=args.normal_name, workflow_mode=args.workflow_mode, single_chrom = args.single_chrom)
 
          
 

@@ -14,7 +14,14 @@ def main(pairing_file, mutect_vcf, pipeline_dir, final_output_file, temp_dir=Non
     outputs = [ tumor + "_" + output for output in outputs]
     if temp_dir:
         if not os.path.exists(temp_dir):
-            os.makedirs(temp_dir)
+            try:
+                os.makedirs(temp_dir)
+            except OSError, e:
+                if e.errno == 17: #file exists, some other step already made it critical race
+                    pass
+                else:
+                    print >> sys.stderr, e
+                    sys.exit(1)
         outputs = [ os.path.join(temp_dir, output) for output in outputs]
     vcf2maf0_cmd = [vcf2maf0, "-c mutect", "-p" ,pairing_file, "-i", mutect_vcf, "-o", outputs[0], "-t", tumor, "-n", normal]
     print >>sys.stderr, " ".join(vcf2maf0_cmd)
