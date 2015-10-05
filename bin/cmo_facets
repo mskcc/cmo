@@ -206,7 +206,7 @@ if __name__ =='__main__':
     ### ARGUMENTS
 
     parser = argparse.ArgumentParser(description="run FACETS analysis")
-    parser.add_argument("--app-version", default="default", choices=cmo.util.programs['facets'].keys())
+    parser.add_argument("--app-version", default="0.9.5", choices=cmo.util.programs['facets'].keys())
     subparsers = parser.add_subparsers(help='sub-command help')
 
     ### ./facets.py run
