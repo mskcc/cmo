@@ -1,6 +1,6 @@
 #!/opt/common/CentOS_6-dev/python/python-2.7.10/bin/python
 
-import sys
+import sys, os
 import csv, argparse
 from itertools import izip
 
@@ -32,7 +32,7 @@ def vcf2mafEvent(chrom,pos,ref,alt):
         altN=altN[1:]
     return (chrom,startPos,endPos,refN,altN)
 
-def main(original_maf_file, exacFile, impact410File, seqDataFile, output_file):
+def main(original_maf_file, impact410File, seqDataFile, output_file):
     outfh = open(output_file, "w")
     seqDb=dict()
     with open(seqDataFile) as fp:
@@ -51,7 +51,7 @@ def main(original_maf_file, exacFile, impact410File, seqDataFile, output_file):
 
  
     events=dict()
-    with open(origMAFFile) as fp:
+    with open(original_maf_file) as fp:
         commentHeader=fp.readline().strip()
         cin=csv.DictReader(fp,delimiter="\t")
         for r  in cin:
@@ -116,11 +116,10 @@ if __name__=="__main__":
     parser = argparse.ArgumentParser(description="YEAH BABY A BIG MAF")
     parser.add_argument("--sequence-data-file", required=True, help="The sequence data file (duh)")
     parser.add_argument("--impact-positions", required=True, help="List of chr:start-stop positiions that are in IMPACT")
-    parser.add_argument("--exac-file", required=True, help="Exac annotations")
     parser.add_argument("--original-maf", required=True, help="MAF to add annotations to, you dummy")
     parser.add_argument("--output-file", required=True, help="Final product name")
     args = parser.parse_args()
-    main(os.path.abspath(args.original_maf), os.path.abspath(args.exac_file), os.path.abspath(args.impact_positions), os.path.abspath(args.SeqDataFile))
+    main(os.path.abspath(args.original_maf), os.path.abspath(args.impact_positions), os.path.abspath(args.sequence_data_file), os.path.abspath(args.output_file))
 
 
 

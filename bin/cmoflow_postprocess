@@ -1,53 +1,64 @@
 #!/opt/common/CentOS_6-dev/python/python-2.7.10/bin/python
 from cmo import workflow
-import argparse, os, sys
+import argparse, os, sys, re, glob
 import cmo 
 
 def filter_hap_job(input, pairing_file, output_filename, output_dir):
-    output_file = os.path.join(output_dir, output_filename)
     #FIXME TEMP DIRECTORY?!?!?!?
-    haplo_cmd = ["cmo_filter_haplotype", "--pairing-file", pairing_file, "--haplotype-vcf", haplotype_vcf, "--output-file", hapmaf_filename]
-    return workflow.Job(" ".join(cmd),name="Filt.Haplotype")
+    haplo_cmd = ["cmo_filter_haplotype", "--pairing-file", pairing_file, "--haplotype-vcf", input, "--output-file", output_filename, "--temp-dir", output_dir]
+    print >>sys.stderr, " ".join(haplo_cmd)
+    return workflow.Job(" ".join(haplo_cmd),name="Filt.Haplotype")
 
-def filter_mutect_job(input, pairing, output_filename):
-    cmd = ["cmo_filter_mutect", "--pairing-file", pairing_file, "--mutect-vcf", os.path.abspath(vcf), "--output-file", output_file]
-    mutect_cmds.append(cmd)
-    return (workflow.Job(" ".join(cmd), name="Filt.Mutect"), output_file)
+def filter_mutect_job(input, pairing_file, output_filename, temp_dir):
+    cmd = ["cmo_filter_mutect", "--pairing-file", pairing_file, "--mutect-vcf", os.path.abspath(input), "--output-file", output_filename, '--temp-dir', temp_dir ]
+    print >>sys.stderr, " ".join(cmd)
+    return (workflow.Job(" ".join(cmd), name="Filt.Mutect"))
 
 def merged_maf_job(maf_inputs, merged_maf_name):
     merge_mafs_cmd = ["cmo_merge_mafs", " ".join(maf_inputs), "--output-file", merged_maf_name]
+    print >>sys.stderr, " ".join(merge_mafs_cmd)
     return workflow.Job(" ".join(merge_mafs_cmd), name="Merge Mafs")
 
-def trinuc_and_impact_job(merged_maf_name, seq_output, impact_outputoutput_dir):
+def trinuc_and_impact_job(merged_maf_name, seq_output, impact_output):
     trinuc_cmd = ["cmo_trinuc_and_impact" , "--source-file", merged_maf_name, 
             "--genome", "hg19", 
-            "--output-seq", merged_seq, 
-            "--output-impact", merged_impact_pos]
+            "--output-seq", seq_output, 
+            "--output-impact", impact_output]
+    print >>sys.stderr, " ".join(trinuc_cmd)
     return workflow.Job(" ".join(trinuc_cmd), name="Trinuc and Impact")
 
-def maf2maf_job(merged_maf_name, output_file):
+def maf2maf(merged_maf_name, output_file):
+    output_file = os.path.abspath(output_file)
     maf2maf_cmd = ['cmo_maf2maf', '--version=develop', '--vep-forks 12', 
             '--vep-path', cmo.util.programs['vep']['default'], '--vep-data', 
-            cmo.util.programs['vep']['default'], '--ref-fasta', cmo.util.genomes['hg19']['fasta'],
+            cmo.util.programs['vep']['default'], 
             '--retain-cols', 
             'Center,Verification_Status,Validation_Status,Mutation_Status,Sequencing_Phase,Sequence_Source,Validation_Method,Score,BAM_file,Sequencer,Tumor_Sample_UUID,Matched_Norm_Sample_UUID,Caller',
             '--custom-enst', os.path.join(cmo.util.programs['vcf2maf']['develop'], "data", "isoform_overrides_at_mskcc"),
             '--input-maf', merged_maf_name,
             '--output-maf', output_file
             ]
+    print >>sys.stderr, " ".join(maf2maf_cmd)
     return workflow.Job(" ".join(maf2maf_cmd), name="maf2maf")
 
 def add_variant_info(seq_input, impact_pos_input, orig_maf, output_file):
-    add_var_info_cmd = ['cmo_add_variant+info', '--sequence-data-file', merged_seq, '--impact-positions', merged_impact_pos,'--original-maf', maf_w_vep]
-    return workflow.job(" ".join(add_var_info_cmd), name="Add Variant Info")
+    add_var_info_cmd = ['cmo_add_variant_info', '--sequence-data-file',
+            seq_input, '--impact-positions', impact_pos_input,
+            '--original-maf', orig_maf, '--output-file', output_file]
+    return workflow.Job(" ".join(add_var_info_cmd), name="Add Variant Info")
 
 
 
-def main(pairing_file, pipeline_output_dir, project_id, output_dir):
+def main(pairing_file, pipeline_output_dir, project_id, output_dir, workflow_mode):
     pipeline_output_dir = os.path.abspath(pipeline_output_dir)
-    haplotype_vcf_pattern = os.path.join(pipeline_output_dir, "variants",  "haplotype_caller", "*_HaplotypeCaller.vcf")
+    pairing_file = os.path.abspath(pairing_file)
+    output_dir = os.path.abspath(output_dir)
+    if not os.path.exists(pipeline_output_dir):
+        os.makedirs(pipeline_output_dir)
+    haplotype_vcf_pattern = os.path.join(pipeline_output_dir, "variants",  "haplotypecaller", "*_HaplotypeCaller.vcf")
     if not project_id:
-        m = re.match("(Proj_\d+(?:_\s)?", pipeline_output_dir)
+        print pipeline_output_dir
+        m = re.search("(Proj_\d+(?:_\S)?)", pipeline_output_dir)
         if not m:
             print >>sys.stderr, "Unable to find a PROJ_[NUMBER]_[A-Z] string in pipeline dir name"
             print >>sys.stderr, "Supply a PROJECT ID at command line to run with this dir."
@@ -61,6 +72,7 @@ def main(pairing_file, pipeline_output_dir, project_id, output_dir):
     ##########MAKE JOBS#############################
     ####HAPMAF OUTPUT NAME
     hapmaf_filename = project_id + "___qSomHC_InDels__TCGA_MAF.txt"
+    hapmaf_filename = os.path.join(output_dir, hapmaf_filename)
     #HAPMAF JOB
     haplo_filter_job = filter_hap_job(haplotype_vcf, pairing_file, hapmaf_filename, output_dir)
     mutect_dir = os.path.join(pipeline_output_dir, "variants", "mutect", "")
@@ -70,8 +82,8 @@ def main(pairing_file, pipeline_output_dir, project_id, output_dir):
     #MAKE ALL MUTECT OUTPUTS AND JOBS
     for vcf in mutect_vcfs:
         output_file = os.path.basename(vcf.replace(".vcf", ".DMP_FILTER.maf"))
-        output_File = os.path.join(output_dir, output_file)
-        (job, output_file) = filter_mutect_job(vcf, pairing_file, output_file)
+        output_file = os.path.join(output_dir, output_file)
+        job = filter_mutect_job(vcf, pairing_file, output_file, output_dir)
         maf_outputs.append(output_file)
         mutect_jobs.append(job)
     #FIXME TEMP DIR!?!?!?!?!?
@@ -88,7 +100,7 @@ def main(pairing_file, pipeline_output_dir, project_id, output_dir):
     #OUTPUT NAME OF MAF2MAF
     maf_w_vep = os.path.join(output_dir, "merge_maf3.vep")
     #maf2maf JOB
-    maf2maf_job = maf2maf_job(merged_maf_name, maf_w_vep) 
+    maf2maf_job = maf2maf(merged_maf_name, maf_w_vep) 
     #FINAL OUTPUT NAME
     final_output = os.path.join(output_dir, project_id + "___SOMATIC.vep.maf")
     #ADD VARIANT INFO JOB
@@ -101,8 +113,9 @@ def main(pairing_file, pipeline_output_dir, project_id, output_dir):
     job_deps[merge_job]=[t_and_i_job, maf2maf_job]
     job_deps[maf2maf_job]=[final_maf_job]
     job_deps[t_and_i_job]=[final_maf_job]
-    all_jobs = [haplofilter_job, maf2maf_job, t_and_i_job, final_maf_job, merge_job]+mutect_jobs
-    workflow.Workflow(all_jobs, job_deps, name="PostProcess:"+project_id)
+    all_jobs = [haplo_filter_job, maf2maf_job, t_and_i_job, final_maf_job, merge_job]+mutect_jobs
+    post_process_workflow =workflow.Workflow(all_jobs, job_deps, name="PostProcess:"+project_id)
+    post_process_workflow.run(workflow_mode)
 
 
 
@@ -120,9 +133,10 @@ if __name__=='__main__':
     parser.add_argument("--pairing-file", required=True, help="The pairing filee")
     parser.add_argument("--pipeline-output-dir", required=True, help="The pipeline output directory")
     parser.add_argument("--project-id", help="Optionally override project ID dir name searching...")
-
+    parser.add_argument("--workflow-mode", default="serial", help="Serial or LSF work mode")
+    parser.add_argument("--output-dir", required=True, help="place to put results")
     args = parser.parse_args()
-    main(args.pairing_file, args.pipeline_output_dir, args.project_id)
+    main(args.pairing_file, args.pipeline_output_dir, args.project_id, args.output_dir, args.workflow_mode)
 
   
          

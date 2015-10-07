@@ -13,6 +13,7 @@ setup(name='cmo',
                  'bin/cmo_getbasecounts',
                  'bin/cmo_facets',
                  'bin/cmoflow_facets',
+                 'bin/cmoflow_postprocess',
                  'bin/cmo_bwa_aln',
                  'bin/cmo_watcher',
                  'bin/cmo_bwa_mem',
@@ -22,7 +23,12 @@ setup(name='cmo',
                  'bin/cmo_bedtools',
                  'bin/cmo_maf2maf',
                  'bin/cmo_vcf2maf',
-                 'bin/cmo_maf2vcf'
+                 'bin/cmo_maf2vcf',
+                 'bin/cmo_filter_haplotype',
+                 'bin/cmo_filter_mutect',
+                 'bin/cmo_merge_mafs',
+                 'bin/cmo_trinuc_and_impact',
+                 'bin/cmo_add_variant_info'
                  ],
         zip_safe=False)
 

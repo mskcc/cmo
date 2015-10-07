@@ -5,17 +5,32 @@ import cmo
 
 #FIXME this SHOULD NOT take pairing file as input in long term
 #first version is for pipeline parity
-def main(source_file, bedtools_genome, genome_fasta, genome, impact_genome_targets, output_seq, output_impact):
-    output_files = ["temp_bed", output_seq, output_impact]
-    bed_cmd = [ "cat", source_file, "|", " grep -v '(^#|^Hugo)'", "|", "awk print '{print $5,$6-1, $7}'",
-             "|", "tr ' ' '\t'", ">", temp_bed]
+def main(source_file, bedtools_genome, genome, impact_genome_targets, output_seq, output_impact, temp_dir):
+    temp_bed = "temp_bed"
+    if temp_dir:
+        if not os.path.exists(temp_dir):
+            try:
+                os.makedirs(temp_dir)
+            except OSError, e:
+                if os.errno == 17:
+                    pass
+                else:
+                    print >>sys.stderr, e
+                    sys.exit(1)
+        temp_bed = os.path.join(temp_dir, temp_bed)
+    bed_cmd = [ "cat", source_file, "|", " grep -E -v '(^#|^Hugo)'", "|", """awk 'BEGIN {FS="\t";OFS=FS}{print $5,$6-1, $7}' """, ">", temp_bed]
+    print >>sys.stderr, " ".join(bed_cmd)
     cmo.util.call_cmd(" ".join(bed_cmd))
-    bedtools_slop = ["cmo_bedtools", "--cmd slop", "-b 1", "-g", bedtools_genome, "-i", temp_bed, 
-            "|" , "cmo_bedtools", "--cmd getfasta", "-tab", "-fi", genome, "-fo", output_files[1], "-bed -"]
+    bedtools_slop = ["cmo_bedtools", "--cmd slopBed", "-b 1", "-g", bedtools_genome, "-i", temp_bed, 
+            "|" , "cmo_bedtools", "--cmd fastaFromBed", "-tab", "-fi", genome, "-fo", output_seq, "-bed -"]
+    print >>sys.stderr, " ".join(bedtools_slop)
     cmo.util.call_cmd(" ".join(bedtools_slop))
-    bedtools_intersect = [ "cmo_bedtools", "intersect", "-a", impact_genome_targets, "-b", output_file, "-wa", 
-        "|", "cmo_bedtools", "sort", "-i", "-", "|", """ awk '{print $1":"$2+1"-"$3}' """
-        "|", "uniq", ">", output_files[2]]
+    bedtools_intersect = [ "cmo_bedtools", "--cmd", "intersectBed", "-a", temp_bed,
+            "-b", impact_genome_targets, "-wa", 
+        "|", "cmo_bedtools", "--cmd", "sortBed", "-i", "-", 
+        "|", """ awk '{print $1":"$2+1"-"$3}' """
+        "|", "uniq", ">", output_impact ]
+    print >>sys.stderr, " ".join(bedtools_intersect)
     cmo.util.call_cmd(" ".join(bedtools_intersect))
             
 
@@ -34,10 +49,10 @@ if __name__ == "__main__":
     parser.add_argument("--output-impact", required=True, help="impact positions membership")
     parser.add_argument("--genome", required=True, choices=cmo.util.genomes.keys())
     parser.add_argument("--source-file", required=True, help="input MAF")
-    #FIXME
-#    parser.add_argument("--temp-dir", help="temp directroy for intermediate files")
+    parser.add_argument("--temp-dir", help="temp directroy for intermediate files")
     args = parser.parse_args()
-    bedtools_genome = cmo.util.genomes[args.genome]['bedtools_db']
-    main(os.path.abspath(args.source_file), bedtools_genome, cmo.util.genomes[args.genome]['fasta'], args.genome, os.path.abspath(args.output_seq), os.path.abspath(args.output_impact))
+    bedtools_genome = cmo.util.genomes[args.genome]['bedtools_genome']
+    impact_targets = cmo.util.genomes[args.genome]['impact410_targets']
+    main(os.path.abspath(args.source_file), bedtools_genome, args.genome, impact_targets, os.path.abspath(args.output_seq), os.path.abspath(args.output_impact), temp_dir=args.temp_dir)
 
 

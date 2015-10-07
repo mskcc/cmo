@@ -66,6 +66,11 @@ if __name__ =='__main__':
         help = help.replace("%","%%")
         if(arg =="-fi"):
             group.add_argument(arg, action="store", choices=cmo.util.genomes.keys())
+        #FIXME: parsing this shit kind of sucks, this is a bandaid.
+        elif arg in ["-tab"]:
+            group.add_argument(arg, action="store_true", help=help) 
+        elif arg in ['-bed', '-fo']:
+            group.add_argument(arg, action="store", metavar='', help=help)
         elif re.search("\.\.",help): #more than one arg is accepted
             group.add_argument(arg, action="store", nargs="+", metavar='')
         elif re.search("(FLOAT|INTEGER|Float|Integer|Default|<.*>)", help):

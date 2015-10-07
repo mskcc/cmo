@@ -135,7 +135,7 @@ def run(args):
     count_file = os.path.abspath(args.count_file)
     ### BUILD COMMAND LISTi
 
-    cmd = [ os.path.join(FACETS_DIR, "doFacets.R"), "--R_lib", args.lib_version, " ".join(args.facets_args), count_file, args.tag, args.output_directory]
+    cmd = [ os.path.join(FACETS_DIR, "doFacets.R"), " ".join(args.facets_args), count_file, args.tag, args.output_directory]
     try:
         print " ".join(cmd)
         subprocess.check_call(" ".join(cmd), shell=True)
@@ -152,7 +152,18 @@ def check(args):
     print "check output files"
 
 def call(args):
-    print "call genes"
+    print args.facets_cncf_files
+    print args.output_file
+##    facets_cncf_files = os.path.abspath(args.facets_cncf_files)
+    output_file = os.path.abspath(args.output_file)
+    cmd = [ os.path.join(FACETS_DIR, "./get_gene_level_calls.R"), output_file] + args.facets_cncf_files
+    try:
+        print " ".join(cmd)
+        subprocess.check_call(" ".join(cmd), shell=True)
+    except subprocess.CalledProcessError, e:
+        print >>sys.stderr, "Error executing %s", cmd
+        sys.exit(1)
+
 
 def merge(args):
     pass 
@@ -162,11 +173,12 @@ def maf(args):
     print args.facets_sample_file
     maf_file = os.path.abspath(args.maf_file)
     facets_sample_file = os.path.abspath(args.facets_sample_file)
+    output_file = os.path.abspath(args.output_file)
     # if args.output_file:
     #     output_file = os.path.abspath(args.output_file)
     # else:
     #     output_file = os.path.basename(tumor_file).replace(".bam","") + "_"  + os.path.basename(normal_file).replace(".bam","") + ".dat.gz"
-    cmd = [ os.path.join(FACETS_DIR, "./facets_and_ccf_to_maf_md.R"), maf_file, facets_sample_file]
+    cmd = [ os.path.join(FACETS_DIR, "./facets_and_ccf_to_maf_md.R"), maf_file, facets_sample_file, output_file]
     try:
         print " ".join(cmd)
         subprocess.check_call(" ".join(cmd), shell=True)
@@ -206,7 +218,7 @@ if __name__ =='__main__':
     ### ARGUMENTS
 
     parser = argparse.ArgumentParser(description="run FACETS analysis")
-   
+    parser.add_argument("--app-version", default="0.9.5", choices=cmo.util.programs['facets'].keys())
     subparsers = parser.add_subparsers(help='sub-command help')
 
     ### ./facets.py run
@@ -223,7 +235,6 @@ if __name__ =='__main__':
     
     ### ./facets.py fromcounts
     parser_fromcounts = subparsers.add_parser('run', help='run FACETS from merged counts files')
-    parser_fromcounts.add_argument("--app-version", default="default", choices=cmo.util.programs['facets'].keys())
     parser_fromcounts.add_argument("--lib-version", default="default", choices=cmo.util.programs['facets_lib'].keys())
     parser_fromcounts.add_argument('count_file',   help='merged tumor/normal count file')
     parser_fromcounts.add_argument('tag',   help='merged tumor/normal count file')
@@ -250,11 +261,21 @@ if __name__ =='__main__':
     parser_maf.add_argument('maf_file', 
                             help='maf file for anntation, Tumor_Sample_Barcodes must correspond to FACETS sample file')
     parser_maf.add_argument('facets_sample_file', 
-                            help='Specification of FACETS output, including Purity')
+                            help='Tab-delimited file listing FACETS Rdata objects')
+    parser_maf.add_argument('output_file', 
+                            help='annotated maf file output filename')
     parser_maf.set_defaults(func=maf)
-    
+
+    parser_call = subparsers.add_parser('call', help='extract gene copy number status from FACETS results')
+    parser_call.add_argument('facets_cncf_files', nargs="+", 
+                            help='FACETS cncf.txt files')
+    parser_call.add_argument('-o', '--output_file', 
+                            help='annotated call file output filename')
+    parser_call.set_defaults(func=call)
+
     (args, facets_args) = parser.parse_known_args()
-    args.lib_version = cmo.util.programs['facets_lib'][args.lib_version]
+    if 'lib_version' in args:
+        args.lib_version = cmo.util.programs['facets_lib'][args.lib_version]
     FACETS_DIR = cmo.util.programs['facets'][args.app_version]
         
     args_dict= vars(args)
