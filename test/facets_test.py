@@ -9,6 +9,7 @@ def setup_module():
 def teardown_module():
     if TEST_TEMP_DIR is not None:
         shutil.rmtree(TEST_TEMP_DIR)
+        pass
 
 def test_getbasecounts():
     input_bam_file = os.path.join(TEST_DATA_DIR, "Chr22_hg19_TCGA-A8-A094-01A-11W-A019-09.tumor.bam")
@@ -53,11 +54,50 @@ def test_mergeTN():
 
 def test_facets():
     output_dir = os.path.join(TEST_TEMP_DIR)
-    facets_cmd = ["cmo_facets", "run", "/ifs/res/pwg/tests/cmo_testdata/facets/countsMerged____TCGA-A8-A094-01A-11W-A019-09____TCGA-A8-A094-10A-01W-A021-09.dat.gz", " H_LS-A8-A094-01A-11W-A019-09-1__H_LS-A8-A094-10A-01W-A021-09-1", TEST_TEMP_DIR, "-c 200", "-pc 300"]
+    facets_cmd = ["cmo_facets",
+                  "run",
+                  "--R_lib=/opt/common/CentOS_6-dev/R/R-3.1.3/lib64/R/library", 
+                  "--seed=1587443596", 
+                  "/ifs/res/pwg/tests/cmo_testdata/facets/countsMerged____TCGA-A8-A094-01A-11W-A019-09____TCGA-A8-A094-10A-01W-A021-09.dat.gz",
+                  "H_LS-A8-A094-01A-11W-A019-09-1__H_LS-A8-A094-10A-01W-A021-09-1",
+                  TEST_TEMP_DIR,
+                  "-c 200"]
     rv = subprocess.check_call(facets_cmd)
     assert rv==0, "facets failed to run :("
-    expected_seg_output = os.path.join(TEST_DATA_DIR, "TCGA-A8-A094-01A-11W-A019-09__TCGA-A8-A094-10A-01W-A021-09/facets_c300/", "H_LS-A8-A094-01A-11W-A019-09-1__H_LS-A8-A094-10A-01W-A021-09-1_hisens.seg")
-    test_seg_output = os.path.join(TEST_TEMP_DIR, "H_LS-A8-A094-01A-11W-A019-09-1__H_LS-A8-A094-10A-01W-A021-09-1_hisens.seg")
+    expected_seg_output = os.path.join(TEST_DATA_DIR, "facets_test_with_seed", "H_LS-A8-A094-01A-11W-A019-09-1__H_LS-A8-A094-10A-01W-A021-09-1.seg")
+    test_seg_output = os.path.join(TEST_TEMP_DIR, "H_LS-A8-A094-01A-11W-A019-09-1__H_LS-A8-A094-10A-01W-A021-09-1.seg")
+    diff_cmd = ["diff", expected_seg_output, test_seg_output]
+    rv = subprocess.check_call(diff_cmd)
+    assert rv==0, "facets test seg output differs from expected output!"
+
+def test_facets_maf():
+    output_dir = os.path.join(TEST_TEMP_DIR)
+    facets_cmd = ["cmo_facets",
+                  "maf",
+                  "--R_lib=/opt/common/CentOS_6-dev/R/R-3.1.3/lib64/R/library", 
+                  "/ifs/res/pwg/tests/cmo_testdata/facets/TCGA-A8-A094-01A-11W-A019-09.maf",
+                  "/ifs/res/pwg/tests/cmo_testdata/facets/facets_test_with_seed/facets_files.txt",
+                  os.path.join(TEST_TEMP_DIR, "TCGA-A8-A094-01A-11W-A019-09.ann.maf")]
+    rv = subprocess.check_call(facets_cmd)
+    assert rv==0, "facets failed to run :("
+    expected_seg_output = os.path.join(TEST_DATA_DIR, "TCGA-A8-A094-01A-11W-A019-09.ann.maf")
+    test_seg_output = os.path.join(TEST_TEMP_DIR, "TCGA-A8-A094-01A-11W-A019-09.ann.maf")
+    diff_cmd = ["diff", expected_seg_output, test_seg_output]
+    rv = subprocess.check_call(diff_cmd)
+    assert rv==0, "facets test seg output differs from expected output!"
+
+def test_facets_call():
+    output_dir = os.path.join(TEST_TEMP_DIR)
+    facets_cmd = ["cmo_facets",
+                  "call",
+                  "--R_lib=/opt/common/CentOS_6-dev/R/R-3.1.3/lib64/R/library", 
+                  "/ifs/res/pwg/tests/cmo_testdata/facets/facets_test_with_seed/H_LS-A8-A094-01A-11W-A019-09-1__H_LS-A8-A094-10A-01W-A021-09-1.cncf.txt",
+                  "--output_file",
+                  os.path.join(TEST_TEMP_DIR, "facets_gene_level_calls.txt")]
+    rv = subprocess.check_call(facets_cmd)
+    assert rv==0, "facets failed to run :("
+    expected_seg_output = os.path.join(TEST_DATA_DIR, "facets_test_with_seed", "facets_gene_level_calls.txt")
+    test_seg_output = os.path.join(TEST_TEMP_DIR, "facets_gene_level_calls.txt")
     diff_cmd = ["diff", expected_seg_output, test_seg_output]
     rv = subprocess.check_call(diff_cmd)
     assert rv==0, "facets test seg output differs from expected output!"

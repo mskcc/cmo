@@ -92,6 +92,7 @@ def remove_logging_options_from_dict(dict):
 TABIX_LOCATION = '/opt/common/CentOS_6/samtools/samtools-1.2/htslib-1.2.1/tabix'
 BGZIP_LOCATION = '/opt/common/CentOS_6/samtools/samtools-1.2/htslib-1.2.1/bgzip'
 SORTBED_LOCATION = '/opt/common/CentOS_6/bedtools/bedtools-2.22.0/bin/sortBed'
+#BCFTOOLS_LOCATION = '/opt/common/CentOS_6/bcftools/bcftools-1.2/bin/bcftools'
 
 def sort_vcf(vcf):
 
@@ -139,21 +140,54 @@ def tabix_file(vcf_file):
         sys.exit(1)
 
 
-def normalize_vcf(vcf_file, ref_fasta, vt_version="default"):
-    vt_command = programs['vt'][vt_version]
+def fix_contig_tag_in_vcf(vcf_file):
+
+    #OK for small files only
+    process_one = subprocess.Popen(['bcftools', 'view', '%s'%(vcf_file)], stdout=subprocess.PIPE)
+    vcf = re.sub(r'(?P<id>##contig=<ID=[^>]+)', r'\1,length=0', process_one.communicate()[0])
+    process_two = subprocess.Popen([BGZIP_LOCATION, '-c'], stdin=subprocess.PIPE, stdout=open(vcf_file,'w'))
+    process_two.communicate(input=vcf)
+
+
+def fix_contig_tag_in_vcf_by_line(vcf_file):
+
+    process_one = subprocess.Popen(['bcftools', 'view', '%s'%(vcf_file)], stdout=subprocess.PIPE)
+    process_two = subprocess.Popen([BGZIP_LOCATION, '-c'], stdin=subprocess.PIPE, stdout=open('fixed.vcf','w'))
+
+    with process_one.stdout as p:
+        for line in iter(p.readline, ''):
+            line = re.sub(r'(?P<id>##contig=<ID=[^>]+)', r'\1,length=0', line)
+            process_two.stdin.write('%s\n'%(line))
+    process_two.stdin.close()
+    process_two.wait()
+
+    cmd = ['mv', 'fixed.vcf', vcf_file]
+    subprocess.call(cmd)
+
+
+def normalize_vcf(vcf_file, ref_fasta, version="default", method='bcf'):
+    norm_command = programs[method][version]
     sorted_vcf = sort_vcf(vcf_file)
     zipped_file = bgzip(sorted_vcf)
     tabix_file(zipped_file)
     output_vcf = zipped_file.replace('.vcf', '.normalized.vcf')
-    cmd = [vt_command, 'normalize', '-r', ref_fasta, zipped_file, '-o', output_vcf, '-q', '-n']
-    print >> sys.stdout, 'VT Command: %s'%(' '.join(cmd))
-    #logger.debug('VT Command: %s'%(' '.join(cmd)))
-    #cmd = [BCFTOOLS_LOCATION, 'norm', '-m', '-', '-O', 'b', '-o', output_vcf, zipped_file] #Python vcf parser doesn't like bcftools norm output
-    #logger.info('bcftools norm Command: %s'%(' '.join(cmd)))
+    cmd = ''
+    if method == 'vt':
+        cmd = [norm_command, 'normalize', '-r', ref_fasta, zipped_file, '-o', output_vcf, '-q', '-n']
+        print >> sys.stdout, 'VT Command: %s'%(' '.join(cmd))
+        #logger.debug('VT Command: %s'%(' '.join(cmd)))
+    elif method == 'bcf':
+        cmd = [norm_command, 'norm', '-m', '-', '-O', 'b', '-o', output_vcf, zipped_file]
+        print >> sys.stdout, 'bcftools norm Command: %s'%(' '.join(cmd))
+        #logger.info('bcftools norm Command: %s'%(' '.join(cmd)))
     try:
         rv = subprocess.check_call(cmd)
+        fix_contig_tag_in_vcf_by_line(output_vcf)
+        #fix_contig_tag_in_vcf(output_vcf)
         return output_vcf
     except subprocess.CalledProcessError, e:
         print >> sys.stderr, "Non-zero exit code from normalization! Bailing out."
         #logger.critical("Non-zero exit code from normalization! Bailing out.")
         sys.exit(1)
+
+
