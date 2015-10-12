@@ -56,7 +56,6 @@ def test_facets():
     output_dir = os.path.join(TEST_TEMP_DIR)
     facets_cmd = ["cmo_facets",
                   "run",
-                  "--R_lib=/opt/common/CentOS_6-dev/R/R-3.1.3/lib64/R/library", 
                   "--seed=1587443596", 
                   "/ifs/res/pwg/tests/cmo_testdata/facets/countsMerged____TCGA-A8-A094-01A-11W-A019-09____TCGA-A8-A094-10A-01W-A021-09.dat.gz",
                   "H_LS-A8-A094-01A-11W-A019-09-1__H_LS-A8-A094-10A-01W-A021-09-1",
@@ -74,7 +73,6 @@ def test_facets_maf():
     output_dir = os.path.join(TEST_TEMP_DIR)
     facets_cmd = ["cmo_facets",
                   "maf",
-                  "--R_lib=/opt/common/CentOS_6-dev/R/R-3.1.3/lib64/R/library", 
                   "/ifs/res/pwg/tests/cmo_testdata/facets/TCGA-A8-A094-01A-11W-A019-09.maf",
                   "/ifs/res/pwg/tests/cmo_testdata/facets/facets_test_with_seed/facets_files.txt",
                   os.path.join(TEST_TEMP_DIR, "TCGA-A8-A094-01A-11W-A019-09.ann.maf")]
@@ -90,7 +88,6 @@ def test_facets_call():
     output_dir = os.path.join(TEST_TEMP_DIR)
     facets_cmd = ["cmo_facets",
                   "call",
-                  "--R_lib=/opt/common/CentOS_6-dev/R/R-3.1.3/lib64/R/library", 
                   "/ifs/res/pwg/tests/cmo_testdata/facets/facets_test_with_seed/H_LS-A8-A094-01A-11W-A019-09-1__H_LS-A8-A094-10A-01W-A021-09-1.cncf.txt",
                   "--output_file",
                   os.path.join(TEST_TEMP_DIR, "facets_gene_level_calls.txt")]
