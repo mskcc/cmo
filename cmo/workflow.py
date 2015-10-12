@@ -39,6 +39,8 @@ class Workflow():
         db = DatabaseManager()
         self.db = db
         self.launchpad = fireworks.LaunchPad.from_file(db.find_lpad_config())
+        for job in jobs_list:
+            job.spec['_queueadapter']['lpad_file']=db.find_lpad_config()
     def run(self, processing_mode, daemon_log=None):
         if not daemon_log:
             daemon_log = os.path.join(FW_WFLOW_LAUNCH_LOC, getpass.getuser(), "daemon.log")
@@ -100,6 +102,7 @@ class Workflow():
             #reconnect to mongo after fork
             print dbm.find_lpad_config()
             self.launchpad=fireworks.LaunchPad.from_file(dbm.find_lpad_config())
+            self.qadapter=dbm.find_qadapter()
             #add our pid as a running process so new daemons don't get started
             dbm.client.admin.authenticate("fireworks", "speakfriendandenter")
             db = dbm.client.daemons
@@ -113,17 +116,22 @@ class Workflow():
                 sys.exit(0)
             atexit.register(self.cleanup_daemon)
             db.daemons.insert_one({"user":getpass.getuser(), "pid":os.getpid()})
+
             while(True):
-                common_adapter  = load_object_from_file("/opt/common/CentOS_6-dev/cmo/qadapter_LSF.yaml")
+
+                common_adapter  = load_object_from_file(self.qadapter)
                 launcher_log_dir = os.path.join(FW_WFLOW_LAUNCH_LOC, getpass.getuser(), "")
                 queue_launcher.rapidfire(self.launchpad, fireworks.FWorker(name="LSF"), common_adapter, reserve=True, nlaunches=0, launch_dir=launcher_log_dir, sleep_time=10, njobs_queue=100)
                 failed_fws = []
                 time.sleep(10)
-                offline_runs =  self.launchpad.offline_runs.find({"completed": False, "deprecated": False}, {"launch_id": 1}).count()
-                self.launchpad.m_logger.info("%s offline runs found" % offline_runs)
+#                offline_runs =  self.launchpad.offline_runs.find({"completed": False, "deprecated": False}, {"launch_id": 1}).count()
+#                self.launchpad.m_logger.info("%s offline runs found" % offline_runs)
                 ready_lsf_jobs = self.launchpad.fireworks.find({"state":"READY", "spec._fworker" : "LSF"}).count()
-                self.launchpad.m_logger.info("%s ready lsf jobs found" % ready_lsf_jobs)
-                if(offline_runs == 0 and ready_lsf_jobs == 0):
+                reserved_lsf_jobs = self.launchpad.fireworks.find({"state":"RESERVED", "spec._fworker" : "LSF"}).count()
+                running_lsf_jobs = self.launchpad.fireworks.find({"state":"RUNNING", "spec._fworkers":"LSF"}).count()
+
+                self.launchpad.m_logger.info("%s ready, %s running, %s reserved lsf jobs found" % (ready_lsf_jobs, running_lsf_jobs, reserved_lsf_jobs))
+                if(ready_lsf_jobs == 0 and reserved_lsf_jobs ==0 and running_lsf_jobs==0):
                     break
                 for l in self.launchpad.offline_runs.find({"completed": False, "deprecated": False}, {"launch_id": 1}):
                     fw = self.launchpad.recover_offline(l['launch_id'], True)
@@ -137,19 +145,45 @@ class Workflow():
 
 
 class DatabaseManager():
-    def __init__(self, host="plvcbiocmo2.mskcc.org", port="27017", user=getpass.getuser()):
+    def __init__(self, host="u36.cbio.private", port="27017", user=getpass.getuser()):
         self.host=host
         self.port=port
         self.client=MongoClient(host+":"+port)
         self.user = user
     def lpad_cfg_filename(self):
         return self.user+".yaml"
+    def qadapt_cfg_filename(self):
+        return "qadapter_LSF." + self.user + ".yaml"
     def find_lpad_config(self):
         lpad_file = os.path.join(FW_LPAD_CONFIG_LOC, self.lpad_cfg_filename())
         if not os.path.exists(lpad_file):
             self.create_lpad_config()
         print >>sys.stderr, "Using %s launchpad config" % lpad_file
         return lpad_file
+    def find_qadapter(self):
+        qadapt_file = os.path.join(FW_LPAD_CONFIG_LOC, self.qadapt_cfg_filename())
+        if not os.path.exists(qadapt_file):
+            self.create_qadapt_file()
+        return qadapt_file
+    def create_qadapt_file(self):
+        qadapt_file = os.path.join(FW_LPAD_CONFIG_LOC, self.qadapt_cfg_filename())
+        fh = open(qadapt_file, "w")
+        yaml_dict = {"_fw_name" :  "CommonAdapter",
+                "_fw_q_type" : "LoadSharingFacility",
+                "_fw_template_file" : "/opt/common/CentOS_6-dev/cmo/LoadSharingFacility_template.txt",
+                "rocket_launch" : "rlaunch -l " + self.find_lpad_config() +  " singleshot",
+                "queue" : "sol",
+                "account" : "null",
+                "job_name" : "null",
+                "logdir" : "/ifs/res/pwg/logs/lsf_logs",
+                "pre_rocket" : "null",
+                "post_rocket" : "null"
+                }
+        for key,value in yaml_dict.items():
+            print >>sys.stderr, "Qadapt: %s: %s" %(key, value)
+            fh.write(key + ": " + value + "\n")
+        fh.close()
+         
     def create_lpad_config(self):
         print >>sys.stderr, "Writing new config file for your user"
         print >>sys.stderr, "Initializing a new DB will destroy any data in Mongo if you have anything there"
