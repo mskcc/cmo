@@ -1,7 +1,7 @@
 from setuptools import setup
 
 setup(name='cmo',
-        version='0.4',
+        version='0.5',
         description='Center for Molecular Oncology Python Package for Great Convenience and Enhanced Double Plus User Experiences',
         url='github.com/mskcc/mskcmo.git',
         author='Chris Harris',
