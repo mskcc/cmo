@@ -39,8 +39,6 @@ class Workflow():
         db = DatabaseManager()
         self.db = db
         self.launchpad = fireworks.LaunchPad.from_file(db.find_lpad_config())
-        for job in jobs_list:
-            job.spec['_queueadapter']['lpad_file']=db.find_lpad_config()
     def run(self, processing_mode, daemon_log=None):
         if not daemon_log:
             daemon_log = os.path.join(FW_WFLOW_LAUNCH_LOC, getpass.getuser(), "daemon.log")

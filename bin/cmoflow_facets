@@ -56,7 +56,7 @@ def main(tumorbam, normalbam, tag, facets_args, output_dir,snps=None, tumor_samp
     merged_counts = os.path.join(output_dir, "countsMerged____" + tag + ".dat.gz")
     merge_job= None
     if not os.path.exists(merged_counts):
-        merge_cmd = ["cmo_facets mergeTN"] + tumor_normal_counts + [merged_counts]
+        merge_cmd = ["cmo_facets mergeTN", "-t",  tumor_normal_counts[0], "-n", tumor_normal_counts[1], "-o", merged_counts]
         print " ".join(merge_cmd)
         merge_job = workflow.Job(" ".join(merge_cmd), est_wait_time="59", resources="rusage[mem=60]", name="mergeTN " + tag)
   
@@ -78,7 +78,7 @@ def main(tumorbam, normalbam, tag, facets_args, output_dir,snps=None, tumor_samp
     else:
         print >>sys.stderr, "created facets subdir for these settings: %s" % facets_dir
         os.makedirs(facets_dir)
-    facets_cmd = ["cmo_facets run"] + [merged_counts, tag, facets_dir] + facets_args
+    facets_cmd = ["cmo_facets", "doFacets", "-f", merged_counts, "-t", tag, "-D", facets_dir] + facets_args
     facets_job = workflow.Job(" ".join(facets_cmd), est_wait_Time="59", name="Run Facets")
     dependencies = {}
   
@@ -109,13 +109,12 @@ if __name__=='__main__':
     parser.add_argument("--normal-name", help="Override this if you don't want to use the SM: tag on the @RG tags within the bam you supply-- required if your bam doesn't have well formatted @RG SM: tags")
     parser.add_argument("--tumor-name", help="Override this if you don't want to use the SM: tag on the @RG tags in the tumor bam you supply-- required if your bam doesnt have well formatted @RG SM: tags")
     parser.add_argument("--workflow-mode", choices=["serial","LSF"], default="LSF", help="select 'serial' to run all jobs on the launching box. select 'LSF' to parallelize jobs as much as possible on luna")
-    parser.add_argument('--single-chrom', help="supply a single chrom processing argument to facets itself")
     (args, facets_args) = parser.parse_known_args()
     if args.output_dir:
-        args.output_dir = os.path.abspath(output_dir)
+        args.output_dir = os.path.abspath(args.output_dir)
     args.tumor_bam = os.path.abspath(args.tumor_bam)
     args.normal_bam = os.path.abspath(args.normal_bam)
-    main(args.tumor_bam, args.normal_bam, args.tag, facets_args, args.output_dir, snps=args.vcf, tumor_sample = args.tumor_name, normal_sample=args.normal_name, workflow_mode=args.workflow_mode, single_chrom = args.single_chrom)
+    main(args.tumor_bam, args.normal_bam, args.tag, facets_args, args.output_dir, snps=args.vcf, tumor_sample = args.tumor_name, normal_sample=args.normal_name, workflow_mode=args.workflow_mode)
 
          
 
