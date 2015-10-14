@@ -16,20 +16,21 @@ if __name__ =='__main__':
         db = workflow.DatabaseManager()
         #db.client.admin.authenticate("fireworks", "speakfriendandenter")
         pid = db.get_daemon_pid()
-        print >>sys.stderr, "Found process pid for Daemon: %s\nKilling..." % pid
-        try:
-            os.kill(pid,0)
-        except OSError:
-            print >>sys.stderr, "PID No Longer Extant"
-        else:
+        if pid:
+            print >>sys.stderr, "Found process pid for Daemon: %s\nKilling..." % pid
             try:
-                os.kill(pid, signal.sigTERM)
-            except:
-                print >>sys.stderr, "Something went wrong in process kill..l bailing out"
-                sys.exit(1)
+                os.kill(pid,0)
+            except OSError:
+                print >>sys.stderr, "PID No Longer Extant"
+            else:
+                try:
+                    os.kill(pid, signal.sigTERM)
+                except:
+                    print >>sys.stderr, "Something went wrong in process kill..l bailing out"
+                    sys.exit(1)
         #shit is removed and we didn't quit
-        print >>sys.stderr, "Removing database record!"
-        print >>sys.stderr, db.remove_daemon_pid()
+            print >>sys.stderr, "Removing database record!"
+            print >>sys.stderr, db.remove_daemon_pid()
     dummy.watcher_daemon(log_file=args.log_file)
 
 

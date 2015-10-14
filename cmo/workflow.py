@@ -126,7 +126,7 @@ class Workflow():
 #                self.launchpad.m_logger.info("%s offline runs found" % offline_runs)
                 ready_lsf_jobs = self.launchpad.fireworks.find({"state":"READY", "spec._fworker" : "LSF"}).count()
                 reserved_lsf_jobs = self.launchpad.fireworks.find({"state":"RESERVED", "spec._fworker" : "LSF"}).count()
-                running_lsf_jobs = self.launchpad.fireworks.find({"state":"RUNNING", "spec._fworkers":"LSF"}).count()
+                running_lsf_jobs = self.launchpad.fireworks.find({"state":"RUNNING", "spec._fworker":"LSF"}).count()
 
                 self.launchpad.m_logger.info("%s ready, %s running, %s reserved lsf jobs found" % (ready_lsf_jobs, running_lsf_jobs, reserved_lsf_jobs))
                 if(ready_lsf_jobs == 0 and reserved_lsf_jobs ==0 and running_lsf_jobs==0):
@@ -206,7 +206,10 @@ class DatabaseManager():
         return lpad_file
     def get_daemon_pid(self, user=getpass.getuser()):
         daemon_record = self.client.daemons.daemons.find_one({"user":user})
-        return daemon_record['pid']
+        if daemon_record:
+            return daemon_record['pid']
+        else:
+            return None
     def remove_daemon_pid(self, user=getpass.getuser()):
         return self.client.daemons.daemons.remove({"user":user})
         
