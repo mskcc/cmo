@@ -18,24 +18,32 @@ genomes = json_config['genomes']
 chr1_fingerprints = json_config['chr1_fingerprints']
 
 def infer_fasta_from_bam(bam_file):
-    get_chr1_cmd= [programs['samtools']['default'], "view -H", bam_file, "| fgrep \"@SQ\" |  head -1 | awk '{print $2,$3}'"]
-    chr1_tag = subprocess.Popen(" ".join(get_chr1_cmd), shell=True, stdout=subprocess.PIPE, stderr=open("/dev/null")).communicate()[0]
-    (chr_name, length) = chr1_tag.strip().split(" ")
-    chr_name = chr_name[3:]
-    length = length[3:]
+    get_chr1_cmd= [programs['samtools']['default'], "view -H", bam_file, "| fgrep \"@SQ\" | awk '{print $2,$3}'"]
+    chr_tags = subprocess.Popen(" ".join(get_chr1_cmd), shell=True, stdout=subprocess.PIPE, stderr=open("/dev/null")).communicate()[0]
+    chr_name = None
+    length = None
+    for line in chr_tags.split("\n"):
+        if not line:
+            break
+        (this_chr, this_length) = line.split(" ")
+        if re.search("SN:(chr)?1$", this_chr)!=None:
+            chr_name = this_chr[3:]
+            length = this_length[3:]
+    if chr_name == None:
+        #we didn't find a match
+        return(None, None)
     for candidate in chr1_fingerprints:
         if chr1_fingerprints[candidate]['name']==chr_name and chr1_fingerprints[candidate]['length']==int(length):
             print >>sys.stderr, "Inferred genome to be %s" % candidate
             return (candidate, genomes[candidate]['fasta'])
-    print >>sys.stderr, "Chromoosome 1 name %s, length %s, doesn't match any standard refs?" % (chr_name, length)
+    print >>sys.stderr, "Chromosome 1 name %s, length %s, doesn't match any standard refs?" % (chr_name, length)
     return (None, None)
 
 def infer_sample_from_bam(bam_file):
-    get_rg_cmd= [programs['samtools']['default'], "view -H", bam_file, "| fgrep \"@RG\" "]
+    get_rg_cmd= [programs['samtools']['default'], "view -H", bam_file, "| grep \"^@RG\" "]
     rg_lines = subprocess.Popen(" ".join(get_rg_cmd), shell=True, stdout=subprocess.PIPE, stderr=open("/dev/null")).communicate()[0]
     sample_dict = {}
     for rg in rg_lines.splitlines():
-        print rg
         tags = rg.split("\t")
         for tag in tags:
             if tag[0:2]=="SM":
