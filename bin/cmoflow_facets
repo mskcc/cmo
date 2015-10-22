@@ -5,7 +5,7 @@ import cmo
 #WHOA, existentially troubling, man
 PYTHON = cmo.util.programs['python']['default']
 
-def main(tumorbam, normalbam, tag, facets_args, output_dir,snps=None, tumor_sample=None, normal_sample=None, workflow_mode=None):
+def construct_workflow(tumorbam, normalbam, tag, facets_args, output_dir,snps=None, tumor_sample=None, normal_sample=None):
     #look at @RG SM: tag for samples
     if not tumor_sample: 
         tumor_sample = cmo.util.infer_sample_from_bam(tumorbam)
@@ -47,7 +47,7 @@ def main(tumorbam, normalbam, tag, facets_args, output_dir,snps=None, tumor_samp
         basecount_cmd = ["cmo_getbasecounts", "--bam", bam, "--out", out_file] + default_basecount_options
         if(snps):
             basecount_cmd = basecount_cmd + ["--vcf" ,os.path.abspath(snps)]
-        print " ".join(basecount_cmd)
+        #print " ".join(basecount_cmd)
         job = workflow.Job(" ".join(basecount_cmd), est_wait_time="59", resources="rusage[mem=40]", name="getBasecounts " + base)
 
         count_jobs.append(job)
@@ -57,16 +57,17 @@ def main(tumorbam, normalbam, tag, facets_args, output_dir,snps=None, tumor_samp
     merge_job= None
     if not os.path.exists(merged_counts):
         merge_cmd = ["cmo_facets mergeTN", "-t",  tumor_normal_counts[0], "-n", tumor_normal_counts[1], "-o", merged_counts]
-        print " ".join(merge_cmd)
+        #print " ".join(merge_cmd)
         merge_job = workflow.Job(" ".join(merge_cmd), est_wait_time="59", resources="rusage[mem=60]", name="mergeTN " + tag)
   
     #facets job
     #args will be [--foo, value] or [-f, value] in this list
-    it = iter(facets_args)
     facets_dir = "facets_"
-    if len(facets_args) ==0:
+    if not facets_args or len(facets_args) ==0:
+        facets_args = []
         facets_dir += "default"
     else:
+        it = iter(facets_args)
         for val in it:
             arg = val.lstrip("-")[0]
             value = next(it)
@@ -94,8 +95,7 @@ def main(tumorbam, normalbam, tag, facets_args, output_dir,snps=None, tumor_samp
         jobs.append(merge_job)
     #make workflow
     jobs.append(facets_job)
-    facets_workflow = workflow.Workflow(jobs, dependencies, name="Facets job " + tag)
-    facets_workflow.run(workflow_mode)
+    return (jobs, dependencies, " ".join(["Facets", tag]))
 
 
 
@@ -114,8 +114,9 @@ if __name__=='__main__':
         args.output_dir = os.path.abspath(args.output_dir)
     args.tumor_bam = os.path.abspath(args.tumor_bam)
     args.normal_bam = os.path.abspath(args.normal_bam)
-    main(args.tumor_bam, args.normal_bam, args.tag, facets_args, args.output_dir, snps=args.vcf, tumor_sample = args.tumor_name, normal_sample=args.normal_name, workflow_mode=args.workflow_mode)
-
+    (jobs, dependencies, name) = construct_worfklow(args.tumor_bam, args.normal_bam, args.tag, facets_args, args.output_dir, snps=args.vcf, tumor_sample = args.tumor_name, normal_sample=args.normal_name)
+    facets_workflow = workflow.Workflow(jobs, dependencies, name=name)
+    facets_workflow.run(args.workflow_mode)
          
 
 
