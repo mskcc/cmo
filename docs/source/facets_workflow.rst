@@ -4,9 +4,8 @@ Facets via Fireworks/LSF
 Instructions
 ###########################
 1. ssh to s01 (ask for help if you don't know what this means)
-2. download and install the CMO package at https://github.com/mskcc/cmo (install for your user with setup.py install \-\-user, as the directions say
 3. add ~/.local/bin to your path if you haven't already done this for a previous cmo install
-4. you should now have cmoflow_facets available at the command line
+4. you should have cmoflow_facets available at the command line -- if you don't, add /opt/common/CentOS_6-dev/python/python-2.7.10/bin/
 5. Minimally you need to supply \-\-tumor-bam and \-\-normal-bam
 6. CMO package will attempt to read all @RG headers and find the SM: tags, and if they all match, it will use that id
 7. If the SM: ids betweeen the two bams you supply are IDENTICAL, if they are ABSENT, or if there is MORE THAN ONE PER BAM, you will need to supply --tumor-name and normal-name as well, to manually fill in these values
@@ -14,7 +13,7 @@ Instructions
 9. it will use the same string as the TAG to identify any merged files, etc.
 10. you can specify --workflow_mode=serial to avoid running on LSF 
 11. the workflow will take about 1 hr on lsf, 1.5hr serially for 5gb input bams
-12. check on your workflow at plvcbiocmo2:8080/your_cbio_username/
+12. check on your workflow at haystack.mskcc.org:5000/your_cbio_username/
 13. facets runs that start in the same output directory will shortcut on both the readcounts and the counts merged gzipped files
 14. facets runs will autocreate a subdir of the form "facets\_\[first_param_char\]\[value\]_..." 
 15. if it detects a facets run it already has performed it will refuse to do work
