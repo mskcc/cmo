@@ -114,7 +114,7 @@ if __name__=='__main__':
         args.output_dir = os.path.abspath(args.output_dir)
     args.tumor_bam = os.path.abspath(args.tumor_bam)
     args.normal_bam = os.path.abspath(args.normal_bam)
-    (jobs, dependencies, name) = construct_worfklow(args.tumor_bam, args.normal_bam, args.tag, facets_args, args.output_dir, snps=args.vcf, tumor_sample = args.tumor_name, normal_sample=args.normal_name)
+    (jobs, dependencies, name) = construct_workflow(args.tumor_bam, args.normal_bam, args.tag, facets_args, args.output_dir, snps=args.vcf, tumor_sample = args.tumor_name, normal_sample=args.normal_name)
     facets_workflow = workflow.Workflow(jobs, dependencies, name=name)
     facets_workflow.run(args.workflow_mode)
          
