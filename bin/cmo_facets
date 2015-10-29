@@ -25,7 +25,8 @@ if __name__ =='__main__':
         lib_dir = cmo.util.programs['facets_lib'][options.lib_version]
     if(lib_dir):
         pass_through_args.append("--R_lib", lib_dir)
-    subprocess.call(facets_command, stdout=sys.stdout, stderr=sys.stderr)
+    rv = subprocess.call(facets_command, stdout=sys.stdout, stderr=sys.stderr)
+    sys.exit(rv)
 
 ##    print args
     
