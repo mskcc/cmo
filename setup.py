@@ -28,7 +28,9 @@ setup(name='cmo',
                  'bin/cmo_filter_mutect',
                  'bin/cmo_merge_mafs',
                  'bin/cmo_trinuc_and_impact',
-                 'bin/cmo_add_variant_info'
+                 'bin/cmo_add_variant_info',
+                 'bin/cmo_mutsig',
+                 'bin/cmo_make_facets_file'
                  ],
         zip_safe=False)
 
