@@ -1,0 +1,27 @@
+#!/opt/common/CentOS_6-dev/python/python-2.7.10/bin/python
+
+import argparse, os, sys,re 
+import cmo
+import glob
+
+#FIXME this SHOULD NOT take pairing file as input in long term
+#first version is for pipeline parity
+def main(pipeline_dir, output_file):
+    rdata_files = glob.glob(os.path.join(pipeline_dir, "*", "*", "*.Rdata"))
+    ofh = open(output_file, "w")
+    ofh.write("Tumor_Sample_Barcode\tRdata_filename\n")
+    for file in rdata_files:
+        (_, tumor_id) = os.path.basename(file).replace(".Rdata", "").split("__")
+        ofh.write("\t".join([tumor_id, file]) + "\n")
+    ofh.close()
+
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Do Dat PostProcessing")
+    parser.add_argument("--pipeline-dir", required=True, help="Mutect Caller output")
+    parser.add_argument("--output-file", required=True, help="facets data file")
+    args = parser.parse_args()
+    main(os.path.abspath(args.pipeline_dir), os.path.abspath(args.output_file)) 
+
+
