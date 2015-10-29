@@ -14,6 +14,17 @@ def cleanup():
             shutil.rmtree(TEMP_DIR)
     
 
+def facets_file_job(pipeline_dir, output_file):
+    ff_cmd = ['cmo_make_facets_file', '--output-file', output_file, '--pipeline-dir', pipeline_dir]
+    print >>sys.stderr ," ".join(ff_cmd)
+    return workflow.Job(" ".join(ff_cmd), name="Make Facets Data File")
+
+def maf_anno_job(facets_file, input_maf, output_maf):
+    ma_cmd = ['cmo_facets', 'mafAnno', '-m', input_maf, '-f', facets_file, '-o', output_maf]
+    print >>sys.stderr, " ".join(ma_cmd)
+    return workflow.Job(" ".join(ma_cmd), name="Annotate MAF with Facets")
+
+
 
 def filter_hap_job(input, pairing_file, output_filename, temp_dir):
     #FIXME TEMP DIRECTORY?!?!?!?
@@ -128,6 +139,7 @@ def main(pairing_file, pipeline_output_dir, project_id, output_dir, workflow_mod
     all_jobs = [haplo_filter_job, maf2maf_job, t_and_i_job, final_maf_job, merge_job]+mutect_jobs
     cmoflow_facets = distutils.spawn.find_executable("cmoflow_facets")
     if not args.no_facets:
+        terminal_facets_jobs = []
         if not cmoflow_facets:
             print >>sys.stderr, "facets not installed, can't run facets- bailing out"
             sys.exit(1)
@@ -151,9 +163,19 @@ def main(pairing_file, pipeline_output_dir, project_id, output_dir, workflow_mod
                 if not os.path.exists(output_for_facets):
                     os.makedirs(output_for_facets)
                 print >>sys.stderr, "Adding facets workflow for tumor %s, normal %s, dir %s" % (tumor_id, normal_id, output_for_facets)
-                (jobs, deps, name) = facets.construct_workflow(normal_bam, tumor_bam, None, None,output_for_facets)
+                (jobs, deps, name,terminal_job) = facets.construct_workflow(normal_bam, tumor_bam, None, None,output_for_facets)
                 all_jobs = all_jobs + jobs
                 job_deps.update(deps)
+                terminal_facets_jobs.append(terminal_job)
+        facets_data_file = os.path.join(output_dir, "facets_data_file")
+        ff_job = facets_file_job(output_dir, facets_data_file)
+        for job in terminal_facets_jobs:
+            job_deps[job]=[ff_job]
+        final_output_w_facets = os.path.join(output_dir, project_id + "___SOMATIC.vep.facets_anno.maf")
+        mafanno_job = maf_anno_job(facets_data_file, final_output, final_output_w_facets) 
+        job_deps[final_maf_job]=[mafanno_job]
+        job_deps[ff_job]=[mafanno_job]
+        all_jobs = all_jobs + [ff_job, mafanno_job]
     post_process_workflow =workflow.Workflow(all_jobs, job_deps, name="PostProcess:"+project_id)
     post_process_workflow.run(workflow_mode)
 
