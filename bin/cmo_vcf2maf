@@ -1,21 +1,23 @@
 #!/opt/common/CentOS_6-dev/python/python-2.7.10/bin/python
 
-import argparse, os, sys, re, subprocess,itertools
+import argparse, os, sys, re, subprocess, itertools, glob
 import cmo
 
-def parse_vcf2maf_help(vcf2maf_cmd):
-    bwa_help = subprocess.Popen("perl " + vcf2maf_cmd +" -h",stdout=subprocess.PIPE,shell=True).communicate()[0]
-    valid_args = re.findall(r"\s+(--[\S_]+)\s+([\S \t]+)\n?", bwa_help, re.M)
+def parse_script_help(script_path):
+    perl = cmo.util.programs['perl']['default']
+    help_text = subprocess.Popen(" ".join([perl, script_path, "-h"]),stdout=subprocess.PIPE,shell=True).communicate()[0]
+    valid_args = re.findall(r"\s+(--[\S_]+)\s+([\S \t]+)\n?", help_text, re.M)
     return dict(valid_args)
 
 if __name__ =='__main__':
+    # We'll first need to figure out which version to run with "-h" to parse the help text
     preparser = argparse.ArgumentParser(description="run vcf2maf", add_help=False)
-    preparser.add_argument("--genome", choices=cmo.util.genomes.keys(), default="hg19")
     preparser.add_argument("--version", choices=cmo.util.programs['vcf2maf'].keys(), default="default")
+    preparser.add_argument("--vep-release", choices=cmo.util.programs['vep'].keys(), default="default")
     options, _ = preparser.parse_known_args()
-    vcf2maf_script = cmo.util.programs['vcf2maf'][options.version] + "vcf2maf.pl"
-    args_dict = parse_vcf2maf_help(vcf2maf_script)
-    parser = argparse.ArgumentParser(parents = [preparser], add_help=True, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    script_path = cmo.util.programs['vcf2maf'][options.version] + "vcf2maf.pl"
+    args_dict = parse_script_help(script_path)
+    parser = argparse.ArgumentParser(parents = [preparser], add_help=True)
     for arg, description in args_dict.items():
         if arg == "--help":
             continue
@@ -24,19 +26,15 @@ if __name__ =='__main__':
     args = parser.parse_args()
     fasta = cmo.util.genomes[args.genome]['fasta']
     args_dict = vars(args)
-    for key in ["genome", "version"]:
+    for key in ["version"]:
         del args_dict[key]
     args_dict['ref-fasta']=fasta
-    cmd = ["perl", vcf2maf_script]
-    stderr=args.stderr
-    stdout=args.stdout
+    cmd = [cmo.util.programs['perl']['default'], script_path]
+    stderr = args.stderr
+    stdout = args.stdout
     args_dict = dict((k, v) for k, v in args_dict.iteritems() if v)
     cmo.util.remove_logging_options_from_dict(args_dict)
     for arg, value in args_dict.items():
-        arg= arg.replace("_","-")
+        arg = arg.replace("_","-")
         cmd = cmd + ["--"+arg, value]
     cmo.util.call_cmd(" ".join(cmd), stdout=stdout, stderr=stderr)
-
-
-
-
