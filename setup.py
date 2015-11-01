@@ -3,7 +3,7 @@ from setuptools import setup
 setup(name='cmo',
         version='0.5',
         description='Center for Molecular Oncology Python Package for Great Convenience and Enhanced Double Plus User Experiences',
-        url='github.com/mskcc/mskcmo.git',
+        url='github.com/mskcc/cmo.git',
         author='Chris Harris',
         author_email='harrisc2@mskcc.org',
         licence='GPLv3',
