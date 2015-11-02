@@ -1,0 +1,257 @@
+=========================
+Postprocessing Exome Pipeline Output
+=========================
+Instructions
+###########################
+1. ssh to s01 (ask for help if you don't know what this means)
+3. add ~/.local/bin to your path if you haven't already done this for a previous cmo install
+4. you should have cmoflow_postprocess at the command line -- if you don't, add /opt/common/CentOS_6-dev/python/python-2.7.10/bin/ to your path
+5. You need a sample pairing file from BIC and the location of the BIC project Directory.
+6. The sample pairing file should have the form: Normal Sample ID<tab>Tumor Sample id- it should maybe be found in/ifs/projects/CMO/, but it may be different for your specific project
+7. This workflow will also run FACETS for you on all your samples, unless you specify --no-facets
+10. you can specify --workflow_mode=serial to avoid running on LSF 
+11. The workflow will complete in about an hour WITHOUT Facets on LSF, maybe 2-3 with Facets depending on disk and bam sizes
+12. The workflow will provide you the following in the MAF:
+
+    a) VEP Annotation
+    b) Facets Gene Level Calls
+    c) Trinucleotide Context of any variants
+    d) IMPACT410 membership status (T/F)
+
+
+.. image:: images/TvceW.gif
+
+
+Notes
+###########################
+
+A daemon is a process that runs as you and stays behind on s01 after you launch the script to monitor your job.
+
+If you launch more workflows during this time, the daemon will start monitoring those too- you shouldn't be able to start more than one daemon, no matter how hard you try.
+
+Once the daemon is satisfied all jobs have completed, it will exit on its own.
+
+
+Code sample for coding other worfklows
+#########################################
+
+.. code-block:: python
+
+    #!/opt/common/CentOS_6-dev/python/python-2.7.10/bin/python
+    from cmo import workflow
+    import argparse, os, sys, re, glob
+    import cmo 
+    import tempfile, atexit, shutil
+    import distutils.spawn, imp
+
+    TEMP_DIR=None
+    KEEP_TEMP=False
+    @atexit.register
+    def cleanup():
+        if TEMP_DIR and os.path.exists(TEMP_DIR):
+            if not KEEP_TEMP:
+                shutil.rmtree(TEMP_DIR)
+        
+
+    def facets_file_job(pipeline_dir, output_file):
+        ff_cmd = ['cmo_make_facets_file', '--output-file', output_file, '--pipeline-dir', pipeline_dir]
+        print >>sys.stderr ," ".join(ff_cmd)
+        return workflow.Job(" ".join(ff_cmd), name="Make Facets Data File")
+
+    def maf_anno_job(facets_file, input_maf, output_maf):
+        ma_cmd = ['cmo_facets', 'mafAnno', '-m', input_maf, '-f', facets_file, '-o', output_maf]
+        print >>sys.stderr, " ".join(ma_cmd)
+        return workflow.Job(" ".join(ma_cmd), name="Annotate MAF with Facets")
+
+
+
+    def filter_hap_job(input, pairing_file, output_filename, temp_dir):
+        #FIXME TEMP DIRECTORY?!?!?!?
+        haplo_cmd = ["cmo_filter_haplotype", "--pairing-file", pairing_file, "--haplotype-vcf", input, "--output-file", output_filename, "--temp-dir", temp_dir]
+        print >>sys.stderr, " ".join(haplo_cmd)
+        return workflow.Job(" ".join(haplo_cmd),name="Filt.Haplotype")
+
+    def filter_mutect_job(input, pairing_file, output_filename, temp_dir):
+        cmd = ["cmo_filter_mutect", "--pairing-file", pairing_file, "--mutect-vcf", os.path.abspath(input), "--output-file", output_filename, '--temp-dir', temp_dir ]
+        print >>sys.stderr, " ".join(cmd)
+        return (workflow.Job(" ".join(cmd), name="Filt.Mutect"))
+
+    def merged_maf_job(maf_inputs, merged_maf_name):
+        merge_mafs_cmd = ["cmo_merge_mafs", " ".join(maf_inputs), "--output-file", merged_maf_name]
+        print >>sys.stderr, " ".join(merge_mafs_cmd)
+        return workflow.Job(" ".join(merge_mafs_cmd), name="Merge Mafs")
+
+    def trinuc_and_impact_job(merged_maf_name, seq_output, impact_output):
+        trinuc_cmd = ["cmo_trinuc_and_impact" , "--source-file", merged_maf_name, 
+                "--genome", "hg19", 
+                "--output-seq", seq_output, 
+                "--output-impact", impact_output]
+        print >>sys.stderr, " ".join(trinuc_cmd)
+        return workflow.Job(" ".join(trinuc_cmd), name="Trinuc and Impact")
+
+    def maf2maf(merged_maf_name, output_file):
+        output_file = os.path.abspath(output_file)
+        maf2maf_cmd = ['cmo_maf2maf', '--version=develop', '--vep-forks 12', 
+                '--vep-path', cmo.util.programs['vep']['default'], '--vep-data', 
+                cmo.util.programs['vep']['default'], 
+                '--retain-cols', 
+                'Center,Verification_Status,Validation_Status,Mutation_Status,Sequencing_Phase,Sequence_Source,Validation_Method,Score,BAM_file,Sequencer,Tumor_Sample_UUID,Matched_Norm_Sample_UUID,Caller',
+                '--custom-enst', os.path.join(cmo.util.programs['vcf2maf']['develop'], "data", "isoform_overrides_at_mskcc"),
+                '--input-maf', merged_maf_name,
+                '--output-maf', output_file
+                ]
+        print >>sys.stderr, " ".join(maf2maf_cmd)
+        return workflow.Job(" ".join(maf2maf_cmd), name="maf2maf")
+
+    def add_variant_info(seq_input, impact_pos_input, orig_maf, output_file):
+        add_var_info_cmd = ['cmo_add_variant_info', '--sequence-data-file',
+                seq_input, '--impact-positions', impact_pos_input,
+                '--original-maf', orig_maf, '--output-file', output_file]
+        return workflow.Job(" ".join(add_var_info_cmd), name="Add Variant Info")
+
+
+
+    def main(pairing_file, pipeline_output_dir, project_id, output_dir, workflow_mode, temp_dir):
+        pipeline_output_dir = os.path.abspath(pipeline_output_dir)
+        pairing_file = os.path.abspath(pairing_file)
+        output_dir = os.path.abspath(output_dir)
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+        haplotype_vcf_pattern = os.path.join(pipeline_output_dir, "variants",  "haplotypecaller", "*_HaplotypeCaller.vcf")
+        if not project_id:
+            print pipeline_output_dir
+            m = re.search("(Proj_\d+(?:_\S)?)", pipeline_output_dir)
+            if not m:
+                print >>sys.stderr, "Unable to find a PROJ_[NUMBER]_[A-Z] string in pipeline dir name"
+                print >>sys.stderr, "Supply a PROJECT ID at command line to run with this dir."
+                print >>sys.stderr, "Bailing out!"
+                sys.exit(1)
+        project_id = m.group(1)
+        try:
+            haplotype_vcf = glob.glob(haplotype_vcf_pattern)[0]
+        except:
+            print >>sys.stderr, "No Haplotype VCF found with %s glob pattern" % haplotype_vcf_pattern
+        ##########MAKE JOBS#############################
+        ####HAPMAF OUTPUT NAME
+        hapmaf_filename = project_id + "___qSomHC_InDels__TCGA_MAF.txt"
+        hapmaf_filename = os.path.join(output_dir, hapmaf_filename)
+        #HAPMAF JOB
+        haplo_filter_job = filter_hap_job(haplotype_vcf, pairing_file, hapmaf_filename, temp_dir)
+        mutect_dir = os.path.join(pipeline_output_dir, "variants", "mutect", "")
+        mutect_vcfs = glob.glob(os.path.join(mutect_dir, "*.vcf"))
+        mutect_jobs = list()
+        maf_outputs = [hapmaf_filename]
+        #MAKE ALL MUTECT OUTPUTS AND JOBS
+        for vcf in mutect_vcfs:
+            output_file = os.path.basename(vcf.replace(".vcf", ".DMP_FILTER.maf"))
+            output_file = os.path.join(output_dir, output_file)
+            job = filter_mutect_job(vcf, pairing_file, output_file, temp_dir)
+            maf_outputs.append(output_file)
+            mutect_jobs.append(job)
+        #FIXME TEMP DIR!?!?!?!?!?
+        ###########DONE WITH MAF FIXING NOW MERGING AND EXTRA ANNOTATION JOBS
+        #OUTPUT NAMES OF MERGE JOB
+        merged_maf_name = os.path.join(output_dir, "merge_maf3")
+        #MERGE JOB
+        merge_job = merged_maf_job(maf_outputs, merged_maf_name)
+        #OUTPUT NAMES OF TRINUC/IMPACT JOB 
+        merged_seq = os.path.join(output_dir, "merged_maf3.seq")
+        merged_impact_pos = os.path.join(output_dir, "merged_maf3.impact410")
+        #TRINUC IMPACT JOB
+        t_and_i_job = trinuc_and_impact_job(merged_maf_name, merged_seq, merged_impact_pos)
+        #OUTPUT NAME OF MAF2MAF
+        maf_w_vep = os.path.join(output_dir, "merge_maf3.vep")
+        #maf2maf JOB
+        maf2maf_job = maf2maf(merged_maf_name, maf_w_vep) 
+        #FINAL OUTPUT NAME
+        final_output = os.path.join(output_dir, project_id + "___SOMATIC.vep.maf")
+        #ADD VARIANT INFO JOB
+        final_maf_job = add_variant_info(merged_seq, merged_impact_pos, maf_w_vep, final_output)
+        ###### dependencies
+        job_deps = dict()
+        job_deps[haplo_filter_job]=[merge_job]
+        for job in mutect_jobs:
+            job_deps[job]=[merge_job]
+        job_deps[merge_job]=[t_and_i_job, maf2maf_job]
+        job_deps[maf2maf_job]=[final_maf_job]
+        job_deps[t_and_i_job]=[final_maf_job]
+        all_jobs = [haplo_filter_job, maf2maf_job, t_and_i_job, final_maf_job, merge_job]+mutect_jobs
+        cmoflow_facets = distutils.spawn.find_executable("cmoflow_facets")
+        if not args.no_facets:
+            terminal_facets_jobs = []
+            if not cmoflow_facets:
+                print >>sys.stderr, "facets not installed, can't run facets- bailing out"
+                sys.exit(1)
+            else:
+                facets = imp.load_source("facets", cmoflow_facets)
+                pair_fh = open(pairing_file, "r")
+                while(1):
+                    line = pair_fh.readline()
+                    if not line:
+                        break
+                    (normal_id, tumor_id) = line.rstrip().split("\t")
+                    normal_bam =find_bam(normal_id, pipeline_output_dir)
+                    tumor_bam = find_bam(tumor_id, pipeline_output_dir)
+                    if not tumor_bam:
+                        print >>sys.stderr, "SKIPPING FACETS FOR %s, bam not found" % tumor_id
+                        continue
+                    if not normal_bam: 
+                        print >>sys.stderr, "SKIPPING FACETS FOR %s, bam not found" % normal_id
+                        continue
+                    output_for_facets = os.path.join(output_dir, tumor_id + "__" + normal_id)
+                    if not os.path.exists(output_for_facets):
+                        os.makedirs(output_for_facets)
+                    print >>sys.stderr, "Adding facets workflow for tumor %s, normal %s, dir %s" % (tumor_id, normal_id, output_for_facets)
+                    (jobs, deps, name,terminal_job) = facets.construct_workflow(normal_bam, tumor_bam, None, None,output_for_facets)
+                    all_jobs = all_jobs + jobs
+                    job_deps.update(deps)
+                    terminal_facets_jobs.append(terminal_job)
+            facets_data_file = os.path.join(output_dir, "facets_data_file")
+            ff_job = facets_file_job(output_dir, facets_data_file)
+            for job in terminal_facets_jobs:
+                job_deps[job]=[ff_job]
+            final_output_w_facets = os.path.join(output_dir, project_id + "___SOMATIC.vep.facets_anno.maf")
+            mafanno_job = maf_anno_job(facets_data_file, final_output, final_output_w_facets) 
+            job_deps[final_maf_job]=[mafanno_job]
+            job_deps[ff_job]=[mafanno_job]
+            all_jobs = all_jobs + [ff_job, mafanno_job]
+        post_process_workflow =workflow.Workflow(all_jobs, job_deps, name="PostProcess:"+project_id)
+        post_process_workflow.run(workflow_mode)
+
+
+
+    def find_bam(id, dir):
+        for file in os.listdir(os.path.join(dir, "alignments/")):
+            if file.find(id) > -1:
+                if file.find(".bam")>-1:
+                    return os.path.join(dir, "alignments/", file)
+
+
+        
+
+
+
+          
+
+
+    if __name__=='__main__':
+        parser = argparse.ArgumentParser(description="PostProcess a BIC exome project on luna!", epilog="The postprocess workflow is responsible for taking an exome's default Bioinformatics Core output and refining it into a monolithic, filtered MAF suitable for use for most analysis.  The maf includes: VEP annotation, trinucleotide context, impact410 target membership, and all the standard columns you've come to know and love. This workflow will also optionally run FACETS for you on all samples with default settings, and include gene level calls into the MAF.")
+        parser.add_argument("--pairing-file", required=True, help="The pairing filee")
+        parser.add_argument("--pipeline-output-dir", required=True, help="The pipeline output directory")
+        parser.add_argument("--project-id", help="Optionally override project ID dir name searching...")
+        parser.add_argument("--workflow-mode", default="LSF", help="Serial or LSF work mode")
+        parser.add_argument("--output-dir", required=True, help="place to put results")
+        parser.add_argument("--temp-dir", default="/ifs/work/tmp/", help="place to put intermediate files. deleted at end by default")
+        parser.add_argument("--keep-temp", action='store_true', help="specify this flag to keep temporary files")
+        parser.add_argument("--no-facets", action='store_true', help="don't add facets jobs too")
+        args = parser.parse_args()
+        TEMP_DIR = tempfile.mkdtemp(prefix=args.temp_dir)
+        print >>sys.stderr, "using %s for temp directory" % TEMP_DIR
+        if args.keep_temp:
+            KEEP_TEMP=True
+        main(args.pairing_file, args.pipeline_output_dir, args.project_id, args.output_dir, args.workflow_mode, TEMP_DIR)
+
+      
+             
+
+

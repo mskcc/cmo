@@ -4,7 +4,7 @@ Fireworks
 HEADS UP! ITS A GUI
 ###################
 
-http://plvcbiocmo2.mskcc.org:8080/cmo/
+http://haystack.mskcc.org:5000/cmo/
 
 .. image:: images/PLEHG.gif
 
@@ -16,7 +16,6 @@ Check this webpage for the status of launched fireworks workflows (even serial o
 Writing your first workflow
 ###########################
 1. ssh to s01 (ask for help if you don't know what this means)
-2. download and install the CMO package at https://github.com/mskcc/cmo (install for your user with setup.py install --user, as the directions say
 3. https://github.com/mskcc/cmo/blob/master/wrapper_template/wrapper_example look over this example code
 
 Example Script

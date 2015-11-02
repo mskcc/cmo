@@ -14,6 +14,7 @@ Contents:
    philosophy
    wrappers
    Facets Workflow <facets_workflow>
+   Postprocess Exome Workflow <postprocess_workflow>
    fireworks
    List of Wrappers <wrapperlist>
 
