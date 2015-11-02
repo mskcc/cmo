@@ -196,11 +196,11 @@ def find_bam(id, dir):
 
 
 if __name__=='__main__':
-    parser = argparse.ArgumentParser(description="Run PostProcess on luna!", epilog="Wow this is a fun thing")
+    parser = argparse.ArgumentParser(description="PostProcess a BIC exome project on luna!", epilog="The postprocess workflow is responsible for taking an exome's default Bioinformatics Core output and refining it into a monolithic, filtered MAF suitable for use for most analysis.  The maf includes: VEP annotation, trinucleotide context, impact410 target membership, and all the standard columns you've come to know and love. This workflow will also optionally run FACETS for you on all samples with default settings, and include gene level calls into the MAF.")
     parser.add_argument("--pairing-file", required=True, help="The pairing filee")
     parser.add_argument("--pipeline-output-dir", required=True, help="The pipeline output directory")
     parser.add_argument("--project-id", help="Optionally override project ID dir name searching...")
-    parser.add_argument("--workflow-mode", default="serial", help="Serial or LSF work mode")
+    parser.add_argument("--workflow-mode", default="LSF", help="Serial or LSF work mode")
     parser.add_argument("--output-dir", required=True, help="place to put results")
     parser.add_argument("--temp-dir", default="/ifs/work/tmp/", help="place to put intermediate files. deleted at end by default")
     parser.add_argument("--keep-temp", action='store_true', help="specify this flag to keep temporary files")
