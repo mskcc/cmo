@@ -1,7 +1,7 @@
 from setuptools import setup
 
 setup(name='cmo',
-        version='0.5',
+        version='0.6',
         description='Center for Molecular Oncology Python Package for Great Convenience and Enhanced Double Plus User Experiences',
         url='github.com/mskcc/mskcmo.git',
         author='Chris Harris',
@@ -30,7 +30,8 @@ setup(name='cmo',
                  'bin/cmo_trinuc_and_impact',
                  'bin/cmo_add_variant_info',
                  'bin/cmo_mutsig',
-                 'bin/cmo_make_facets_file'
+                 'bin/cmo_make_facets_file',
+                 'bin/cmo_abra'
                  ],
         zip_safe=False)
 
