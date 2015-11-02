@@ -1,40 +1,63 @@
 #!/opt/common/CentOS_6-dev/python/python-2.7.10/bin/python
 
-import argparse, os, sys, re, subprocess,itertools
+import argparse, os, sys, re, subprocess, itertools, glob
 import cmo
 
-def parse_maf2maf_help(maf2maf_cmd):
+def parse_script_help(script_path):
     perl = cmo.util.programs['perl']['default']
-    bwa_help = subprocess.Popen(" ".join([perl, maf2maf_cmd, "-h"]),stdout=subprocess.PIPE,shell=True).communicate()[0]
-    valid_args = re.findall(r"\s+(--[\S_]+)\s+([\S \t]+)\n?", bwa_help, re.M)
+    help_text = subprocess.Popen(" ".join([perl, script_path, "-h"]),stdout=subprocess.PIPE,shell=True).communicate()[0]
+    valid_args = re.findall(r"\s+(--[\S_]+)\s+([\S \t]+)\n?", help_text, re.M)
     return dict(valid_args)
 
 if __name__ =='__main__':
+    # We'll first need to figure out which version to run with "-h" to parse the help text
     preparser = argparse.ArgumentParser(description="run maf2maf", add_help=False)
-    preparser.add_argument("--version", choices=cmo.util.programs['vcf2maf'].keys(), default="default" )
+    preparser.add_argument("--version", choices=cmo.util.programs['vcf2maf'].keys(), default="default")
+    preparser.add_argument("--vep-release", choices=cmo.util.programs['vep'].keys(), default="default")
+    preparser.add_argument("--species", choices=["homo_sapiens","mus_musculus"], default="homo_sapiens")
+    preparser.add_argument("--ncbi-build", choices=["GRCh37","GRCh38","GRCm37"], default="GRCh37")
     options, _ = preparser.parse_known_args()
-    maf2maf_script = cmo.util.programs['vcf2maf'][options.version] + "maf2maf.pl"
-    args_dict = parse_maf2maf_help(maf2maf_script)
-    parser = argparse.ArgumentParser(parents = [preparser], add_help=True, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+
+    script_path = cmo.util.programs['vcf2maf'][options.version] + "maf2maf.pl"
+    args_dict = parse_script_help(script_path)
+    parser = argparse.ArgumentParser(parents = [preparser], add_help=True)
+
     for arg, description in args_dict.items():
-        if arg == "--help":
+        # Hide a few arguments from the user so we can populate them ourselves
+        if arg in ["--help","--man","--vep-path","--vep-data","--ref-fasta","--species","--ncbi-build"]:
             continue
         parser.add_argument(arg,action="store", metavar='', help=description)
     cmo.util.add_logging_options(parser)
     args = parser.parse_args()
-    fasta = "/ifs/res/pwg/data/assemblies/homo_sapiens/hg19/hg19.fasta"
+
+    # After fetching user's args, modify/add appropriately for the actual script
     args_dict = vars(args)
-    for key in ["version"]:
+    for key in ["version","vep_release"]:
         del args_dict[key]
-    args_dict['ref-fasta']=fasta
-    cmd = [cmo.util.programs['perl']['default'], maf2maf_script]
+
+    # Locate the VEP install, and files within it based on the species/build that the user wants
+    vep_dir = cmo.util.programs['vep'][options.vep_release]
+    args_dict["vep_path"] = vep_dir
+    args_dict["vep_data"] = vep_dir
+    [fasta] = glob.glob(vep_dir + options.species + "/*_" + options.ncbi_build + "/" + '*.fa.gz')
+    args_dict["ref_fasta"] = fasta
+
+    # Enforce the following as defaults across CMO, unless user wants something else
+    if not args_dict["custom_enst"]:
+        args_dict["custom_enst"] = cmo.util.programs['vcf2maf'][options.version] + "data/isoform_overrides_at_mskcc"
+    if not args_dict["retain_cols"]:
+        args_dict["retain_cols"] = "Center,Verification_Status,Validation_Status,Mutation_Status,Sequencing_Phase,Sequence_Source,Validation_Method,Score,BAM_file,Sequencer,Tumor_Sample_UUID,Matched_Norm_Sample_UUID,Caller"
+
+    # Build the command we're going to run
+    cmd = [cmo.util.programs['perl']['default'], script_path]
     stderr = args.stderr
     stdout = args.stdout
+    # Trim out arguments without values, and also any args that might mess with our logging
     args_dict = dict((k, v) for k, v in args_dict.iteritems() if v)
+    cmo.util.remove_logging_options_from_dict(args_dict)
+
+    # Make sure the arguments are in a format that the script will accept, and kick it off
     for arg, value in args_dict.items():
-        arg= arg.replace("_","-")
+        arg = arg.replace("_","-")
         cmd = cmd + ["--"+arg, value]
     cmo.util.call_cmd(" ".join(cmd), stdout=stdout, stderr=stderr)
-
-
-

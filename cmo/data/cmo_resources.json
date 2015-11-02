@@ -1,135 +1,182 @@
-{ "programs" : 
+{
+    "programs": 
     {
-        "abra" :
-        {"default":"/opt/common/CentOS_6/abra/abra-0.92/abra.jar",
-         "0.92":"/opt/common/CentOS_6/abra/abra-0.92/abra.jar",
-         "0.91":"/opt/common/CentOS_6/abra/abra-0.91/abra.jar"
+        "abra":
+        {
+            "default":"/opt/common/CentOS_6/abra/abra-0.92/abra.jar",
+            "0.92":"/opt/common/CentOS_6/abra/abra-0.92/abra.jar",
+            "0.91":"/opt/common/CentOS_6/abra/abra-0.91/abra.jar"
         },
         "bwa":
-        {"default":"/opt/common/CentOS_6/bwa/bwa-0.7.12/bwa",
-         "0.7.12":"/opt/common/CentOS_6/bwa/bwa-0.7.12/bwa",
-         "0.7.10":"/opt/common/CentOS_6/bwa/bwa-0.7.10/bwa"
+        {
+            "default":"/opt/common/CentOS_6/bwa/bwa-0.7.12/bwa",
+            "0.7.12":"/opt/common/CentOS_6/bwa/bwa-0.7.12/bwa",
+            "0.7.10":"/opt/common/CentOS_6/bwa/bwa-0.7.10/bwa"
         },
         "gatk":
-        {"default":"/opt/common/CentOS_6/gatk/GenomeAnalysisTK-3.4-0-g7e26428/GenomeAnalysisTK.jar",
-         "3.2-2":"opt/common/CentOS_6/gatk/GenomeAnalysisTK-3.2-2-gec30cee/GenomeAnalysisTK.jar",
-         "3.3-0":"/opt/common/CentOS_6/gatk/GenomeAnalysisTK-3.3-0/GenomeAnalysisTK.jar",
-         "3.4-0":"/opt/common/CentOS_6/gatk/GenomeAnalysisTK-3.4-0-g7e26428/GenomeAnalysisTK.jar"
+        {
+            "default":"/opt/common/CentOS_6/gatk/GenomeAnalysisTK-3.4-0-g7e26428/GenomeAnalysisTK.jar",
+            "3.2-2":"opt/common/CentOS_6/gatk/GenomeAnalysisTK-3.2-2-gec30cee/GenomeAnalysisTK.jar",
+            "3.3-0":"/opt/common/CentOS_6/gatk/GenomeAnalysisTK-3.3-0/GenomeAnalysisTK.jar",
+            "3.4-0":"/opt/common/CentOS_6/gatk/GenomeAnalysisTK-3.4-0-g7e26428/GenomeAnalysisTK.jar"
         },
-       "samtools":
-        {"default":"/opt/common/CentOS_6/samtools/samtools-0.1.19/samtools",
-         "0.1.19":"/opt/common/CentOS_6/samtools/samtools-0.1.19/samtools"
+        "samtools":
+        {
+            "default":"/opt/common/CentOS_6/samtools/samtools-1.2/samtools",
+            "0.1.19":"/opt/common/CentOS_6/samtools/samtools-0.1.19/samtools",
+            "0.1.2":"/opt/common/CentOS_6/samtools/samtools-1.2/samtools"
         },
-       "picard" :
-        {"default":"/opt/common/CentOS_6/picard/picard-tools-1.129/picard.jar",
-         "1.124":"/opt/common/CentOS_6/picard/picard-tools-1.124/picard.jar",
-         "1.129":"/opt/common/CentOS_6/picard/picard-tools-1.129/picard.jar"
+        "picard":
+        {
+            "default":"/opt/common/CentOS_6/picard/picard-tools-1.129/picard.jar",
+            "1.124":"/opt/common/CentOS_6/picard/picard-tools-1.124/picard.jar",
+            "1.129":"/opt/common/CentOS_6/picard/picard-tools-1.129/picard.jar"
         },
-        "java" :
-        {"default":"/opt/common/CentOS_6/java/jdk1.7.0_75/bin/java",
-         "jdk1.7.0_75":"/opt/common/CentOS_6/java/jdk1.7.0_75/bin/java",
-         "jdk1.8.0_25":"/opt/common/CentOS_6/java/jdk1.8.0_25/bin/java",
-         "jdk1.8.0_31":"/opt/common/CentOS_6/java/jdk1.8.0_31/bin/java",
-         "jre1.7.0_75":"/opt/common/CentOS_6/java/jre1.7.0_75/bin/java"
+        "java":
+        {
+            "default":"/opt/common/CentOS_6/java/jdk1.7.0_75/bin/java",
+            "jdk1.7.0_75":"/opt/common/CentOS_6/java/jdk1.7.0_75/bin/java",
+            "jdk1.8.0_25":"/opt/common/CentOS_6/java/jdk1.8.0_25/bin/java",
+            "jdk1.8.0_31":"/opt/common/CentOS_6/java/jdk1.8.0_31/bin/java",
+            "jre1.7.0_75":"/opt/common/CentOS_6/java/jre1.7.0_75/bin/java"
         },
         "vcf2maf":
         {
-         "default":"/opt/common/CentOS_6-dev/vcf2maf/v1.5.4/vcf2maf.pl",
-         "1.5.1":"/opt/common/CentOS_6-dev/vcf2maf/v1.5.1/vcf2maf.pl",
-         "1.5.3":"/opt/common/CentOS_6-dev/vcf2maf/v1.5.3/vcf2maf.pl",
-         "1.5.2":"/opt/common/CentOS_6-dev/vcf2maf/v1.5.2/vcf2maf.pl",
-         "1.5.4":"/opt/common/CentOS_6-dev/vcf2maf/v1.5.4/vcf2maf.pl"
-        },
-        "maf2maf":
-        {
-         "default":"/opt/common/CentOS_6-dev/vcf2maf/v1.5.4/maf2maf.pl",
-         "1.5.1":"/opt/common/CentOS_6-dev/vcf2maf/v1.5.1/maf2maf.pl",
-         "1.5.3":"/opt/common/CentOS_6-dev/vcf2maf/v1.5.3/maf2maf.pl",
-         "1.5.2":"/opt/common/CentOS_6-dev/vcf2maf/v1.5.2/maf2maf.pl",
-         "1.5.4":"/opt/common/CentOS_6-dev/vcf2maf/v1.5.4/maf2maf.pl"
-        },
-        "maf2vcf":
-        {
-         "default":"/opt/common/CentOS_6-dev/vcf2maf/v1.5.4/maf2vcf.pl",
-         "1.5.1":"/opt/common/CentOS_6-dev/vcf2maf/v1.5.1/maf2vcf.pl",
-         "1.5.3":"/opt/common/CentOS_6-dev/vcf2maf/v1.5.3/maf2vcf.pl",
-         "1.5.2":"/opt/common/CentOS_6-dev/vcf2maf/v1.5.2/maf2vcf.pl",
-         "1.5.4":"/opt/common/CentOS_6-dev/vcf2maf/v1.5.4/maf2vcf.pl"
+            "default":"/opt/common/CentOS_6-dev/vcf2maf/v1.6.3/",
+            "1.6.1":"/opt/common/CentOS_6-dev/vcf2maf/v1.6.1/",
+            "1.6.2":"/opt/common/CentOS_6-dev/vcf2maf/v1.6.2/",
+            "1.6.3":"/opt/common/CentOS_6-dev/vcf2maf/v1.6.3/",
+            "develop":"/opt/common/CentOS_6-dev/vcf2maf/develop/"
         },
         "mutect":
         {
-         "default":"/opt/common/CentOS_6-dev/mutect/v1.1.8/mutect.jar",
-         "1.1.4":"/opt/common/CentOS_6-dev/mutect/v1.1.4/mutect.jar",
-         "1.1.7":"/opt/common/CentOS_6-dev/mutect/v1.1.7/mutect.jar",
-         "1.1.8":"/opt/common/CentOS_6-dev/mutect/v1.1.8/mutect.jar"
+            "default":"/opt/common/CentOS_6-dev/mutect/v1.1.8/mutect.jar",
+            "1.1.4":"/opt/common/CentOS_6-dev/mutect/v1.1.4/mutect.jar",
+            "1.1.7":"/opt/common/CentOS_6-dev/mutect/v1.1.7/mutect.jar",
+            "1.1.8":"/opt/common/CentOS_6-dev/mutect/v1.1.8/mutect.jar"
         },
         "bedtools":
         {
-         "default":"/opt/common/CentOS_6/bedtools/bedtools-2.22.0/bin",
-         "2.22.0":"/opt/common/CentOS_6/bedtools/bedtools-2.22.0/bin"
+            "default":"/opt/common/CentOS_6/bedtools/bedtools-2.22.0/bin",
+            "2.22.0":"/opt/common/CentOS_6/bedtools/bedtools-2.22.0/bin"
         },
         "pindel":
         {
-         "default":"/opt/common/CentOS_6-dev/pindel/v0.2.5b4/pindel",
-         "0.2.5b4":"/opt/common/CentOS_6-dev/pindel/v0.2.5b4/pindel"
+            "default":"/opt/common/CentOS_6-dev/pindel/v0.2.5b4/pindel",
+            "0.2.5b4":"/opt/common/CentOS_6-dev/pindel/v0.2.5b4/pindel"
         },
         "pindel2vcf":
         {
-         "default":"/opt/common/CentOS_6-dev/pindel/v0.2.5b4/pindel2vcf",
-         "0.2.5b4":"/opt/common/CentOS_6-dev/pindel/v0.2.5b4/pindel2vcf"
+            "default":"/opt/common/CentOS_6-dev/pindel/v0.2.5b4/pindel2vcf",
+            "0.2.5b4":"/opt/common/CentOS_6-dev/pindel/v0.2.5b4/pindel2vcf"
         },
         "facets":
         {
-         "default":"/opt/common/CentOS_6-dev/FACETS/0.9.3/run.sh",
-         "0.9.3":"/opt/common/CentOS_6-dev/FACETS/0.9.3/run.sh"
+            "default":"/opt/common/CentOS_6-dev/FACETS/0.9.5/",
+            "0.9.5":"/opt/common/CentOS_6-dev/FACETS/0.9.5/",
+            "development":"/opt/common/CentOS_6-dev/FACETS/development/"
+        },
+        "facets_lib":
+        {
+            "default":"/opt/common/CentOS_6-dev/facets_lib/0.3.7/",
+            "0.3.7":"/opt/common/CentOS_6-dev/facets_lib/0.3.7/",
+            "current":""
         },
         "getbasecounts":
         {
-         "default":"/opt/common/CentOS_6-dev/getbasecounts/1.4.0/GetBaseCounts",
-         "1.4.0":"/opt/common/CentOS_6-dev/getbasecounts/1.4.0/GetBaseCounts"
-        }
-  
-},
-
- "genomes" :
-    {
-        "hg19":
-        {"fasta":"/ifs/depot/assemblies/H.sapiens/hg19/hg19.fasta",
-         "facets_snps":"/opt/common/CentOS_6-dev/FACETS/0.9.3/lib/dbsnp_137.hg19__RmDupsClean__plusPseudo50__DROP_SORT.vcf.gz"
+            "default":"/opt/common/CentOS_6-dev/getbasecounts/1.4.0/GetBaseCounts",
+            "1.4.0":"/opt/common/CentOS_6-dev/getbasecounts/1.4.0/GetBaseCounts"
         },
-        "hg18":
-        {"fasta":"/ifs/depot/assemblies/H.sapiens/hg18/hg18.fasta"},
-        "GRCh37":
-        {"fasta":"/ifs/depot/assemblies/H.sapiens/GRCh37/gr37.fasta",
-         "facets_snps":"/opt/common/CentOS_6-dev/FACETS/0.9.3/lib/dbsnp_137.b37__RmDupsClean__plusPseudo50__DROP_SORT.vcf.gz"
+        "python":
+        {
+            "default":"/opt/common/CentOS_6-dev/python/python-2.7.10/bin/python"
         },
-        "mm9":
-        {"fasta":"/ifs/depot/assemblies/M.musculus/mm9/mm9.fasta",
-         "facets_snps":"/opt/common/CentOS_6-dev/FACETS/0.9.3/lib/ucsc_mm9_dbsnp128_NoDups.vcf.gz"
+        "perl":
+        {
+            "default":"/opt/common/CentOS_6-dev/perl/perl-5.22.0/bin/perl"
+        },
+        "postprocess":
+        {
+            "default":"/opt/common/CentOS_6-dev/postprocess/1.3.1/",
+            "1.3.1":"/opt/common/CentOS_6-dev/postprocess/1.3.1"
+        },
+        "vt":
+        {
+            "default":"/opt/common/CentOS_6-dev/vt/master/vt",
+            "0.5.7":"/opt/common/CentOS_6-dev/vt/0.5.7/vt"
+        },
+        "vep":
+        {
+            "default":"/opt/common/CentOS_6-dev/vep/v82/",
+            "81":"/opt/common/CentOS_6-dev/vep/v81/",
+            "82":"/opt/common/CentOS_6-dev/vep/v82/"
+        },
+        "bcf":
+        {
+            "default":"/opt/common/CentOS_6-dev/bcftools/bcftools-1.2/bin/bcftools",
+            "1.2":"/opt/common/CentOS_6-dev/bcftools/bcftools-1.2/bin/bcftools"
+        },
+        "matlab":
+        {
+            "default":"/opt/common/CentOS_6-dev/matlab/R2013a/v81/",
+            "R2014b":"/opt/common/CentOS_6-dev/matlab/R2014b/"
+        },
+        "mutsig-cv":
+        {
+            "default":"/opt/common/CentOS_6-dev/mutsig/cv-1.4",
+            "1.4":"/opt/common/CentOS_6-dev/mutsig/cv-1.4"
         }
     },
-  "chr1_fingerprints" :
+
+ "genomes":
     {
-       "mm9":
-          {
-           "name":"chr1",
-           "length":197195432
-           },
-       "hg18":
-          {
-           "name":"chr1",
-           "length":247249719
-           },
-       "hg19":
-          {
-           "name":"chr1",
-           "length":249250621
-           },
-       "GRCh37":
-          {
-           "name":"1",
-           "length":249250621
-           }
+        "hg19":
+        {
+            "fasta":"/ifs/depot/assemblies/H.sapiens/hg19/hg19.fasta",
+            "facets_snps":"/ifs/work/socci/Depot/Pipelines/FACETS/v3/lib/dbsnp_137.hg19__RmDupsClean__plusPseudo50__DROP_SORT.vcf.gz",
+            "bedtools_genome":"/opt/common/CentOS_6-dev/bedtools_genomes/human.hg19.genome",
+            "impact410_targets":"/opt/common/CentOS_6-dev/postprocess/1.3.1/db/IMPACT_410_hg19_targets_plus3bp.bed"
+        },
+        "hg18":
+        {
+            "fasta":"/ifs/depot/assemblies/H.sapiens/hg18/hg18.fasta",
+            "facets_snps":"/opt/common/CentOS_6-dev/FACETS/0.9.5/lib/dbsnp_137.hg18__RmDupsClean__plusPseudo50__DROP_SORT.liftover.vcf.gz",
+            "bedtools_genome":"/opt/common/CentOS_6-dev/bedtools_genomes/human.hg18.genome"
+        },
+        "GRCh37":
+        {
+            "fasta":"/ifs/depot/assemblies/H.sapiens/b37/b37.fasta",
+            "facets_snps":"/ifs/work/socci/Depot/Pipelines/FACETS/v3/lib/dbsnp_137.b37__RmDupsClean__plusPseudo50__DROP_SORT.vcf.gz",
+            "bedtools_genome":"/opt/common/CentOS_6-dev/bedtools_genomes/human.b37.genome"
+        },
+        "mm9":
+        {
+            "fasta":"/ifs/depot/assemblies/M.musculus/mm9/mm9.fasta",
+            "facets_snps":"/opt/common/CentOS_6-dev/FACETS/0.9.3/lib/ucsc_mm9_dbsnp128_NoDups.vcf.gz"
+        }
+    },
+
+ "chr1_fingerprints":
+    {
+        "mm9":
+        {
+            "name":"chr1",
+            "length":197195432
+        },
+        "hg18":
+        {
+            "name":"chr1",
+            "length":247249719
+        },
+        "hg19":
+        {
+            "name":"chr1",
+            "length":249250621
+        },
+        "GRCh37":
+        {
+            "name":"1",
+            "length":249250621
+        }
     }
-   
-} 
+}
