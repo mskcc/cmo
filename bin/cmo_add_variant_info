@@ -45,9 +45,10 @@ def main(original_maf_file, impact410File, seqDataFile, output_file):
                 seqDb["%s:%d-%d" % (chrom,pos,pos)]=seq.upper()
 
     impact410=set()
-    with open(impact410File) as fp:
-        for line in fp:
-            impact410.add(line.strip())
+    if(impact410File):
+        with open(impact410File) as fp:
+            for line in fp:
+                impact410.add(line.strip())
 
  
     events=dict()
@@ -79,7 +80,8 @@ def main(original_maf_file, impact410File, seqDataFile, output_file):
                 r["TriNuc"]=seqDb[pos]
             else:
                 r["TriNuc"]=""
-            r["IMPACT_410"]="T" if pos in impact410 else "F"
+            if impact410File:
+                r["IMPACT_410"]="T" if pos in impact410 else "F"
 
             if r["t_depth"]=="":
                 print >>sys.stderr, label
@@ -98,8 +100,10 @@ def main(original_maf_file, impact410File, seqDataFile, output_file):
 
 
             events[label]=r
-
-    outFields=cin.fieldnames+["POS","TAG","LABEL","TriNuc","IMPACT_410","t_var_freq","n_var_freq"]
+    if not impact410File: 
+        outFields=cin.fieldnames+["POS","TAG","LABEL","TriNuc","t_var_freq","n_var_freq"]
+    else:
+        outFields=cin.fieldnames+["POS","TAG","LABEL","TriNuc","IMPACT_410","t_var_freq","n_var_freq"]
     cout=csv.DictWriter(outfh,outFields,delimiter="\t")
 
     print commentHeader
@@ -115,11 +119,13 @@ def main(original_maf_file, impact410File, seqDataFile, output_file):
 if __name__=="__main__":
     parser = argparse.ArgumentParser(description="YEAH BABY A BIG MAF")
     parser.add_argument("--sequence-data-file", required=True, help="The sequence data file (duh)")
-    parser.add_argument("--impact-positions", required=True, help="List of chr:start-stop positiions that are in IMPACT")
+    parser.add_argument("--impact-positions", help="List of chr:start-stop positiions that are in IMPACT")
     parser.add_argument("--original-maf", required=True, help="MAF to add annotations to, you dummy")
     parser.add_argument("--output-file", required=True, help="Final product name")
     args = parser.parse_args()
-    main(os.path.abspath(args.original_maf), os.path.abspath(args.impact_positions), os.path.abspath(args.sequence_data_file), os.path.abspath(args.output_file))
+    if args.impact_positions:
+        args.impact_positions = os.path.abspath(args.impact_positions)
+    main(os.path.abspath(args.original_maf), args.impact_positions, os.path.abspath(args.sequence_data_file), os.path.abspath(args.output_file))
 
 
 
