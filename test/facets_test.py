@@ -21,7 +21,7 @@ expected_outputs = {"tumor_basecounts":"H_LS-A8-A094-01A-11W-A019-09-1.dat.gz",
                     "mergeTN":"countsMerged____H_LS-A8-A094-01A-11W-A019-09-1__H_LS-A8-A094-10A-01W-A021-09-1.dat.gz",
                     'seeded.seg':"H_LS-A8-A094-01A-11W-A019-09-1__H_LS-A8-A094-10A-01W-A021-09-1.seg",
                     'ann_maf':"TCGA-A8-A094-01A-11W-A019-09.ann.maf",
-                    'gene_level_calls':"facets_gene_level_calls.txt"
+                    'gene_level_calls':"facets_gene_level_calls.txt",
                     'arm_level_calls':"facets_arm_level_calls.txt"
                     }
 
@@ -51,7 +51,7 @@ def teardown_module():
 #    assert rv==0, "cmo_getbascounts threw shell error (program failed)"
 #    expected_output= expected_outputs['tumor_basecounts']    
 #    diff_cmd = ['diff', expected_output, output_file+".gz"]
-#    rv = subprocess.call(diff_cmd)
+#    rv = subprocessmcall(diff_cmd)
 #    assert rv==0, "getbasecounts output does not match expected output"
 
 def test_mergeTN():
@@ -77,6 +77,25 @@ def test_facets():
     output_dir = os.path.join(TEST_TEMP_DIR)
     merged_count_input = test_inputs['merged_counts']
     facets_cmd = [FACETS_SCRIPT,
+                  "doFacets",
+                  "--seed=1587443596", 
+                  "-f", merged_count_input,
+                  "-t", "H_LS-A8-A094-01A-11W-A019-09-1__H_LS-A8-A094-10A-01W-A021-09-1",
+                  "-D", TEST_TEMP_DIR,
+                  "-c 200"]
+    rv = subprocess.call(facets_cmd)
+    assert rv==0, "facets failed to run :("
+    expected_seg_output = expected_outputs['seeded.seg']
+    test_seg_output = os.path.join(TEST_TEMP_DIR, "H_LS-A8-A094-01A-11W-A019-09-1__H_LS-A8-A094-10A-01W-A021-09-1.seg")
+    diff_cmd = ["diff", expected_seg_output, test_seg_output]
+    rv = subprocess.call(diff_cmd)
+    assert rv==0, "facets test seg output differs from expected output- diff exit code: %s" % str(rv)
+
+def test_facets_freeze_facets_version():
+    output_dir = os.path.join(TEST_TEMP_DIR)
+    merged_count_input = test_inputs['merged_counts']
+    facets_cmd = [FACETS_SCRIPT,
+                  "--lib-version", "0.3.7",
                   "doFacets",
                   "--seed=1587443596", 
                   "-f", merged_count_input,

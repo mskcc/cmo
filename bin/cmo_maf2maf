@@ -39,8 +39,7 @@ if __name__ =='__main__':
     vep_dir = cmo.util.programs['vep'][options.vep_release]
     args_dict["vep_path"] = vep_dir
     args_dict["vep_data"] = vep_dir
-    [fasta] = glob.glob(vep_dir + options.species + "/*_" + options.ncbi_build + "/" + '*.fa.gz')
-    args_dict["ref_fasta"] = fasta
+    args_dict["ref_fasta"] = cmo.util.genomes[options.ncbi_build]['fasta']
 
     # Enforce the following as defaults across CMO, unless user wants something else
     if not args_dict["custom_enst"]:

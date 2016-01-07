@@ -16,6 +16,7 @@ json_config = json.load(open("/opt/common/CentOS_6-dev/cmo/cmo_resources.json"))
 programs = json_config['programs']
 genomes = json_config['genomes']
 chr1_fingerprints = json_config['chr1_fingerprints']
+keys = json_config['keys']
 
 def infer_fasta_from_bam(bam_file):
     get_chr1_cmd= [programs['samtools']['default'], "view -H", bam_file, "| fgrep \"@SQ\" | awk '{print $2,$3}'"]
