@@ -3,17 +3,14 @@ Motivations
 ===========
 
 - Pipelines
-  - There is a constant in bioinformatics in that there are very little constants: What is the 
-    standard today will not be tomorrow.
+  - There is a constant in bioinformatics in that there are very little constants: What is the standard today will not be tomorrow.
     - allow these changes to occur as rapidly as possible
     - calcify them into production only when needed
     - focus on the ad-hoc pipeline - constantly being used
-    - select the production pipeline from among the ad-hocs and freeze it and record important metrics
-      about it in a datbase
+    - select the production pipeline from among the ad-hocs and freeze it and record important metrics about it in a datbase
   - Focus on standardized formats
     - BAM, VCF, MAF(is this standardized?)
-    - Pipelines that output standardized things can be combined in unanticipated ways later with 
-      minimal difficulty
+    - Pipelines that output standardized things can be combined in unanticipated ways later with minimal difficulty
     - Spend some effort normalizing non-standard output of programs that don't play well with others
 -  Sample Tracking
   - Iterative improvement

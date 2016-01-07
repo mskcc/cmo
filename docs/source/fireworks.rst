@@ -39,8 +39,8 @@ This is the source code of the above link::
     jobs_dict = {task1: [task2,task3], task2: [task4], task3:[task4]}
     #create the workflow
     new_workflow = workflow.Workflow(jobs_list, jobs_dict, name="Test Workflow")
-    #run on lsf and log the run daemon's activity to the file "test"
-    new_workflow.run('LSF', daemon_log="test")
+    #run on lsf 
+    new_workflow.run('LSF')
 
 
 Notes

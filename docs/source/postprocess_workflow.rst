@@ -3,15 +3,16 @@ Postprocessing Exome Pipeline Output
 =========================
 Instructions
 ###########################
+
 1. ssh to s01 (ask for help if you don't know what this means)
-3. add ~/.local/bin to your path if you haven't already done this for a previous cmo install
-4. you should have cmoflow_postprocess at the command line -- if you don't, add /opt/common/CentOS_6-dev/python/python-2.7.10/bin/ to your path
-5. You need a sample pairing file from BIC and the location of the BIC project Directory.
-6. The sample pairing file should have the form: Normal Sample ID<tab>Tumor Sample id- it should maybe be found in/ifs/projects/CMO/, but it may be different for your specific project
-7. This workflow will also run FACETS for you on all your samples, unless you specify --no-facets
-10. you can specify --workflow_mode=serial to avoid running on LSF 
-11. The workflow will complete in about an hour WITHOUT Facets on LSF, maybe 2-3 with Facets depending on disk and bam sizes
-12. The workflow will provide you the following in the MAF:
+2. add ~/.local/bin to your path if you haven't already done this for a previous cmo install
+3. you should have cmoflow_postprocess at the command line -- if you don't, add /opt/common/CentOS_6-dev/python/python-2.7.10/bin/ to your path
+4. You need a sample pairing file from BIC and the location of the BIC project Directory.
+5. The sample pairing file should have the form: Normal Sample ID<tab>Tumor Sample id- it should maybe be found in/ifs/projects/CMO/, but it may be different for your specific project
+6. This workflow will also run FACETS for you on all your samples, unless you specify --no-facets
+7. you can specify --workflow_mode=serial to avoid running on LSF 
+8. The workflow will complete in about an hour WITHOUT Facets on LSF, maybe 2-3 with Facets depending on disk and bam sizes
+9. The workflow will provide you the following in the MAF:
 
     a) VEP Annotation
     b) Facets Gene Level Calls
@@ -20,16 +21,6 @@ Instructions
 
 
 .. image:: images/TvceW.gif
-
-
-Notes
-###########################
-
-A daemon is a process that runs as you and stays behind on s01 after you launch the script to monitor your job.
-
-If you launch more workflows during this time, the daemon will start monitoring those too- you shouldn't be able to start more than one daemon, no matter how hard you try.
-
-Once the daemon is satisfied all jobs have completed, it will exit on its own.
 
 
 Code sample for coding other worfklows

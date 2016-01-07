@@ -11,7 +11,6 @@ List of wrappers
     cmo_gatk
     cmo_watcher
     cmo_bwa_mem
-    temp_bed
     cmo_getbasecounts
     cmo_picard
     cmo_bwa_sampe

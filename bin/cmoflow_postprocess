@@ -52,11 +52,10 @@ def trinuc_and_impact_job(merged_maf_name, seq_output, impact_output):
 
 def maf2maf(merged_maf_name, output_file):
     output_file = os.path.abspath(output_file)
-    maf2maf_cmd = ['cmo_maf2maf', '--version=develop', '--vep-forks 12', 
-            '--vep-path', cmo.util.programs['vep']['default'], '--vep-data', 
-            cmo.util.programs['vep']['default'], 
+    maf2maf_cmd = ['cmo_maf2maf', '--version=default', '--vep-forks 12', 
+            '--vep-release', '82', 
             '--retain-cols', 
-            'Center,Verification_Status,Validation_Status,Mutation_Status,Sequencing_Phase,Sequence_Source,Validation_Method,Score,BAM_file,Sequencer,Tumor_Sample_UUID,Matched_Norm_Sample_UUID,Caller',
+            'Center,Verification_Status,Validation_Status,Mutation_Status,Sequencing_Phase,Sequence_Source,Validation_Method,Score,BAM_file,Sequencer,Tumor_Sample_UUID,Match_Norm_Sample_UUID,Caller',
             '--custom-enst', os.path.join(cmo.util.programs['vcf2maf']['develop'], "data", "isoform_overrides_at_mskcc"),
             '--input-maf', merged_maf_name,
             '--output-maf', output_file

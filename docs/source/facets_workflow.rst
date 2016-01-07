@@ -3,21 +3,22 @@ Facets via Fireworks/LSF
 =========================
 Instructions
 ###########################
+
 1. ssh to s01 (ask for help if you don't know what this means)
-3. add ~/.local/bin to your path if you haven't already done this for a previous cmo install
-4. you should have cmoflow_facets available at the command line -- if you don't, add /opt/common/CentOS_6-dev/python/python-2.7.10/bin/
-5. Minimally you need to supply \-\-tumor-bam and \-\-normal-bam
-6. CMO package will attempt to read all @RG headers and find the SM: tags, and if they all match, it will use that id
-7. If the SM: ids betweeen the two bams you supply are IDENTICAL, if they are ABSENT, or if there is MORE THAN ONE PER BAM, you will need to supply --tumor-name and normal-name as well, to manually fill in these values
-8. it will autocreate a sub of the format TUMOR_SAMPLE_NAME__NORMAL_SAMPLE_NAME in the dir you launch from if you don't specify OUTPUT DIR
-9. it will use the same string as the TAG to identify any merged files, etc.
-10. you can specify --workflow_mode=serial to avoid running on LSF 
-11. the workflow will take about 1 hr on lsf, 1.5hr serially for 5gb input bams
-12. check on your workflow at haystack.mskcc.org:5000/your_cbio_username/
-13. facets runs that start in the same output directory will shortcut on both the readcounts and the counts merged gzipped files
-14. facets runs will autocreate a subdir of the form "facets\_\[first_param_char\]\[value\]_..." 
-15. if it detects a facets run it already has performed it will refuse to do work
-16. we should add a --force to overcome some of these shortcuts sooner or later
+2. add ~/.local/bin to your path if you haven't already done this for a previous cmo install
+3. you should have cmoflow_facets available at the command line -- if you don't, add /opt/common/CentOS_6-dev/python/python-2.7.10/bin/
+4. Minimally you need to supply \-\-tumor-bam and \-\-normal-bam
+5. CMO package will attempt to read all @RG headers and find the SM: tags, and if they all match, it will use that id
+6. If the SM: ids betweeen the two bams you supply are IDENTICAL, if they are ABSENT, or if there is MORE THAN ONE PER BAM, you will need to supply --tumor-name and normal-name as well, to manually fill in these values
+7. it will autocreate a sub of the format TUMOR_SAMPLE_NAME__NORMAL_SAMPLE_NAME in the dir you launch from if you don't specify OUTPUT DIR
+8. it will use the same string as the TAG to identify any merged files, etc.
+9. you can specify --workflow_mode=serial to avoid running on LSF 
+10. the workflow will take about 1 hr on lsf, 1.5hr serially for 5gb input bams
+11. check on your workflow at haystack.mskcc.org:5000/your_cbio_username/
+12. facets runs that start in the same output directory will shortcut on both the readcounts and the counts merged gzipped files
+13. facets runs will autocreate a subdir of the form "facets\_\[first_param_char\]\[value\]_..." 
+14. if it detects a facets run it already has performed it will refuse to do work
+15. we should add a --force to overcome some of these shortcuts sooner or later
 
 .. image:: images/ZiGyS.gif
 
