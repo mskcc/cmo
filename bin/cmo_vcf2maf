@@ -25,7 +25,9 @@ if __name__ =='__main__':
     cmo.util.add_logging_options(parser)
     args = parser.parse_args()
     args_dict = vars(args)
-    for key in ["version"]:
+    args_dict['vep_data']=cmo.util.programs['vep'][args.vep_release]
+    args_dict['vep_path']=cmo.util.programs['vep'][args.vep_release]
+    for key in ["version", "vep_release"]:
         del args_dict[key]
     cmd = [cmo.util.programs['perl']['default'], script_path]
     stderr = args.stderr
