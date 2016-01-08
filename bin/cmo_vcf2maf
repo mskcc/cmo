@@ -24,11 +24,9 @@ if __name__ =='__main__':
         parser.add_argument(arg,action="store", metavar='', help=description)
     cmo.util.add_logging_options(parser)
     args = parser.parse_args()
-    fasta = cmo.util.genomes[args.genome]['fasta']
     args_dict = vars(args)
     for key in ["version"]:
         del args_dict[key]
-    args_dict['ref-fasta']=fasta
     cmd = [cmo.util.programs['perl']['default'], script_path]
     stderr = args.stderr
     stdout = args.stdout
