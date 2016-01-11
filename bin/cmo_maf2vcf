@@ -13,7 +13,6 @@ if __name__ =='__main__':
     # We'll first need to figure out which version to run with "-h" to parse the help text
     preparser = argparse.ArgumentParser(description="run maf2vcf", add_help=False)
     preparser.add_argument("--version", choices=cmo.util.programs['vcf2maf'].keys(), default="default")
-    preparser.add_argument("--vep-release", choices=cmo.util.programs['vep'].keys(), default="default")
     options, _ = preparser.parse_known_args()
     script_path = cmo.util.programs['vcf2maf'][options.version] + "maf2vcf.pl"
     args_dict = parse_script_help(script_path)
@@ -24,11 +23,9 @@ if __name__ =='__main__':
         parser.add_argument(arg,action="store", metavar='', help=description)
     cmo.util.add_logging_options(parser)
     args = parser.parse_args()
-    fasta = cmo.util.genomes[args.genome]['fasta']
     args_dict = vars(args)
     for key in ["version"]:
         del args_dict[key]
-    args_dict['ref-fasta']=fasta
     cmd = [cmo.util.programs['perl']['default'], script_path]
     stderr = args.stderr
     stdout = args.stdout
