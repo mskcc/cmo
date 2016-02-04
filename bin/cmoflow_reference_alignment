@@ -1,11 +1,36 @@
 #!/opt/common/CentOS_6-dev/python/python-2.7.10/bin/python
 from cmo import workflow
 import argparse, os, sys, re
-import cmo, glob 
+import cmo, glob, copy 
 from collections import defaultdict
+import subprocess, math
 #WHOA, existentially troubling, man
 PYTHON = cmo.util.programs['python']['default']
 sample_map = {}
+samplelib_grouping = {}
+samplelib_sample = {}
+r1_adaptor = 'AGATCGGAAGAGCACACGTCT';
+r2_adaptor = 'AGATCGGAAGAGCGTCGTGTA';
+dir2readgroup = {}
+
+def add_sample_to_lib_grouping(sample_dict, sample_key):
+    sample_id = sample_dict['sample_id']
+    lib_id = sample_dict['library_id']
+    library_key = sample_id + lib_id
+    global samplelib_grouping
+    if library_key not in samplelib_grouping:
+        samplelib_grouping[sample_id+lib_id]=list()
+    samplelib_grouping[library_key].append(sample_key)
+    #FIXME this is a bit ugly to get a faster reference into it for process bams
+    #TODO maybe refactor how smaple_map works so it works for both align_reads
+    #and process bams
+    if library_key not in samplelib_sample:
+        samplelib_sample[library_key]=copy.deepcopy(sample_dict)
+        #a library can have more than one readset so prepare to store thos
+        samplelib_sample[library_key]['readset_id']=[sample_dict['readset_id']]
+    else:
+        samplelib_sample[library_key]['readset_id'].append(sample_dict['readset_id'][0])
+
 
 
 def check_configuration(file):
@@ -14,7 +39,15 @@ def check_configuration(file):
 
 def construct_workflow(map_file, output_dir):
     alignment_directories = prepare_directories(map_file, output_dir)
-    align_reads(alignment_directories)
+    (align_jobs_list, align_job_deps, merged_bams, last_align_jobs) = align_reads(alignment_directories)
+    (process_jobs_list, process_job_deps, final_bams) = process_bams(merged_bams, output_dir, last_align_jobs)
+    align_job_deps.update(process_job_deps)
+    merged_jobs_list = process_jobs_list + align_jobs_list
+    #for job in merged_jobs_list:
+    #    print job.fw_id, job.name
+    #for job, dep_job in align_job_deps.items():
+    #    print job.fw_id, job.name, dep_job.fw_id, dep_job.name
+    return (align_jobs_list+process_jobs_list, align_job_deps)
 
 def prepare_directories(map_file, output_dir):
     output_dir = os.path.join(output_dir, "intFiles/")
@@ -32,17 +65,28 @@ def prepare_directories(map_file, output_dir):
         line = fh.readline()
         if not line: 
             break
-        map_values= line.split("\t")
+        map_values= line.rstrip().split("\t")
         sample_dict = dict(zip(map_keys, map_values))
         sample_key = sample_dict['sample_id'] + sample_dict['library_id'] + sample_dict['run_id']
         if sample_key in sample_map:
-            sample_key = sample_key + slr_count
+            sample_key = sample_key + "_"+ str(slr_count)
             slr_count+=1
             sample_dict['run_id']=sample_dict['run_id']+"_" + str(slr_count)
-        sample_map[sample_key] = sample_dict
-    print sample_map
+        sample_dict['readset_id']=sample_key
+        add_sample_to_lib_grouping(sample_dict, sample_key)
+        sample_dict['readgroup']="\\t".join(
+                ["@RG", 
+                    "ID:" + sample_key + "_" + sample_dict['pair_status'],
+                    "PL:Illumina",
+                    "PU:" + sample_key,
+                    "LB:" + sample_dict['sample_id'] + "_"+ sample_dict['library_id'],
+                    "SM:" + sample_dict['sample_id']
+                ])
+        
+        #sample_map[sample_key] = sample_dict
+        sample_map[sample_dict['sample_id']]=sample_dict
+    #print sample_map
     for id, sample in sample_map.items():
-        print output_dir, sample
         sample_output_dir = os.path.join(output_dir, sample['sample_id'], sample['library_id'], sample['run_id'])
         if not os.path.exists(sample_output_dir):
             os.makedirs(sample_output_dir)
@@ -51,105 +95,202 @@ def prepare_directories(map_file, output_dir):
             if not os.path.exists(os.path.join(sample_output_dir,filename)):
                 os.symlink(os.path.join(sample['fastq_dir'],filename),  os.path.join(sample_output_dir, filename))
         dirs_to_align.append(sample_output_dir)
+        dir2readgroup[sample_output_dir] = sample['readgroup']
     return dirs_to_align
     
 #by the time we get here we should have symlinked all the fastqs into the directories we putting our bams and shit in
 
 def sort_fastqs_into_dict(files):
     sorted = dict()
-    paired_by_sample = defaultdict(list)
+    readgroup_tags = dict()
+    paired_by_sample = defaultdict(dict)
     for file in files:
         base = os.path.basename(file)
-        m = re.search("(\S+)_(R[12])_(\d\d\d)", base)
+        m = re.search("(\S+)_(\S+)_(\S+)(R[12])_(\d\d\d)", base)
         if not m.group(1) and m.group(2) and m.group(3):
             #FIXME LOGGING instead of CRITICAL fail?
             print >>sys.stderr, "Can't find filename parts (Sample/Barcode, R1/2, group) for this fastq: %s" % file
             sys.exit(1)
         #fastq file large sample and barcode prefix
+        readset = "_".join([m.group(2) + m.group(3)  + m.group(5)])
         if m.group(1) not in sorted:
             sorted[m.group(1)]=dict()
-        if m.group(3) not in sorted[m.group(1)]:
-            sorted[m.group(1)][m.group(3)]=dict()
-        sorted[m.group(1)][m.group(3)][m.group(2)]=file
+        if readset not in sorted[m.group(1)]:
+            sorted[m.group(1)][readset]=dict()
+        sorted[m.group(1)][readset][m.group(4)]=file
     for sample in sorted:
         for readset in sorted[sample]:
             for read in ["R1", "R2"]:
-                if read in sorted[sample][readset]:
-                    paired_by_sample["_".join([sample,readset])].append(sorted[sample][readset][read])
+                if readset in paired_by_sample[sample]:
+                    paired_by_sample[sample][readset].append(sorted[sample][readset][read])
+                else:
+                    paired_by_sample[sample][readset]=[sorted[sample][readset][read]]
     return paired_by_sample
             
             
 
 
-
+def calculate_min_read_length(fastq):
+    cmd = ["zcat", fastq, "| head -n 2 | tail -n 1 | wc -c"]
+    print " ".join(cmd)
+    read_length = subprocess.check_output(" ".join(cmd), shell=True, stderr=open(os.devnull,"w"))
+    min_read_length = int(read_length.rstrip())/ 2
+    print "Min Read Length: %d" % min_read_length
+    return min_read_length
 
 
 
 def align_reads(alignment_directories):
+    merged_bams = {}
+    final_align_jobs = {}
+    jobs_list = []
+    job_deps = {}
+
     for directory in alignment_directories:
         read_pairs = sort_fastqs_into_dict(glob.glob(os.path.join(directory, "*R[12]*.fastq.gz")))
         #dictionary of key=FASTQ+BARCODE_ILLUMINA_SET value=LIST OF FASTQS
-        jobs_list = []
-        job_deps = {}
         #store split jobs separately for dependencies after we change granularity
-        split_jobs = {}
+        split_jobs = defaultdict(list)
         #store bams for merge
-        bams = []
-        #store bwa jobs for dependencies of merge
-        bwa_jobs = []
-
-        for readset, fastqs in read_pairs.items():
-            readset_outputs = defaultdict(list)
-            for fastq in fastqs:
-                (unzip_fastq, gz_job) = gunzip_fastq(fastq)
-                (unzip_cqs_fastq, cqs_job) = convert_quality_score(unzip_fastq)
-                (split_reads, split_job) = split_reads(unzip_cqs_fastq)
-                readset_outputs[readset].append(split_reads)
-                jobs_list = jobs + [gz_job, cqs_job, split_job]
-                job_deps[gz_job]=cqs_job
-                job_deps[cqs_job]=split_job
-                split_jobs[readset]=split_job
-            for readset, fastqs in readset_outputs.items():
-                #FIXME could be broken for Single end
-                for i in range(0, len(fastqs[0])):
-                    read1 = fastqs[0][i]
-                    try:
-                        read2 = fastqs[1][i]
-                    except:
-                        read2 = None
-                    (cutadapt_read1, cut1_job) = cutadapt(read1)
-                    (cutadapt_read2, cut2_job) = cutadapt(read2)
-                    (bam, bwa_job) =  bwa(read1, read2)
-                    bams.append(bam)
-                    bwa_jobs.append(bwa_job)
-                    jobs_list = jobs_list + [cut1_job, cut2_job, bwa_job]
-                    job_deps[split_jobs[readset]]=cut1_job
-                    job_deps[split_jobs[readset]]=cut2_job
-                    job_deps[cut1_job]=bwa_job
-                    job_deps[cut2_job]=bwa_job
-            merge_job = picard_merge(bams)
-            jobs_list = jobs_list + [merge_job]
-            for job in bwa_jobs:
-                job_deps[job] = merge_job
-            #pipeline should be done!
+        min_read_length = None
+        #GUNZIP, ConvertQuality Score, and split raw fastqs into 4million read chunks
+        for sample, sample_readsets in read_pairs.items():
+            sample_map_key = "s_" + sample.replace("-","_")
+            for readset, fastqs in sample_readsets.items():
+                readset_outputs = defaultdict(list)
+                for fastq in fastqs:
+                    if not min_read_length:
+                        min_read_length=calculate_min_read_length(fastq)
+                    (unzip_fastq, gz_job) = gunzip_fastq(fastq)
+                    (unzip_cqs_fastq, cqs_job) = convert_quality_score(unzip_fastq)
+                    (split_reads_files, split_job) = split_reads(unzip_cqs_fastq, fastq)
+                    readset_outputs[readset].append(split_reads_files)
+                    jobs_list = jobs_list + [gz_job, cqs_job, split_job]
+                    job_deps[gz_job]=cqs_job
+                    job_deps[cqs_job]=split_job
+                    #store split jobs for dependencies)
+                    split_jobs[readset].append(split_job)
+                bams = []
+                #store bwa jobs for dependencies of merge
+                cut_jobs = defaultdict(list)
+                bwa_jobs = []
+                for readset_chunk, fastqs in readset_outputs.items():
+                    #FIXME could be broken for Single end
+                    for i in range(0, len(fastqs[0])):
+                        read1 = fastqs[0][i]
+                        try:
+                            read2 = fastqs[1][i]
+                        except:
+                            read2 = None
+                        #original script uses two cutadapt jobs 
+                        #cutadapt seems to support one pass
+                        (cutadapt_read1, cutadapt_read2, cut_job) = cutadapt(read1, read2, min_read_length)
+                        #recover readgroup we calculated earlier
+                        #hacky, FIXME organize these two functions better
+                        rg_tag = dir2readgroup[os.path.dirname(fastq)]
+                        (bam, bwa_job) =  bwa(cutadapt_read1, cutadapt_read2, rg_tag)
+                        bams.append(bam)
+                        bwa_jobs.append(bwa_job)
+                        cut_jobs[readset_chunk].append(cut_job)
+                        jobs_list = jobs_list + [cut_job, bwa_job]
+                        job_deps[cut_job]=bwa_job
+                    for readset_chunk in readset_outputs.keys():
+                        for split_job in split_jobs[readset_chunk]:
+                            job_deps[split_job]=cut_jobs[readset_chunk]
+                    #put final bam in the fastq directory!
+                (merge_job, final_bam) = picard_merge(bams, sample_map[sample_map_key]['readset_id'], directory)
+                jobs_list = jobs_list + [merge_job]
+                for job in bwa_jobs:
+                    job_deps[job] = merge_job
+                
+                merged_bams[sample_map[sample_map_key]['readset_id']]=final_bam
+                final_align_jobs[sample_map[sample_map_key]['readset_id']]=merge_job
+    return (jobs_list, job_deps, merged_bams, final_align_jobs)
+                #pipeline should be done!
 
 
 def gunzip_fastq(fastq):
     (unzipped_fastq, ext) = os.path.splitext(fastq)
 
     cmd = ["zcat", fastq, ">", unzipped_fastq]
-    gz_job = workflow.Job(" ".join(cmd), name="gunzip" + os.path.basename(unzipped_fastq))
+    print " ".join(cmd)
+    gz_job = workflow.Job(" ".join(cmd), name="gunzip " + os.path.basename(unzipped_fastq))
     return(unzipped_fastq, gz_job)
 
 def convert_quality_score(fastq):
     (basename, ext) = os.path.splitext(fastq)
     output = basename + "_CQS"
-    cmd = ["ConvertQualityScore", "--input", fastq, "--output", output]
-    cqs_job = workflow.Job(" ".join(cmd), name="CQS" + os.path.basename(fastq))
+    cmd = [cmo.util.programs['convertqualityscore']['default'], "--input", fastq, "--output", output]
+    print " ".join(cmd)
+    cqs_job = workflow.Job(" ".join(cmd), name="CQS " + os.path.basename(fastq))
     return (output, cqs_job)
 
-def split_reads(fastq):
-    (basename, ext) = os.path.split
+def split_reads(cqs_fastq, orig_gzip_fastq):
+    out_prefix=cqs_fastq + "__"
+    cmd = ['/usr/bin/split', "-a 3", "-l 16000000", "-d", cqs_fastq, out_prefix]
+    split_job = workflow.Job(" ".join(cmd), name="split "+os.path.basename(cqs_fastq))
+    print " ".join(cmd)
+    num_reads_cmd = ["zcat", orig_gzip_fastq, "|", "wc -l", "|", "cut -f 1"]
+    print " ".join(num_reads_cmd)
+    num_reads = subprocess.check_output(" ".join(num_reads_cmd), shell=True)
+    num_files = math.ceil(float(num_reads) / 16000000)
+    out_files = []
+    for i in range(0, int(num_files)):
+        out_files.append(out_prefix + "{:0>3d}".format(i))
+    return (out_files, split_job)
+
+def cutadapt(read1, read2, min_read_length):
+    ''' run cutadapt '''
+    #FIXME handle no read2
+    read1_out = read1 + "_CT_PE.fastq"
+    read2_out = read2 + "_CT_PE.fastq"
+    stats_file = read1 + "_CUTADAPT.stats"
+    cmd = [PYTHON, cmo.util.programs['cutadapt']['default'], 
+            "-f fastq", "-a", r1_adaptor,
+            "-A", r2_adaptor, "-O 10", "-m", str(min_read_length), 
+            "-q 3", "--paired-output", read2_out, "-o", read1_out, 
+            read1, read2,
+            ">", stats_file]
+    print " ".join(cmd)
+    cut_job = workflow.Job(" ".join(cmd), name="cutadapt " + os.path.basename(read1_out))
+    return (read1_out, read2_out, cut_job)
+    
+def bwa(read1, read2, readgroup):
+    ''' run bwa mem '''
+    #FIXME handle no read2
+    #FIXME handle species and references
+    #rg has tabs so make sure quoted in final command line
+    bam = read1 + ".bwa.bam"
+    cmd = ["cmo_bwa_mem", "--version default", "--genome hg19", "--fastq1", read1, "--fastq2", read2, "--output", bam, "-P", "-M", "-R", '"' + readgroup +'"', "-t 12"]
+    #FIXME proper LSF resource request for bwa
+    bwa_job =  workflow.Job(" ".join(cmd), resources="rusage[mem=12]", processors="12",name="bwa " + os.path.basename(bam))
+    print " ".join(cmd)
+    return(bam, bwa_job)
+
+def picard_merge(bams, readset, directory):
+    '''run picard merge'''
+    #FIXME fix picard helper to accept default options instead of hiding them?
+    out_bam = os.path.join(directory, readset+".bam")
+    cmd = ["cmo_picard", "--cmd MergeSamFiles", "--SO coordinate", ]
+    for bam in bams:
+        cmd = cmd + ["--I", bam]
+    cmd = cmd + ["--O", out_bam]
+    print " ".join(cmd)
+    picard_job = workflow.Job(" ".join(cmd), name="Merge bams " + readset,resources="rusage[iounits=6]")
+    return (picard_job, out_bam)
+
+
+
+def picard_markdups(bam, readset, directory):
+    ''' run picard markdups '''
+    #FIXME fix picard helper to accept default options instead of hiding them?
+    out_bam = os.path.join(directory, readset +"_MD.bam")
+    cmd = ["cmo_picard", "--cmd MarkDuplicates", "--SO coordinate", ]
+    cmd = cmd + ["--I", bam]
+    cmd = cmd + ["--O", out_bam]
+    print " ".join(cmd)
+    picard_job = workflow.Job(" ".join(cmd), name="Markdup " + readset,resources="rusage[mem=30]", processors=3)
+    return (picard_job, out_bam)
 
 
 
@@ -160,16 +301,64 @@ def split_reads(fastq):
 
 
 
-    #for each directory: find all fastqs
-        #call convertquality score
-        #call cutadapt on each fastq
-        #split into groups of four million(?)
-        #call bwa
-        #merge to bam
-    #return list of jobs and dependency hash for all these steps
 
-def process_bams():
-    pass
+def process_bams(merged_bams, output_dir, last_align_jobs):
+    ''' Take a list of bams that have been aligned in 4million read chunks and 
+    merge them and deduplicate them on [sample+lib] basis
+    tie them to the align section with the final merge job of each library
+    '''
+    jobs_list = []
+    job_deps = {}
+    by_sample_bams = defaultdict(list)
+    by_sample_jobs = defaultdict(list)
+    final_sample_bams = list()
+    #merge and deduplicate by sample, library
+    print merged_bams
+    for lib, readset_list in samplelib_grouping.items():
+        bams = list()
+        for readset in readset_list:
+            bams.append(merged_bams[readset])
+        bylib_output_directory = os.path.join(output_dir, 
+                "intFiles", 
+                samplelib_sample[lib]['sample_id'],
+                samplelib_sample[lib]['library_id'],
+                '')
+        if not os.path.exists(bylib_output_directory):
+            os.makedirs(bylib_output_directory)
+        (lib_merge_job, merged_bam) = picard_merge(bams, lib, bylib_output_directory)    
+        jobs_list.append(lib_merge_job)
+        for readset in samplelib_sample[lib]['readset_id']:
+            job_deps[last_align_jobs[readset]]=lib_merge_job
+        (markdup_job, mkdup_bam ) = picard_markdups(merged_bam, lib, bylib_output_directory)
+        jobs_list.append(markdup_job)
+        job_deps[lib_merge_job] = markdup_job
+        sample_id = samplelib_sample[lib]['sample_id']
+        by_sample_bams[sample_id].append(mkdup_bam)
+        by_sample_jobs[sample_id].append(markdup_job)
+    #merge deduplicated library bams by sample
+    for sample, bams in by_sample_bams.items():
+        bysample_output_directory = os.path.join(output_dir,
+                "intFiles",
+                sample,
+                '')
+        if not os.path.exists(bysample_output_directory):
+            os.makedirs(bysample_output_directory)
+        (sample_merge_job, merged_bam) = picard_merge(bams, sample, bysample_output_directory)
+        jobs_list.append(sample_merge_job)
+        final_sample_bams.append(merged_bam)
+        for precursor_job in by_sample_jobs[sample]:
+            job_deps[precursor_job]=sample_merge_job
+        #next run a bunch of picard metric tools
+    return(jobs_list, job_deps, final_sample_bams)
+
+
+        
+
+
+        
+
+
+
 
 
 def mergeStats():
@@ -204,11 +393,11 @@ if __name__=='__main__':
                 args_dict[key]=os.path.abspath(args_dict[key])
     #validate config
     check_configuration(args.config_file)
-   
+
 
     (jobs, dependencies)  = construct_workflow(args.map_file, args.output_dir)
-#    refalign_workflow = workflow.Workflow(jobs, dependencies, name=name)
-#    refalign_workflow.run(args.workflow_mode)
+    refalign_workflow = workflow.Workflow(jobs, dependencies, name="refalign test")
+    refalign_workflow.run(args.workflow_mode)
          
 
 
