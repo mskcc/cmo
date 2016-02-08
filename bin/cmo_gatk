@@ -9,19 +9,32 @@ def find_sub_command_options(gatk_helper, sub_command):
     gatk_help = gatk_help.split("\n")
     sub_command_arg_raw = defaultdict(list)
     current_sub_command="GATK Common Options"
+    last_option = ''
+    last_long_option = ''
+    last_option_param = ''
+    last_option_help = ''
+    sub_command_args = defaultdict(list)
+  
+    p = re.compile(r"^[\t ]+(-[^,]+)?,?(--\S+)[\t ]+(<\S+>)?[\t ]+([\S ]+)$")
     for line in gatk_help:
         m = re.match("^Arguments for (\S+):", line);
         if(m):
             current_sub_command=m.group(1)
             continue
-        if re.search("Available Reference Ordered", line):
+        elif re.search("Available Reference Ordered", line):
             break
-        sub_command_arg_raw[current_sub_command].append(line)
-    sub_command_args = defaultdict(list)
-    for sub_command in sub_command_arg_raw:
-        sub_command_string = " ".join(sub_command_arg_raw[sub_command])
-        valid_args = re.findall(r"(?:(-[\S_]+),(--[\S_]+))\s+(<[\S_]+>)?\s+([\S\s]+?(?=(?:-[\S_]+,--[\S_]+)|$))", sub_command_string, re.M)
-        sub_command_args[sub_command]=valid_args
+        else:
+            option = p.search(line)
+            if option:
+                if last_option != '':
+                    sub_command_args[current_sub_command].append([last_option, last_long_option, last_option_param, last_option_help])
+                last_option = option.group(1)
+                last_long_option = option.group(2)
+                last_option_param = option.group(3)
+                last_option_help = option.group(4)
+            elif last_option:
+                last_option_help += line
+    sub_command_args[current_sub_command].append([last_option, last_long_option, last_option_param, last_option_help])
     return (sub_command_args, None)
 
 if __name__ =='__main__':
@@ -51,10 +64,16 @@ if __name__ =='__main__':
             #we want to not add this, argparse will
             if(arg == "-h" or arg =="-T" or arg=="-version"):
                 continue
-            if(param != ''):
-                parser_group.add_argument(arg,long_arg, action="append", metavar='',help=help)
+            if(param != None):
+                if arg:
+                    parser_group.add_argument(arg,long_arg, action="append", metavar='',help=help)
+                else:
+                    parser_group.add_argument(long_arg, action="append", metavar='',help=help)
             else:
-                parser_group.add_argument(arg,long_arg, action="store_true", help=help)
+                if arg:
+                    parser_group.add_argument(arg,long_arg, action="store_true", help=help)
+                else:
+                    parser_group.add_argument(long_arg, action="store_true", help=help)
     cmo.util.add_logging_options(parser)
     args = parser.parse_args()
     if args.java_args:
