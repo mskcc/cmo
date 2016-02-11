@@ -13,6 +13,7 @@ r1_adaptor = 'AGATCGGAAGAGCACACGTCT';
 r2_adaptor = 'AGATCGGAAGAGCGTCGTGTA';
 dir2readgroup = {}
 
+
 def add_sample_to_lib_grouping(sample_dict, sample_key):
     sample_id = sample_dict['sample_id']
     lib_id = sample_dict['library_id']
@@ -37,11 +38,13 @@ def check_configuration(file):
     #validate that we have enough information to run the pipeline
     return True
 
-def construct_workflow(map_file, output_dir):
+def construct_workflow(map_file, pair_file, output_dir, targets):
     alignment_directories = prepare_directories(map_file, output_dir)
-    (align_jobs_list, align_job_deps, merged_bams, last_align_jobs) = align_reads(alignment_directories)
-    (process_jobs_list, process_job_deps, final_bams) = process_bams(merged_bams, output_dir, last_align_jobs)
+    (align_jobs_list, align_job_deps, merged_bams, last_align_jobs) = align_reads(alignment_directories, output_dir)
+    (process_jobs_list, process_job_deps, final_bams, metric_jobs_and_files) = process_bams(merged_bams, output_dir, last_align_jobs, targets)
+    (qc_job_list, qc_job_deps) = merge_stats(metric_jobs_and_files, output_dir, pair_file)
     align_job_deps.update(process_job_deps)
+
     merged_jobs_list = process_jobs_list + align_jobs_list
     #for job in merged_jobs_list:
     #    print job.fw_id, job.name
@@ -139,13 +142,38 @@ def calculate_min_read_length(fastq):
     return min_read_length
 
 
+def cqs_metrics(root_dir):
+    output_dir = os.path.join(root_dir, "metrics")
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    output_file = os.path.join(output_dir, "ConvertQualityScoreMetrics.txt")
+    cmd = [PYTHON, cmo.util.programs['cqs_metrics']['default'],
+            root_dir,
+            '_cqs_metrics',
+            output_file]
+    return workflow.Job(cmd, name="Merge CQS Metrics")
 
-def align_reads(alignment_directories):
+def cutadapt_metrics(root_dir):
+    output_dir = os.path.join(root_dir, "metrics")
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    output_file = os.path.join(output_dir, "CutAdaptStats.txt")
+        cmd = [PYTHON, 
+                cmo.util.programs['cutadapt_metrics']['default'],
+                root_dir,
+                "CUTADAPT_STATS.TXT",
+                output_file]
+    return workflow.Job(cmd, name="Merge CutAdapt Stats")
+
+    
+
+def align_reads(alignment_directories, output_dir):
     merged_bams = {}
     final_align_jobs = {}
     jobs_list = []
     job_deps = {}
-
+    cqs_metrics_job = cqs_metrics(output_dir)
+    cutadapt_metrics_job = cutadapt_metrics(output_dir)
     for directory in alignment_directories:
         read_pairs = sort_fastqs_into_dict(glob.glob(os.path.join(directory, "*R[12]*.fastq.gz")))
         #dictionary of key=FASTQ+BARCODE_ILLUMINA_SET value=LIST OF FASTQS
@@ -167,7 +195,7 @@ def align_reads(alignment_directories):
                     readset_outputs[readset].append(split_reads_files)
                     jobs_list = jobs_list + [gz_job, cqs_job, split_job]
                     job_deps[gz_job]=cqs_job
-                    job_deps[cqs_job]=split_job
+                    job_deps[cqs_job]=[split_job, cqs_metrics_job]
                     #store split jobs for dependencies)
                     split_jobs[readset].append(split_job)
                 bams = []
@@ -193,7 +221,7 @@ def align_reads(alignment_directories):
                         bwa_jobs.append(bwa_job)
                         cut_jobs[readset_chunk].append(cut_job)
                         jobs_list = jobs_list + [cut_job, bwa_job]
-                        job_deps[cut_job]=bwa_job
+                        job_deps[cut_job]=[bwa_job, cutadapt_metrics_job]
                     for readset_chunk in readset_outputs.keys():
                         for split_job in split_jobs[readset_chunk]:
                             job_deps[split_job]=cut_jobs[readset_chunk]
@@ -220,7 +248,8 @@ def gunzip_fastq(fastq):
 def convert_quality_score(fastq):
     (basename, ext) = os.path.splitext(fastq)
     output = basename + "_CQS"
-    cmd = [cmo.util.programs['convertqualityscore']['default'], "--input", fastq, "--output", output]
+    log = output + ".log"
+    cmd = [cmo.util.programs['convertqualityscore']['default'], "--input", fastq, "--output", output, ">", log ]
     print " ".join(cmd)
     cqs_job = workflow.Job(" ".join(cmd), name="CQS " + os.path.basename(fastq))
     return (output, cqs_job)
@@ -285,9 +314,11 @@ def picard_markdups(bam, readset, directory):
     ''' run picard markdups '''
     #FIXME fix picard helper to accept default options instead of hiding them?
     out_bam = os.path.join(directory, readset +"_MD.bam")
-    cmd = ["cmo_picard", "--cmd MarkDuplicates", "--SO coordinate", ]
+    out_metrics = os.path.join(directory, readset + "_markDuplicatesMetrics.txt")
+    cmd = ["cmo_picard", "--cmd MarkDuplicates"]
     cmd = cmd + ["--I", bam]
     cmd = cmd + ["--O", out_bam]
+    cmd = cmd + ["--M", out_metrics]
     print " ".join(cmd)
     picard_job = workflow.Job(" ".join(cmd), name="Markdup " + readset,resources="rusage[mem=30]", processors=3)
     return (picard_job, out_bam)
@@ -302,24 +333,25 @@ def picard_markdups(bam, readset, directory):
 
 
 
-def process_bams(merged_bams, output_dir, last_align_jobs):
+def process_bams(merged_bams, output_dir, last_align_jobs, targets):
     ''' Take a list of bams that have been aligned in 4million read chunks and 
     merge them and deduplicate them on [sample+lib] basis
     tie them to the align section with the final merge job of each library
     '''
-    jobs_list = []
-    job_deps = {}
+    output_dir = os.path.join(output_dir, "intFiles")
+    jobs_list = list()
+    job_deps = dict()
     by_sample_bams = defaultdict(list)
     by_sample_jobs = defaultdict(list)
-    final_sample_bams = list()
+    final_sample_bams = dict()
+    final_sample_job = dict()
+    metrics_jobs_and_files = defaultdict(list)
     #merge and deduplicate by sample, library
-    print merged_bams
     for lib, readset_list in samplelib_grouping.items():
         bams = list()
         for readset in readset_list:
             bams.append(merged_bams[readset])
         bylib_output_directory = os.path.join(output_dir, 
-                "intFiles", 
                 samplelib_sample[lib]['sample_id'],
                 samplelib_sample[lib]['library_id'],
                 '')
@@ -329,7 +361,8 @@ def process_bams(merged_bams, output_dir, last_align_jobs):
         jobs_list.append(lib_merge_job)
         for readset in samplelib_sample[lib]['readset_id']:
             job_deps[last_align_jobs[readset]]=lib_merge_job
-        (markdup_job, mkdup_bam ) = picard_markdups(merged_bam, lib, bylib_output_directory)
+        (markdup_job, mkdup_bam, metrics_file ) = picard_markdups(merged_bam, lib, bylib_output_directory)
+        metrics_jobs_and_files['MarkDuplicateMetrics']=(markdup_job, metrics_file)
         jobs_list.append(markdup_job)
         job_deps[lib_merge_job] = markdup_job
         sample_id = samplelib_sample[lib]['sample_id']
@@ -345,24 +378,166 @@ def process_bams(merged_bams, output_dir, last_align_jobs):
             os.makedirs(bysample_output_directory)
         (sample_merge_job, merged_bam) = picard_merge(bams, sample, bysample_output_directory)
         jobs_list.append(sample_merge_job)
-        final_sample_bams.append(merged_bam)
+        final_sample_job[sample]=sample_merge_job
+        final_sample_bams[sample]=merged_bam
         for precursor_job in by_sample_jobs[sample]:
             job_deps[precursor_job]=sample_merge_job
         #next run a bunch of picard metric tools
-    return(jobs_list, job_deps, final_sample_bams)
+    for sample, bam in final_sample_bams.items():
+        (hsmetrics_job, hs_out) = hs_metrics(sample,bam, output_dir, targets)
+        #FIXME only run if PE
+        metrics_jobs_and_files['HsMetrics'].append((hsmetrics_job, hs_out))
+        (insertsizemetrics_job, is_out) = insertsize_metrics(sample,bam, output_dir)
+        metrics_jobs_and_files['InsertSizeMetrics'].append((insertsizemetrics_job, is_out))
+        (alnsummetrics_job, as_out) = alignment_summary(sample,bam, output_dir)
+        metrics_jobs_and_files['AlignmentSummaryMetrics'].append((alnsummetrics_job, as_out))
+        (oxogmetrics_job, og_out) = oxog_metrics(sample,bam, output_dir)
+        metrics_jobs_and_files['OxoGMetrics'].append((oxogmetrics_job, og_out))
+        #FIXME only run if hg19?
+        (depth_of_cov_job, dc_out) = gatk_doc(sample,bam, output_dir)
+        metrics_jobs_and_files['DOC'].append((depth_of_cov_job, dc_out))
+        dc_outs.append(dc_out)
+        job_deps[final_sample_job[sample]] =  [hsmetrics_job, insertsizemetrics_job, alnsummetrics_job, oxogmetrics_job, depth_of_cov_job]
+        jobs_list = jobs_list + [hsmetrics_job, insertsizemetrics_job, alnsummetrics_job, oxogmetrics_job, depth_of_cov_job]
+
+    return(jobs_list, job_deps, final_sample_bams, by_sample_metrics_jobs_and_files)
+
+def merge_stats(metrics_jobs_and_files, root_dir, pair_file):
+    output_dir  = os.path.join(root_dir, "metrics")
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    new_jobs = []
+    new_job_deps = {}
+    for stat_type, jobs_and_files in metrics_jobs_and_files.items():
+        if stat_type == "DOC":
+            (job, job_deps) = merge_gatk_metrics(jobs_and_files, pair_file, root_dir, output_dir)
+        else:
+            (job, job_deps) = merge_picard_metrics(stat_type, jobs_and_files, output_dir)
+        new_jobs.append(job)
+        new_job_deps.update(job_deps)
+    qc_job = qc_pdf(output_dir)
+    for job in new_jobs:
+        new_job_deps[job]=qc_job
+    return (new_jobs, new_job_deps) 
+
+def qc_pdf(output_dir):
+    #FIXME WRITE THIS SHIT
+
+def merge_gatk_metrics(jobs_and_files, pair_file, root_dir, output_dir):
+    output_dir = os.path.join(output_dir, "fingerprint")
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    cmd = [cmo.util.programs['analyzeFingerprint']['default'],
+            "-pattern '*_FP_base_counts.txt'",
+            "-pre TEST", 
+            "-fp" cmo.util.targets['targets']['AgilentExon_51mb_hg19v3']['tiling_genotypes']
+            ,
+            '-group', pair_File,
+            '-groupType' pairing,
+            '-outdir', output_dir,
+            '-dir', root_dir]
+    return workflow.Job(cmd, name="Analyze Fingerprints")
+
+
+def merge_picard_metrics(stat_type, jobs_and_files, output_dir):
+    output_file = os.path.join(output_dir, stat_type + ".txt")
+    jobs = []
+    files = []
+    for (job, file) in jobs_and_files:
+        jobs.append(job)
+        files.append(file)
+    cmd = [cmo.util.programs['mergePicardMetrics']['default'], 
+            " ".join(files), 
+            ">", output_file]
+    metrics_job = workflow.Job(cmd, name="merge "  + stat_type)
+    job_deps = dict()
+    for job in jobs:
+        job_deps[job] = metrics_job
+    return metrics_job, job_deps
+
+
+
+
+
+
 
 
         
+def hs_metrics(sample,bam, output_dir, targets): 
+    out = os.path.join(output_dir, "HsMetrics_" + sample + ".txt")
+    cmd = ["cmo_picard", "--cmd CalculateHsMetrics"]
+    cmd = cmd + ["--I", bam]
+    cmd = cmd + ["--O", out]
+    #FIXME need bait ilist from config]
+    bait_ilist = cmo.util.targets[targets]['baits_ilist']
+    cmd = cmd + ["--BI", bait_ilist]
+    cmd = cmd + ["--LEVEL", "null"]
+    cmd = cmd + ["--LEVEL", "SAMPLE"]
+    bait_setname = targets
+    cmd = cmd + ["--N" , bait_setname]
+    targets_ilist = cmo.util.targets[targets]['targets_ilist']
+    cmd = cmd + ["--TI", targets_ilist]
+    print " ".join(cmd)
+    metrics_job = workflow.Job(" ".join(cmd), name="HsMetrics " + sample,resources="rusage[mem=10]", processors=1)
+    return (metrics_job, out)
+
+def insertsize_metrics(sample,bam, output_dir):
+    out = os.path.join(output_dir, "InsertSizeMetrics_" + sample + ".txt")
+    outhist = os.path.join(output_dir, "InsertSizeMetrics_Histogram_" + sample + ".txt")
+    cmd = ["cmo_picard", "--cmd CollectInsertSizeMetrics"]
+    cmd = cmd + ["--I", bam]
+    cmd = cmd + ["--O", out]
+    cmd = cmd + ["--H", outhist]
+    cmd = cmd + ["--LEVEL", "null"]
+    cmd = cmd + ["--LEVEL", "SAMPLE"]
+    print " ".join(cmd)
+    metrics_job = workflow.Job(" ".join(cmd), name="InsertSizeMetrics " + sample,resources="rusage[mem=10]", processors=1)
+    return (metrics_job, out, outhist)
+
+def alignment_summary(sample,bam, output_dir):
+    out = os.path.join(output_dir, "AlignmentSummaryMetrics_" + sample + ".txt")
+    cmd = ["cmo_picard", "--cmd CollectAlignmentSummaryMetrics"]
+    cmd = cmd + ["--I", bam]
+    cmd = cmd + ["--O", out]
+    cmd = cmd + ["--LEVEL", "null"]
+    cmd = cmd + ["--LEVEL", "SAMPLE"]
+    print " ".join(cmd)
+    metrics_job = workflow.Job(" ".join(cmd), name="AlignmentSummary " + sample,resources="rusage[mem=10]", processors=3)
+    return (metrics_job, out)
+
+def oxog_metrics(sample,bam, output_dir):
+    out = os.path.join(output_dir, "OxoGMetrics_" + sample + ".txt")
+    cmd = ["cmo_picard", "--cmd CollectOxoGMetrics"]
+    cmd = cmd + ["--I", bam]
+    cmd = cmd + ["--O", out]
+    #FIXME accept arbitrary refseq
+    cmd = cmd + ["--R", "hg19"]
+    cmd = cmd + ["--DB_SNP", "/ifs/depot/annotation/H.sapiens/dbSNP/v135/dbsnp_135.hg19__ReTag.vcf"]
+    print " ".join(cmd)
+    metrics_job = workflow.Job(" ".join(cmd), name="AlignmentSummary " + sample,resources="rusage[mem=10]", processors=3)
+    return (metrics_job, out)
+
+def gatk_doc(sample,bam, output_dir):
+    #FIXME fix GATK parser
+    out = os.path.join(output_dir, bam + "_FP_base_counts.txt")
+    cmd = ["cmo_gatk", "-T DepthOfCoverage"]
+    cmd = cmd + ["-O", out]
+    #FIXME accept arbitrary refseq
+    cmd = cmd + ["-R", "hg19"]
+    cmd = cmd + ["-omitLocusTable", "-omitSampleSummary"]
+    cmd = cmd + ["-includeRefNSites"]
+    cmd = cmd + ["-I", bam]
+    cmd = cmd + ["-rf", "BadCigar"]
+    cmd = cmd + ["-mmq", "20", "-mbq", "0"]
+    print " ".join(cmd)
+    metrics_job = workflow.Job(" ".join(cmd), name="GATK DoC " + sample,resources="rusage[mem=10]", processors=3)
+    return (metrics_job, out)
 
 
-        
 
 
 
 
-
-def mergeStats():
-    pass
 
 def generateGroupFile():
     pass
@@ -378,6 +553,7 @@ if __name__=='__main__':
     parser.add_argument("--genome", help="genome to align against", choices = cmo.util.genomes.keys())
     parser.add_argument("--pair-file", help="file listing tumor/normal pairs for mutect/maf conversion")
     parser.add_argument("--patient-file", help="if a patient file is given, patient wide fillout will be added to maf file")
+    parser.add_argument("--targets", choices=cmo.util.targets.keys(), required=True)
     parser.add_argument("--workflow-mode", choices=["serial","LSF"], default="LSF", help="select 'serial' to run all jobs on the launching box. select 'LSF' to parallelize jobs as much as possible on luna")
     (args) = parser.parse_args()
     if args.output_dir:
@@ -395,7 +571,7 @@ if __name__=='__main__':
     check_configuration(args.config_file)
 
 
-    (jobs, dependencies)  = construct_workflow(args.map_file, args.output_dir)
+    (jobs, dependencies)  = construct_workflow(args.map_file, args.pair_file, args.output_dir, args.targets)
     refalign_workflow = workflow.Workflow(jobs, dependencies, name="refalign test")
     refalign_workflow.run(args.workflow_mode)
          
