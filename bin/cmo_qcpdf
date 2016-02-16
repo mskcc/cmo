@@ -1,0 +1,31 @@
+#!/opt/common/CentOS_6-dev/python/python-2.7.10/bin/python
+
+import argparse, os, sys 
+import cmo
+
+#FIXME this SHOULD NOT take pairing file as input in long term
+#first version is for pipeline parity
+def main(qc_version, r_version, metrics_dir, pre):
+    script = os.path.join(qc_version, "qcPDF.R")
+    Rscript = os.path.join(r_version, "R")
+    cmd = [ Rscript, "CMD BATCH", '"--args',
+            "path='%s'"% metrics_dir,
+            "pre='%s'" % pre,
+            "bin='%s'"% qc_version,
+            "logfile='%s'" % os.path.join(metrics_dir, "_QCPDF_ERRORS.log"),
+            '"',
+            script
+            ]
+    print " ".join(cmd)
+    cmo.util.call_cmd(" ".join(cmd))
+
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Do Dat PostProcessing")
+    parser.add_argument("--qc-version", default="default", help="destination of filtered output")
+    parser.add_argument("--R-version", default="3.1.2", choices=cmo.util.programs['R'].keys(),help="Run QC PDF generation")
+    parser.add_argument("--pre", default="Project", help="project prefix")
+    parser.add_argument("--metrics-directory", required=True, help="pipeline generated metrics directory")
+    args = parser.parse_args()
+    main(cmo.util.programs['qc'][args.qc_version], cmo.util.programs['R'][args.R_version], args.metrics_directory, args.pre)
