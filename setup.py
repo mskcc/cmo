@@ -31,7 +31,8 @@ setup(name='cmo',
                  'bin/cmo_add_variant_info',
                  'bin/cmo_mutsig',
                  'bin/cmo_make_facets_file',
-                 'bin/cmo_abra'
+                 'bin/cmo_abra',
+                 'bin/cmo_qcpdf'
                  ],
         zip_safe=False)
 

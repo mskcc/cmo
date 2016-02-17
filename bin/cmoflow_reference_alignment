@@ -36,6 +36,7 @@ def add_sample_to_lib_grouping(sample_dict, sample_key):
 
 def check_configuration(file):
     #validate that we have enough information to run the pipeline
+    #FIXME do this
     return True
 
 def construct_workflow(map_file, pair_file, output_dir, targets):
@@ -43,14 +44,23 @@ def construct_workflow(map_file, pair_file, output_dir, targets):
     (align_jobs_list, align_job_deps, merged_bams, last_align_jobs) = align_reads(alignment_directories, output_dir)
     (process_jobs_list, process_job_deps, final_bams, metric_jobs_and_files) = process_bams(merged_bams, output_dir, last_align_jobs, targets)
     (qc_job_list, qc_job_deps) = merge_stats(metric_jobs_and_files, output_dir, pair_file)
-    align_job_deps.update(process_job_deps)
-
-    merged_jobs_list = process_jobs_list + align_jobs_list
+    #FIXME move this into workflow or provide convenience function?
+    for key in process_job_deps.keys():
+        if key not in align_job_deps:
+            align_job_deps[key]=process_job_deps[key]
+        else:
+            align_job_deps[key]=[align_job_deps[key], process_job_deps[key]]
+    for key in qc_job_deps.keys():
+        if key not in align_job_deps:
+            align_job_deps[key]=qc_job_deps[key]
+        else:
+            align_job_deps[key]=[align_job_deps[key], qc_job_deps[key]]
+    merged_jobs_list = process_jobs_list + align_jobs_list + qc_job_list
     #for job in merged_jobs_list:
     #    print job.fw_id, job.name
     #for job, dep_job in align_job_deps.items():
     #    print job.fw_id, job.name, dep_job.fw_id, dep_job.name
-    return (align_jobs_list+process_jobs_list, align_job_deps)
+    return (merged_jobs_list, align_job_deps)
 
 def prepare_directories(map_file, output_dir):
     output_dir = os.path.join(output_dir, "intFiles/")
@@ -151,19 +161,18 @@ def cqs_metrics(root_dir):
             root_dir,
             '_cqs_metrics',
             output_file]
-    return workflow.Job(cmd, name="Merge CQS Metrics")
+    return workflow.Job(" ".join(cmd), name="Merge CQS Metrics")
 
 def cutadapt_metrics(root_dir):
     output_dir = os.path.join(root_dir, "metrics")
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
     output_file = os.path.join(output_dir, "CutAdaptStats.txt")
-        cmd = [PYTHON, 
-                cmo.util.programs['cutadapt_metrics']['default'],
+    cmd = [PYTHON, cmo.util.programs['cutadapt_metrics']['default'],
                 root_dir,
-                "CUTADAPT_STATS.TXT",
+                "*CUTADAPT.stats",
                 output_file]
-    return workflow.Job(cmd, name="Merge CutAdapt Stats")
+    return workflow.Job(" ".join(cmd), name="Merge CutAdapt Stats")
 
     
 
@@ -174,6 +183,7 @@ def align_reads(alignment_directories, output_dir):
     job_deps = {}
     cqs_metrics_job = cqs_metrics(output_dir)
     cutadapt_metrics_job = cutadapt_metrics(output_dir)
+    jobs_list = [cqs_metrics_job, cutadapt_metrics_job]
     for directory in alignment_directories:
         read_pairs = sort_fastqs_into_dict(glob.glob(os.path.join(directory, "*R[12]*.fastq.gz")))
         #dictionary of key=FASTQ+BARCODE_ILLUMINA_SET value=LIST OF FASTQS
@@ -321,7 +331,7 @@ def picard_markdups(bam, readset, directory):
     cmd = cmd + ["--M", out_metrics]
     print " ".join(cmd)
     picard_job = workflow.Job(" ".join(cmd), name="Markdup " + readset,resources="rusage[mem=30]", processors=3)
-    return (picard_job, out_bam)
+    return (picard_job, out_bam, out_metrics)
 
 
 
@@ -346,6 +356,7 @@ def process_bams(merged_bams, output_dir, last_align_jobs, targets):
     final_sample_bams = dict()
     final_sample_job = dict()
     metrics_jobs_and_files = defaultdict(list)
+    dc_outs = list()
     #merge and deduplicate by sample, library
     for lib, readset_list in samplelib_grouping.items():
         bams = list()
@@ -362,7 +373,7 @@ def process_bams(merged_bams, output_dir, last_align_jobs, targets):
         for readset in samplelib_sample[lib]['readset_id']:
             job_deps[last_align_jobs[readset]]=lib_merge_job
         (markdup_job, mkdup_bam, metrics_file ) = picard_markdups(merged_bam, lib, bylib_output_directory)
-        metrics_jobs_and_files['MarkDuplicateMetrics']=(markdup_job, metrics_file)
+        metrics_jobs_and_files['MarkDuplicateMetrics'].append((markdup_job, metrics_file))
         jobs_list.append(markdup_job)
         job_deps[lib_merge_job] = markdup_job
         sample_id = samplelib_sample[lib]['sample_id']
@@ -371,7 +382,6 @@ def process_bams(merged_bams, output_dir, last_align_jobs, targets):
     #merge deduplicated library bams by sample
     for sample, bams in by_sample_bams.items():
         bysample_output_directory = os.path.join(output_dir,
-                "intFiles",
                 sample,
                 '')
         if not os.path.exists(bysample_output_directory):
@@ -387,8 +397,9 @@ def process_bams(merged_bams, output_dir, last_align_jobs, targets):
         (hsmetrics_job, hs_out) = hs_metrics(sample,bam, output_dir, targets)
         #FIXME only run if PE
         metrics_jobs_and_files['HsMetrics'].append((hsmetrics_job, hs_out))
-        (insertsizemetrics_job, is_out) = insertsize_metrics(sample,bam, output_dir)
+        (insertsizemetrics_job, is_out, is_hist) = insertsize_metrics(sample,bam, output_dir)
         metrics_jobs_and_files['InsertSizeMetrics'].append((insertsizemetrics_job, is_out))
+        metrics_jobs_and_files['InsertSizeMetrics_Histograms'].append((insertsizemetrics_job, is_hist))
         (alnsummetrics_job, as_out) = alignment_summary(sample,bam, output_dir)
         metrics_jobs_and_files['AlignmentSummaryMetrics'].append((alnsummetrics_job, as_out))
         (oxogmetrics_job, og_out) = oxog_metrics(sample,bam, output_dir)
@@ -400,7 +411,7 @@ def process_bams(merged_bams, output_dir, last_align_jobs, targets):
         job_deps[final_sample_job[sample]] =  [hsmetrics_job, insertsizemetrics_job, alnsummetrics_job, oxogmetrics_job, depth_of_cov_job]
         jobs_list = jobs_list + [hsmetrics_job, insertsizemetrics_job, alnsummetrics_job, oxogmetrics_job, depth_of_cov_job]
 
-    return(jobs_list, job_deps, final_sample_bams, by_sample_metrics_jobs_and_files)
+    return(jobs_list, job_deps, final_sample_bams, metrics_jobs_and_files)
 
 def merge_stats(metrics_jobs_and_files, root_dir, pair_file):
     output_dir  = os.path.join(root_dir, "metrics")
@@ -408,52 +419,83 @@ def merge_stats(metrics_jobs_and_files, root_dir, pair_file):
         os.makedirs(output_dir)
     new_jobs = []
     new_job_deps = {}
-    for stat_type, jobs_and_files in metrics_jobs_and_files.items():
+    for stat_type in metrics_jobs_and_files.keys():
+        jobs_and_files = metrics_jobs_and_files[stat_type]
         if stat_type == "DOC":
             (job, job_deps) = merge_gatk_metrics(jobs_and_files, pair_file, root_dir, output_dir)
+        elif (stat_type=="InsertSizeMetrics_Histograms") :
+            (job, job_deps) = merge_histograms(stat_type, jobs_and_files, root_dir, output_dir)
         else:
-            (job, job_deps) = merge_picard_metrics(stat_type, jobs_and_files, output_dir)
+            (job, job_deps) = merge_picard_metrics(jobs_and_files, stat_type, output_dir)
         new_jobs.append(job)
-        new_job_deps.update(job_deps)
+        for (key, deps) in job_deps.items():
+            if key in new_job_deps:
+                new_job_deps[key]=[new_job_deps[key], job_deps[key]]
+            else:
+                new_job_deps[key]=job_deps[key]
     qc_job = qc_pdf(output_dir)
     for job in new_jobs:
         new_job_deps[job]=qc_job
+    new_jobs.append(qc_job)
     return (new_jobs, new_job_deps) 
 
 def qc_pdf(output_dir):
+    cmd = ["cmo_qcpdf", "--metrics-directory", output_dir]
+    return workflow.Job(" ".join(cmd), name="Generate QC PDF")
     #FIXME WRITE THIS SHIT
 
 def merge_gatk_metrics(jobs_and_files, pair_file, root_dir, output_dir):
     output_dir = os.path.join(output_dir, "fingerprint")
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
-    cmd = [cmo.util.programs['analyzeFingerprint']['default'],
+    cmd = [PYTHON, cmo.util.programs['analyzeFingerprint']['default'],
             "-pattern '*_FP_base_counts.txt'",
             "-pre TEST", 
-            "-fp" cmo.util.targets['targets']['AgilentExon_51mb_hg19v3']['tiling_genotypes']
-            ,
-            '-group', pair_File,
-            '-groupType' pairing,
+            "-fp", cmo.util.targets['AgilentExon_51MB_hg19_v3']['tiling_genotypes'] ,
+            '-group', pair_file,
+            '-groupType', "pairing",
             '-outdir', output_dir,
             '-dir', root_dir]
-    return workflow.Job(cmd, name="Analyze Fingerprints")
+    new_job = workflow.Job(" ".join(cmd), name="Analyze Fingerprints")
+    job_deps={}
+    for (job, file) in jobs_and_files:
+        job_deps[job]=new_job
+    return (new_job, job_deps)
 
-
-def merge_picard_metrics(stat_type, jobs_and_files, output_dir):
+def merge_histograms(stat_type, jobs_and_files, root_dir, output_dir):
     output_file = os.path.join(output_dir, stat_type + ".txt")
     jobs = []
     files = []
     for (job, file) in jobs_and_files:
         jobs.append(job)
         files.append(file)
-    cmd = [cmo.util.programs['mergePicardMetrics']['default'], 
-            " ".join(files), 
-            ">", output_file]
-    metrics_job = workflow.Job(cmd, name="merge "  + stat_type)
+    cmd = [cmo.util.programs['mergeInsertSizeHistograms']['default'], 
+            root_dir, 
+            "InsertSizeMetrics_*.txt",
+            output_file] 
+    metrics_job = workflow.Job(" ".join(cmd), name="merge "  + stat_type)
     job_deps = dict()
     for job in jobs:
         job_deps[job] = metrics_job
-    return metrics_job, job_deps
+    return (metrics_job, job_deps)
+
+
+def merge_picard_metrics(jobs_and_files, stat_type, output_dir):
+    output_file = os.path.join(output_dir, stat_type + ".txt")
+    jobs = []
+    files = []
+    print jobs_and_files
+    for (job, filename) in jobs_and_files:
+        jobs.append(job)
+        files.append(filename)
+    cmd = [cmo.util.programs['mergePicardMetrics']['default'], 
+            " ".join(files), 
+            ">", output_file]
+    metrics_job = workflow.Job(" ".join(cmd), name="merge "  + stat_type)
+    job_deps = dict()
+    for job in jobs:
+        job_deps[job] = metrics_job
+    return (metrics_job, job_deps)
 
 
 
@@ -521,7 +563,7 @@ def gatk_doc(sample,bam, output_dir):
     #FIXME fix GATK parser
     out = os.path.join(output_dir, bam + "_FP_base_counts.txt")
     cmd = ["cmo_gatk", "-T DepthOfCoverage"]
-    cmd = cmd + ["-O", out]
+    cmd = cmd + ["-o", out]
     #FIXME accept arbitrary refseq
     cmd = cmd + ["-R", "hg19"]
     cmd = cmd + ["-omitLocusTable", "-omitSampleSummary"]

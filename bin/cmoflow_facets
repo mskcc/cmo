@@ -1,11 +1,11 @@
 #!/opt/common/CentOS_6-dev/python/python-2.7.10/bin/python
 from cmo import workflow
 import argparse, os, sys
-import cmo 
+import cmo, shutil 
 #WHOA, existentially troubling, man
 PYTHON = cmo.util.programs['python']['default']
 
-def construct_workflow(tumorbam, normalbam, tag, facets_args, output_dir,snps=None, tumor_sample=None, normal_sample=None):
+def construct_workflow(tumorbam, normalbam, tag, facets_args, output_dir,snps=None, tumor_sample=None, normal_sample=None, force=False):
     #look at @RG SM: tag for samples
     if not tumor_sample: 
         tumor_sample = cmo.util.infer_sample_from_bam(tumorbam)
@@ -73,13 +73,17 @@ def construct_workflow(tumorbam, normalbam, tag, facets_args, output_dir,snps=No
             value = next(it)
             facets_dir += "%s-%s" % (arg, value)
     facets_dir = os.path.join(output_dir, cmo.util.filesafe_string(facets_dir))
-    if os.path.exists(facets_dir):
+    if os.path.exists(facets_dir) and not force:
         print >>sys.stderr, "This facets setting directory already exists- bailing out - RM it to force rerun"
         sys.exit(1)
     else:
         print >>sys.stderr, "created facets subdir for these settings: %s" % facets_dir
-        os.makedirs(facets_dir)
-    facets_cmd = ["cmo_facets", "doFacets", "-f", merged_counts, "-t", tag, "-D", facets_dir] + facets_args
+        if not os.path.exists(facets_dir):
+            os.makedirs(facets_dir)
+        else:
+            shutil.rmtree(facets_dir)
+            os.makedirs(facets_dir)
+    facets_cmd = ["cmo_facets", "--lib-version=0.3.9", "doFacets", "-f", merged_counts, "-t", tag, "-D", facets_dir] + facets_args
     facets_job = workflow.Job(" ".join(facets_cmd), est_wait_Time="59", name="Run Facets")
     dependencies = {}
   
@@ -109,12 +113,13 @@ if __name__=='__main__':
     parser.add_argument("--normal-name", help="Override this if you don't want to use the SM: tag on the @RG tags within the bam you supply-- required if your bam doesn't have well formatted @RG SM: tags")
     parser.add_argument("--tumor-name", help="Override this if you don't want to use the SM: tag on the @RG tags in the tumor bam you supply-- required if your bam doesnt have well formatted @RG SM: tags")
     parser.add_argument("--workflow-mode", choices=["serial","LSF"], default="LSF", help="select 'serial' to run all jobs on the launching box. select 'LSF' to parallelize jobs as much as possible on luna")
+    parser.add_argument("--force", action="store_true", help="forcibly overwrite any directories you find there")
     (args, facets_args) = parser.parse_known_args()
     if args.output_dir:
         args.output_dir = os.path.abspath(args.output_dir)
     args.tumor_bam = os.path.abspath(args.tumor_bam)
     args.normal_bam = os.path.abspath(args.normal_bam)
-    (jobs, dependencies, name, terminal_job) = construct_workflow(args.tumor_bam, args.normal_bam, args.tag, facets_args, args.output_dir, snps=args.vcf, tumor_sample = args.tumor_name, normal_sample=args.normal_name)
+    (jobs, dependencies, name, terminal_job) = construct_workflow(args.tumor_bam, args.normal_bam, args.tag, facets_args, args.output_dir, snps=args.vcf, tumor_sample = args.tumor_name, normal_sample=args.normal_name, force=args.force)
     facets_workflow = workflow.Workflow(jobs, dependencies, name=name)
     facets_workflow.run(args.workflow_mode)
          

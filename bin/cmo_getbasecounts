@@ -72,7 +72,7 @@ if __name__ =='__main__':
         else:
             args.fasta = fasta
     else:
-        args.fasta=cmo.util.genomes[args.fasta]['fasta']
+        args.fasta=cmo.util.genomes[args.genome]['fasta']
 
     command_specific_args = vars(args)
     stderr=args.stderr

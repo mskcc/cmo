@@ -15,7 +15,7 @@ if __name__ =='__main__':
     parser.add_argument("--fastq1", required=True)
     parser.add_argument("--fastq2", required=True)
     parser.add_argument("--output", required=True)
-    parser.add_argument("--sam", default=False, help="Produce Sam instead of the default  bam (Boolean)")
+    parser.add_argument("--sam", action='store_true', help="Produce Sam instead of the default  bam (Boolean)")
     parser.add_argument("--version", required=True, choices=cmo.util.programs['bwa'].keys())
     args_dict = parse_bwa_help(cmo.util.programs['bwa']['default'] + " mem")
     if "-h" in args_dict:
@@ -23,9 +23,12 @@ if __name__ =='__main__':
         del args_dict['-h']
     for arg, description in args_dict.items():
         description=description.replace("%","%%")
-        parser.add_argument(arg, dest=arg[1:],action="store", help=description)
+        if arg in ['-S','-P','-e', '-j', '-a', '-C', '-V', '-Y', '-M']:
+            parser.add_argument(arg, action='store_true', help=description)
+        else:
+            parser.add_argument(arg, dest=arg[1:],action="store", help=description)
     args = parser.parse_args()
-    fasta = cmo.util.genomes[args.genome]['fasta']
+    fasta = cmo.util.genomes[args.genome]['bwa_fasta']
     fastq1 = args.fastq1
     fastq2 = args.fastq2
     output = args.output
@@ -35,6 +38,6 @@ if __name__ =='__main__':
     for key in ["genome", "fastq1", "fastq2", "output", "sam", "version"]:
         del args_dict[key]
     parser.parse_args()
-    print bwa_helper.mem(fasta, fastq1, fastq2, output, args_dict=args_dict, no_bam=sam)
+    cmo.util.call_cmd(bwa_helper.mem(fasta, fastq1, fastq2, output, args_dict=args_dict, no_bam=sam))
 
 

@@ -37,8 +37,12 @@ class Picard:
             else:
                 cmd = cmd + [arg + "=" + default_args_override[arg]]
         for arg, value in command_specific_args.items():
-            if value != None:
-                cmd = cmd + [arg + "=" + value]
+            if(isinstance(value, list)):
+                for arg_value in value:
+                    cmd = cmd + [arg + "=" + arg_value]
+            else:
+                if value != None:
+                    cmd = cmd + [arg + "=" + value]
         return " ".join(cmd)
     def picard_cmd_help(self, command):
         cmd = [self.java_cmd, self.java_args, "-jar", self.picard_jar, command, " -h"]

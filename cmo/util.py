@@ -17,6 +17,7 @@ programs = json_config['programs']
 genomes = json_config['genomes']
 chr1_fingerprints = json_config['chr1_fingerprints']
 keys = json_config['keys']
+targets = json_config['targets']
 
 def infer_fasta_from_bam(bam_file):
     get_chr1_cmd= [programs['samtools']['default'], "view -H", bam_file, "| fgrep \"@SQ\" | awk '{print $2,$3}'"]
