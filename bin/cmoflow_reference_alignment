@@ -1,6 +1,6 @@
 #!/opt/common/CentOS_6-dev/python/python-2.7.10/bin/python
 from cmo import workflow
-import argparse, os, sys, re
+import argparse, os, sys, re, csv
 import cmo, glob, copy 
 from collections import defaultdict
 import subprocess, math
@@ -12,7 +12,9 @@ samplelib_sample = {}
 r1_adaptor = 'AGATCGGAAGAGCACACGTCT';
 r2_adaptor = 'AGATCGGAAGAGCGTCGTGTA';
 dir2readgroup = {}
-
+indels_1000g_gold_standard = "/ifs/work/socci/Pipelines/CBE/variants_pipeline/data/hg19/Mills_and_1000G_gold_standard.indels.hg19.vcf"
+hapmap33 = "/ifs/work/socci/Pipelines/CBE/variants_pipeline/data/hg19/hapmap_3.3.hg19.vcf"
+snps_1000g_phase1_hc =  "/ifs/work/socci/Pipelines/CBE/variants_pipeline/data/hg19/1000G_phase1.snps.high_confidence.hg19.vcf"
 
 def add_sample_to_lib_grouping(sample_dict, sample_key):
     sample_id = sample_dict['sample_id']
@@ -33,17 +35,42 @@ def add_sample_to_lib_grouping(sample_dict, sample_key):
         samplelib_sample[library_key]['readset_id'].append(sample_dict['readset_id'][0])
 
 
+def generate_group_file(sample_group_file, output_dir):
+    fh = csv.reader(open(sample_group_file), delimiter="\t")
+    outfile = os.path.join(output_dir, "bam_groupings.txt")
+    ofh = csv.writer(open(outfile, "w"),
+            delimiter="\t",
+            quoting=csv.QUOTE_NONE)
+    samples_in_group = defaultdict(list)
+    bams_in_group = defaultdict(list)
+    for [sample_name, group_id] in fh:
+        if sample_name in sample_map:
+            #make a list of all markdup bams for the group
+            bams_in_group[group_id] = bams_in_group[group_id] + sample_map[sample_name]['md_bams']
+            samples_in_group[group_id].append(sample_name)
+        else:
+            print >>sys.stderr, "Sample from group file not in map file!"
+    for (group, sample_bams) in bams_in_group.items():
+        print group, sample_bams
+        ofh.writerow([group, ",".join(sample_bams), ",".join(samples_in_group[group])])
+    return outfile 
+    
+        
+
 
 def check_configuration(file):
     #validate that we have enough information to run the pipeline
     #FIXME do this
     return True
 
-def construct_workflow(map_file, pair_file, output_dir, targets):
+def construct_workflow(map_file, pair_file, group_file, output_dir, targets):
     alignment_directories = prepare_directories(map_file, output_dir)
     (align_jobs_list, align_job_deps, merged_bams, last_align_jobs) = align_reads(alignment_directories, output_dir)
-    (process_jobs_list, process_job_deps, final_bams, metric_jobs_and_files) = process_bams(merged_bams, output_dir, last_align_jobs, targets)
-    (qc_job_list, qc_job_deps) = merge_stats(metric_jobs_and_files, output_dir, pair_file)
+    (process_jobs_list, process_job_deps, final_bams, final_sample_jobs, metric_jobs_and_files) = process_bams(merged_bams, output_dir, last_align_jobs, targets)
+    (qc_job_list, qc_job_deps) = merge_stats(metric_jobs_and_files, output_dir, pair_file )
+    mdbam_group_file = generate_group_file(group_file, output_dir)
+    (variants_jobs, variant_job_deps) = fix_bam_and_call_variants(mdbam_group_file, final_sample_jobs, output_dir)
+
     #FIXME move this into workflow or provide convenience function?
     for key in process_job_deps.keys():
         if key not in align_job_deps:
@@ -55,12 +82,216 @@ def construct_workflow(map_file, pair_file, output_dir, targets):
             align_job_deps[key]=qc_job_deps[key]
         else:
             align_job_deps[key]=[align_job_deps[key], qc_job_deps[key]]
-    merged_jobs_list = process_jobs_list + align_jobs_list + qc_job_list
-    #for job in merged_jobs_list:
-    #    print job.fw_id, job.name
-    #for job, dep_job in align_job_deps.items():
-    #    print job.fw_id, job.name, dep_job.fw_id, dep_job.name
+    for key in variant_job_deps.keys():
+        if key not in align_job_deps:
+            align_job_deps[key]=variant_job_deps[key]
+        else:
+            if isinstance(align_job_deps[key], list):
+                if not isinstance(variant_job_deps[key], list):
+                    align_job_deps[key].append(variant_job_deps[key])
+                else:
+                    align_job_deps[key] = align_job_deps[key] + variant_job_deps[key]
+            else:
+                if not isinstance(variant_job_deps[key], list):
+                    align_job_deps[key]=[align_job_deps[key], variant_job_deps[key]]
+                else:
+                    align_job_deps[key] = variant_job_deps[key].append(align_job_deps[key])
+
+    merged_jobs_list = process_jobs_list + align_jobs_list + qc_job_list + variants_jobs
+
     return (merged_jobs_list, align_job_deps)
+
+
+def fix_bam_and_call_variants(mdbam_group_file, final_sample_jobs, output_dir):
+    job_list = list()
+    job_deps = dict()
+    #RUN ABRA OR
+    #FIXME WRITE ABRA SWITCH
+    fh = open(mdbam_group_file, "rb")
+    while(1):
+        line = fh.readline()
+        if not line:
+            break
+        #FIXME apparently this grouping file can specify the same sample multiple times
+        #don't process the same sample twice, but not sure
+        #which group it should preferentially bleong to then
+        (group, bam_list, samples_in_group) = line.strip().split("\t")
+        sample_list = samples_in_group.split(",")
+        #FIXME no hardcode chroms :(
+        chrom_range = [str(x) for x in range(1,22)] + ["X", "Y", "M"]
+        realigned_chr_bams_for_group = list()
+        realigner_target_jobs = list()
+        indel_realigner_jobs = list()
+        bams_by_chrom = defaultdict(dict)
+        bam_list = bam_list.split(",")
+        for chrom in chrom_range:
+            (realigner_target_job, interval_file) = realigner_targets(group,chrom, bam_list, output_dir)
+            (indel_realigner_job, realigned_bam) = indel_realigner(group, chrom, bam_list, interval_file, output_dir)
+            bams_by_chrom['realign'][chrom]=realigned_bam
+            realigned_chr_bams_for_group.append(realigned_bam)
+            realigner_target_jobs.append(realigner_target_job)
+            indel_realigner_jobs.append(indel_realigner_job)
+            job_deps[realigner_target_job]=indel_realigner_job
+            job_list = job_list + [realigner_target_job, indel_realigner_job]
+        #hook up this new section the pipeline to the previous jobs in terms of job dependencies
+        for sample, job in final_sample_jobs.items():
+            if sample in sample_list:
+                job_deps[job]=realigner_target_jobs 
+        (base_recalibrator_job, bam_recal_matrix) = base_recalibrator(group, realigned_chr_bams_for_group, output_dir)
+        for job in indel_realigner_jobs:
+            job_deps[job]=base_recalibrator_job
+        job_list.append(base_recalibrator_job)
+        print_reads_jobs = list()
+        for chrom in chrom_range:
+            (print_reads_job, recal_bam) = print_reads(group, chrom, bam_recal_matrix,  bams_by_chrom['realign'][chrom], output_dir)
+            bams_by_chrom['recal'][chrom]=recal_bam
+            print_reads_jobs.append(print_reads_job)
+            job_list.append(print_reads_job)
+        job_deps[base_recalibrator_job]=print_reads_jobs
+        (mergesamfiles_job, merged_bam) = merge_sam_files(group, bams_by_chrom['recal'], output_dir)
+        job_list.append(mergesamfiles_job)
+        for job in print_reads_jobs:
+            job_deps[job]=mergesamfiles_job
+        (splitsamfile_job, by_sample_bams) = splitsamfiles(merged_bam, sample_list, output_dir) 
+        job_deps[mergesamfiles_job]=splitsamfile_job
+        job_list.append(splitsamfile_job)
+     #   all_ug_jobs = list()
+     #   all_hc_jobs = list()
+     #   for bam in by_sample_bams:
+     #       (ug_jobs, ug_vcfs) = ug_by_chrom(chrom_range, bam)
+     #       (hc_jobs, hc_vcfs) = haplotype_caller_by_chrom(chrom_range, bam)
+     #       all_ug_jobs = all_ug_jobs+ug_jobs
+     #       all_hc_jobs = all_hc_jobs+hc_jobs
+     #       (merge_ug_vcf_job, merge_ug_vcf) = merge_vcf(ug_vcfs)
+     #       (merge_hc_vcf_job, merge_hc_vcf) = merge_vcf(hc_vcfs)
+     #       for job in ug_jobs:
+     #           job_deps[job]=merge_ug_vcf_job
+     #       for job in hc_jobs:
+     #           job_deps[job]=merge_hc_vcf_job
+     #       (ug_recal_jobs ) = recalibrate_vcf(merge_ug_vcf)
+     #       (hc_recal_job, recal_file) = recalibrate_vcf(merge_hc_vcf)
+            
+
+#        job_deps[splitsamefile_job]=all_ug_jobs + all_hc_jobs
+
+
+
+    return(job_list, job_deps)
+
+
+def realigner_targets(group, chrom, bam_list, output_dir):
+    interval_file = os.path.join(output_dir, "intFiles", "_".join([group, "CHR"+chrom, "indelRealigner.intervals"]))
+    cmd = ["cmo_gatk",
+            "-T", "RealignerTargetCreator",
+            "-R", "hg19",
+            "-L", "chr" + chrom,
+            "--known", indels_1000g_gold_standard,
+            "--known", "/ifs/depot/annotation/H.sapiens/dbSNP/v135/dbsnp_135.hg19__ReTag.vcf",
+            "-S", "LENIENT",
+            "-nt", "10",
+            "-rf", "BadCigar",
+            "--downsampling_type", "NONE",
+            "--out", interval_file,
+            ]
+    for bam in bam_list:
+        cmd += ["-I", bam]
+    job = workflow.Job(" ".join(cmd), name="Realigner group " + group + " chr " + chrom, resources="rusage[mem=5]", processors="10")
+    return (job, interval_file)
+
+
+def indel_realigner(group, chrom, bam_list, interval_file, output_dir):
+    realigned_bam = os.path.join(output_dir, "intFiles", "_".join([group, "CHR"+chrom, "indelRealigned.bam"]))
+    cmd = ["cmo_gatk",
+            "-T", "IndelRealigner", 
+            "-R", "hg19",
+            "-L", "chr" + chrom,
+            "--knownAlleles", indels_1000g_gold_standard,
+            "--knownAlleles", "/ifs/depot/annotation/H.sapiens/dbSNP/v135/dbsnp_135.hg19__ReTag.vcf",
+            "-S", "LENIENT",
+            "--targetIntervals", interval_file,
+            "--maxReadsForRealignment", "500000",
+            "--maxReadsInMemory", "3000000",
+            "--maxReadsForConsensus", "500000",
+            "-rf", "BadCigar",
+            "--out", realigned_bam]
+    job = workflow.Job(" ".join(cmd), name="_".join(["IndelRealigner", group, chrom]), resources="rusage[mem=15]", processors="1") 
+    return (job, realigned_bam)
+
+
+def base_recalibrator(group, bams, output_dir):
+    recal_matrix = os.path.join(output_dir, "intFiles", "_".join([group, "recal_data.grp"]))
+    cmd = ["cmo_gatk",
+            "-T", "BaseRecalibrator",
+            "-l", "INFO",
+            "-R", "hg19",
+            "-S", "LENIENT",
+            "--knownSites", "/ifs/depot/annotation/H.sapiens/dbSNP/v135/dbsnp_135.hg19__ReTag.vcf",
+            "--knownSites", indels_1000g_gold_standard,
+            "--knownSites", hapmap33,
+            "--knownSites", snps_1000g_phase1_hc,
+            "--covariate", "ContextCovariate",
+            "--covariate", "CycleCovariate",
+            "--covariate", "QualityScoreCovariate",
+            "--covariate", "ReadGroupCovariate", 
+            "-rf", "BadCigar",
+            "--num_cpu_threads_per_data_thread", "12",
+            "--out", recal_matrix]
+    for bam in bams:
+        cmd = cmd + ["-I", bam]
+    job = workflow.Job(" ".join(cmd), resources="rusage[mem=40]", processors="12", name="Base Recalibration")
+    return (job, recal_matrix)
+
+
+def print_reads(group, chrom, bam_recal_matrix, input_bam, output_dir):
+    out_bam = os.path.join(output_dir, "intFiles", "_".join([group, "CHR"+chrom, "indelRealigned_recal.bam"]))
+    cmd = ["cmo_gatk",
+            "-T", "PrintReads",
+            "-R", "hg19",
+            "-L", "chr" + chrom,
+            "--emit_original_quals",
+            "-BQSR", bam_recal_matrix,
+            "--num_cpu_threads_per_data_thread" , "6",
+            "-rf", "BadCigar",
+            "--downsampling_type", "NONE",
+            "--out", out_bam,
+            "-I", input_bam]
+    job = workflow.Job(" ".join(cmd), name="_".join(["PrintReads", group, chrom]), resources="rusage[mem=30]", processors="6")
+    return (job, out_bam)
+
+
+
+#FIXME unify this call with picard_merge method
+def merge_sam_files(group, bam_hash, output_dir):
+    '''run picard merge'''
+    #FIXME fix picard helper to accept default options instead of hiding them?
+    out_bam = os.path.join(output_dir, "intFiles", "_".join([group,"indelRealigned_recal.bam"]))
+    cmd = ["cmo_picard", "--cmd MergeSamFiles", "--SO coordinate", ]
+    for bam in bam_hash.values():
+        cmd = cmd + ["--I", bam]
+    cmd = cmd + ["--O", out_bam]
+    print " ".join(cmd)
+    job = workflow.Job(" ".join(cmd), name="Merge bams",resources="rusage[iounits=6]")
+    return (job, out_bam)
+        
+
+def splitsamfiles(merged_bam, sample_list, output_dir):
+    out_prefix = os.path.join(output_dir, "alignments", "indelRealigned_recal_")
+    cmd = [ "cmo_gatk", 
+            "-T", "SplitSamFile",
+            "-R", "hg19",
+            "-I", merged_bam, 
+            "--outputRoot", out_prefix]
+    by_sample_bams = list()
+    for sample in sample_list:
+        by_sample_bams.append(out_prefix + sample + ".bam")
+    job = workflow.Job(" ".join(cmd), name="Split Sam Files", resources="rusage[mem=10]", processors=1)
+    return (job, by_sample_bams)
+
+        
+    #RUN REALIGNER TARGET CREATOR
+    # AND RUN IndelRealigner in CHROMSOME PARALLELIZATION
+    # RUN BASE RECALIBRATION
+
 
 def prepare_directories(map_file, output_dir):
     output_dir = os.path.join(output_dir, "intFiles/")
@@ -95,6 +326,7 @@ def prepare_directories(map_file, output_dir):
                     "LB:" + sample_dict['sample_id'] + "_"+ sample_dict['library_id'],
                     "SM:" + sample_dict['sample_id']
                 ])
+        sample_dict['md_bams']=list()
         
         #sample_map[sample_key] = sample_dict
         sample_map[sample_dict['sample_id']]=sample_dict
@@ -193,6 +425,7 @@ def align_reads(alignment_directories, output_dir):
         min_read_length = None
         #GUNZIP, ConvertQuality Score, and split raw fastqs into 4million read chunks
         for sample, sample_readsets in read_pairs.items():
+            #FIXME this god damn underscore dash hack 
             sample_map_key = "s_" + sample.replace("-","_")
             for readset, fastqs in sample_readsets.items():
                 readset_outputs = defaultdict(list)
@@ -235,7 +468,7 @@ def align_reads(alignment_directories, output_dir):
                     for readset_chunk in readset_outputs.keys():
                         for split_job in split_jobs[readset_chunk]:
                             job_deps[split_job]=cut_jobs[readset_chunk]
-                    #put final bam in the fastq directory!
+                 #put final bam in the fastq directory!
                 (merge_job, final_bam) = picard_merge(bams, sample_map[sample_map_key]['readset_id'], directory)
                 jobs_list = jobs_list + [merge_job]
                 for job in bwa_jobs:
@@ -306,6 +539,11 @@ def bwa(read1, read2, readgroup):
     print " ".join(cmd)
     return(bam, bwa_job)
 
+def samtools_index(bam):
+    samtools = cmo.util.programs['samtools']['0.1.2']
+    cmd = [ samtools, "index", bam ]
+    return workflow.Job(" ".join(cmd), name="index " + os.path.basename(bam))
+
 def picard_merge(bams, readset, directory):
     '''run picard merge'''
     #FIXME fix picard helper to accept default options instead of hiding them?
@@ -373,6 +611,7 @@ def process_bams(merged_bams, output_dir, last_align_jobs, targets):
         for readset in samplelib_sample[lib]['readset_id']:
             job_deps[last_align_jobs[readset]]=lib_merge_job
         (markdup_job, mkdup_bam, metrics_file ) = picard_markdups(merged_bam, lib, bylib_output_directory)
+        sample_map[samplelib_sample[lib]['sample_id']]['md_bams'].append(mkdup_bam)
         metrics_jobs_and_files['MarkDuplicateMetrics'].append((markdup_job, metrics_file))
         jobs_list.append(markdup_job)
         job_deps[lib_merge_job] = markdup_job
@@ -387,8 +626,11 @@ def process_bams(merged_bams, output_dir, last_align_jobs, targets):
         if not os.path.exists(bysample_output_directory):
             os.makedirs(bysample_output_directory)
         (sample_merge_job, merged_bam) = picard_merge(bams, sample, bysample_output_directory)
+        (index_job) = samtools_index(merged_bam)
         jobs_list.append(sample_merge_job)
-        final_sample_job[sample]=sample_merge_job
+        jobs_list.append(index_job)
+        job_deps[sample_merge_job]=index_job
+        final_sample_job[sample]=index_job
         final_sample_bams[sample]=merged_bam
         for precursor_job in by_sample_jobs[sample]:
             job_deps[precursor_job]=sample_merge_job
@@ -405,13 +647,13 @@ def process_bams(merged_bams, output_dir, last_align_jobs, targets):
         (oxogmetrics_job, og_out) = oxog_metrics(sample,bam, output_dir)
         metrics_jobs_and_files['OxoGMetrics'].append((oxogmetrics_job, og_out))
         #FIXME only run if hg19?
-        (depth_of_cov_job, dc_out) = gatk_doc(sample,bam, output_dir)
+        (depth_of_cov_job, dc_out) = gatk_doc(sample,bam, output_dir, targets)
         metrics_jobs_and_files['DOC'].append((depth_of_cov_job, dc_out))
         dc_outs.append(dc_out)
         job_deps[final_sample_job[sample]] =  [hsmetrics_job, insertsizemetrics_job, alnsummetrics_job, oxogmetrics_job, depth_of_cov_job]
         jobs_list = jobs_list + [hsmetrics_job, insertsizemetrics_job, alnsummetrics_job, oxogmetrics_job, depth_of_cov_job]
 
-    return(jobs_list, job_deps, final_sample_bams, metrics_jobs_and_files)
+    return(jobs_list, job_deps, final_sample_bams, final_sample_job, metrics_jobs_and_files)
 
 def merge_stats(metrics_jobs_and_files, root_dir, pair_file):
     output_dir  = os.path.join(root_dir, "metrics")
@@ -451,7 +693,7 @@ def merge_gatk_metrics(jobs_and_files, pair_file, root_dir, output_dir):
     cmd = [PYTHON, cmo.util.programs['analyzeFingerprint']['default'],
             "-pattern '*_FP_base_counts.txt'",
             "-pre TEST", 
-            "-fp", cmo.util.targets['AgilentExon_51MB_hg19_v3']['tiling_genotypes'] ,
+            "-fp", cmo.util.targets['AgilentExon_51MB_hg19_v3']['FP_tiling_genotypes'] ,
             '-group', pair_file,
             '-groupType', "pairing",
             '-outdir', output_dir,
@@ -559,7 +801,7 @@ def oxog_metrics(sample,bam, output_dir):
     metrics_job = workflow.Job(" ".join(cmd), name="AlignmentSummary " + sample,resources="rusage[mem=10]", processors=3)
     return (metrics_job, out)
 
-def gatk_doc(sample,bam, output_dir):
+def gatk_doc(sample,bam, output_dir, targets):
     #FIXME fix GATK parser
     out = os.path.join(output_dir, bam + "_FP_base_counts.txt")
     cmd = ["cmo_gatk", "-T DepthOfCoverage"]
@@ -567,22 +809,14 @@ def gatk_doc(sample,bam, output_dir):
     #FIXME accept arbitrary refseq
     cmd = cmd + ["-R", "hg19"]
     cmd = cmd + ["-omitLocusTable", "-omitSampleSummary"]
-    cmd = cmd + ["-includeRefNSites"]
+    cmd = cmd + ["--includeRefNSites"]
     cmd = cmd + ["-I", bam]
+    cmd = cmd + ["-L", cmo.util.targets[targets]['FP_intervals']]
     cmd = cmd + ["-rf", "BadCigar"]
     cmd = cmd + ["-mmq", "20", "-mbq", "0"]
     print " ".join(cmd)
     metrics_job = workflow.Job(" ".join(cmd), name="GATK DoC " + sample,resources="rusage[mem=10]", processors=3)
     return (metrics_job, out)
-
-
-
-
-
-
-
-def generateGroupFile():
-    pass
 
 
 
@@ -613,7 +847,7 @@ if __name__=='__main__':
     check_configuration(args.config_file)
 
 
-    (jobs, dependencies)  = construct_workflow(args.map_file, args.pair_file, args.output_dir, args.targets)
+    (jobs, dependencies)  = construct_workflow(args.map_file, args.pair_file, args.group_file, args.output_dir, args.targets)
     refalign_workflow = workflow.Workflow(jobs, dependencies, name="refalign test")
     refalign_workflow.run(args.workflow_mode)
          

@@ -15,7 +15,7 @@ class Job(fireworks.Firework):
         bsub_options_dict={}
         spec = None
         name = None
-        for key in['queue', 'resources', 'walltime', 'est_wait_time']:
+        for key in['queue', 'resources', 'walltime', 'est_wait_time', 'processors']:
             if key in kwargs:
                 bsub_options_dict[key]=kwargs[key]
         if len(bsub_options_dict.keys()) > 0:
