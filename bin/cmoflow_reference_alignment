@@ -14,8 +14,9 @@ r2_adaptor = 'AGATCGGAAGAGCGTCGTGTA';
 dir2readgroup = {}
 indels_1000g_gold_standard = "/ifs/work/socci/Pipelines/CBE/variants_pipeline/data/hg19/Mills_and_1000G_gold_standard.indels.hg19.vcf"
 hapmap33 = "/ifs/work/socci/Pipelines/CBE/variants_pipeline/data/hg19/hapmap_3.3.hg19.vcf"
+omni = "/ifs/work/socci/Pipelines/CBE/variants_pipeline/data/hg19/1000G_omni2.5.hg19.vcf"
 snps_1000g_phase1_hc =  "/ifs/work/socci/Pipelines/CBE/variants_pipeline/data/hg19/1000G_phase1.snps.high_confidence.hg19.vcf"
-
+dbsnp = "/ifs/depot/annotation/H.sapiens/dbSNP/v135/dbsnp_135.hg19__ReTag.vcf"
 def add_sample_to_lib_grouping(sample_dict, sample_key):
     sample_id = sample_dict['sample_id']
     lib_id = sample_dict['library_id']
@@ -69,7 +70,7 @@ def construct_workflow(map_file, pair_file, group_file, output_dir, targets):
     (process_jobs_list, process_job_deps, final_bams, final_sample_jobs, metric_jobs_and_files) = process_bams(merged_bams, output_dir, last_align_jobs, targets)
     (qc_job_list, qc_job_deps) = merge_stats(metric_jobs_and_files, output_dir, pair_file )
     mdbam_group_file = generate_group_file(group_file, output_dir)
-    (variants_jobs, variant_job_deps) = fix_bam_and_call_variants(mdbam_group_file, final_sample_jobs, output_dir)
+    (variants_jobs, variant_job_deps) = fix_bam_and_call_variants(mdbam_group_file, pair_file, final_sample_jobs, output_dir)
 
     #FIXME move this into workflow or provide convenience function?
     for key in process_job_deps.keys():
@@ -102,12 +103,15 @@ def construct_workflow(map_file, pair_file, group_file, output_dir, targets):
     return (merged_jobs_list, align_job_deps)
 
 
-def fix_bam_and_call_variants(mdbam_group_file, final_sample_jobs, output_dir):
+def fix_bam_and_call_variants(mdbam_group_file, pair_file, final_sample_jobs, output_dir):
     job_list = list()
     job_deps = dict()
     #RUN ABRA OR
     #FIXME WRITE ABRA SWITCH
     fh = open(mdbam_group_file, "rb")
+    chrom_range = [str(x) for x in range(1,22)] + ["X", "Y", "M"]
+    all_sample_bams_by_chrom = defaultdict(list)
+    print_reads_by_chrom = defaultdict(list)
     while(1):
         line = fh.readline()
         if not line:
@@ -118,7 +122,6 @@ def fix_bam_and_call_variants(mdbam_group_file, final_sample_jobs, output_dir):
         (group, bam_list, samples_in_group) = line.strip().split("\t")
         sample_list = samples_in_group.split(",")
         #FIXME no hardcode chroms :(
-        chrom_range = [str(x) for x in range(1,22)] + ["X", "Y", "M"]
         realigned_chr_bams_for_group = list()
         realigner_target_jobs = list()
         indel_realigner_jobs = list()
@@ -145,38 +148,151 @@ def fix_bam_and_call_variants(mdbam_group_file, final_sample_jobs, output_dir):
         for chrom in chrom_range:
             (print_reads_job, recal_bam) = print_reads(group, chrom, bam_recal_matrix,  bams_by_chrom['realign'][chrom], output_dir)
             bams_by_chrom['recal'][chrom]=recal_bam
+            all_sample_bams_by_chrom[chrom].append(recal_bam)
             print_reads_jobs.append(print_reads_job)
             job_list.append(print_reads_job)
-        job_deps[base_recalibrator_job]=print_reads_jobs
+            print_reads_by_chrom[chrom].append(print_reads_job)
         (mergesamfiles_job, merged_bam) = merge_sam_files(group, bams_by_chrom['recal'], output_dir)
         job_list.append(mergesamfiles_job)
-        for job in print_reads_jobs:
-            job_deps[job]=mergesamfiles_job
         (splitsamfile_job, by_sample_bams) = splitsamfiles(merged_bam, sample_list, output_dir) 
         job_deps[mergesamfiles_job]=splitsamfile_job
         job_list.append(splitsamfile_job)
-     #   all_ug_jobs = list()
-     #   all_hc_jobs = list()
-     #   for bam in by_sample_bams:
-     #       (ug_jobs, ug_vcfs) = ug_by_chrom(chrom_range, bam)
-     #       (hc_jobs, hc_vcfs) = haplotype_caller_by_chrom(chrom_range, bam)
-     #       all_ug_jobs = all_ug_jobs+ug_jobs
-     #       all_hc_jobs = all_hc_jobs+hc_jobs
-     #       (merge_ug_vcf_job, merge_ug_vcf) = merge_vcf(ug_vcfs)
-     #       (merge_hc_vcf_job, merge_hc_vcf) = merge_vcf(hc_vcfs)
-     #       for job in ug_jobs:
-     #           job_deps[job]=merge_ug_vcf_job
-     #       for job in hc_jobs:
-     #           job_deps[job]=merge_hc_vcf_job
-     #       (ug_recal_jobs ) = recalibrate_vcf(merge_ug_vcf)
-     #       (hc_recal_job, recal_file) = recalibrate_vcf(merge_hc_vcf)
-            
+        for job in print_reads_jobs:
+            job_deps[job]=[mergesamfiles_job]
+        job_deps[base_recalibrator_job]=print_reads_jobs
+    hc_vcfs = list()
+    hc_jobs = list()
+    for chrom in chrom_range:
+        (haplotype_caller_job, hc_vcf) = haplotype_caller(chrom, all_sample_bams_by_chrom[chrom], output_dir)
+        hc_vcfs.append(hc_vcf)
+        hc_jobs.append(haplotype_caller_job)
+        job_list.append(haplotype_caller_job)
+        #multiple dependencies on print reads, append new dependency
+        for job in print_reads_by_chrom[chrom]:
+            job_deps[job].append(haplotype_caller_job)
+    (combine_variants_job, merge_hc_vcf) = combine_variants(hc_vcfs, output_dir)
+    for job in hc_jobs:
+        job_deps[job]=combine_variants_job
+    job_list.append(combine_variants_job)
+    (hc_snp_recal_job, snp_recal_file,snps_tranches) = recalibrate_snps(merge_hc_vcf, output_dir)
 
-#        job_deps[splitsamefile_job]=all_ug_jobs + all_hc_jobs
 
-
-
+    (hc_snp_apply_recal_job, snp_recal_vcf) = apply_recalibration_snps(merge_hc_vcf, snp_recal_file, snps_tranches, output_dir)
+    (hc_indel_recal_job, indel_recal_file, indels_tranches) = recalibrate_indels(snp_recal_vcf, output_dir)
+    (hc_indel_apply_recal_job, final_recal_vcf) = apply_recalibration_indels(snp_recal_vcf, indel_recal_file,indels_tranches, output_dir)
+    job_deps[combine_variants_job]=[hc_snp_recal_job]
+    job_deps[hc_snp_recal_job]=hc_snp_apply_recal_job
+    job_deps[hc_snp_apply_recal_job] = hc_indel_recal_job
+    job_deps[hc_indel_recal_job]=hc_indel_apply_recal_job
+    job_list = job_list + [hc_snp_recal_job, hc_indel_recal_job, hc_snp_apply_recal_job, hc_indel_apply_recal_job]
     return(job_list, job_deps)
+
+def recalibrate_snps(vcf, output_dir):
+    output_file = os.path.join(output_dir, "intFiles", "HaplotypeCaller_SNP.recal")
+    output_tranches = os.path.join(output_dir, "intFiles", "HaplotypeCaller_SNP.tranches")
+    output_rscript = os.path.join(output_dir, "intFiles", "HaplotypeCaller_SNP.plots.R")
+    cmd = [ "cmo_gatk",
+            "-T", "VariantRecalibrator",
+            "-R", "hg19",
+            "-input", vcf,
+            "-resource:hapmap,known=false,training=true,truth=true,prior=15.0", hapmap33,
+            "-resource:omni,known=false,training=true,truth=true,prior=12.0", omni,
+            "-resource:1000G,known=false,training=true,truth=false,prior=10.0", snps_1000g_phase1_hc,
+            "-resource:dbsnp,known=true,training=false,truth=false,prior=2.0", dbsnp,
+            "-an", "DP", "-an", "QD", "-an", "FS", "-an", "MQRankSum", 
+            "-an", "ReadPosRankSum", "-mode", "SNP", "-tranche", "100.0",
+            "-tranche", "99.0", "-tranche", "90.0", "-recalFile", output_file,
+            "-tranchesFile", output_tranches,
+            "-rscriptFile", output_rscript,
+            "-nt", "4"]
+    job = workflow.Job(" ".join(cmd), name="VQSR SNPS", processors=4, resources="rusage[mem=1]")
+    return(job, output_file, output_tranches)
+
+def recalibrate_indels(vcf, output_dir):
+    output_file = os.path.join(output_dir, "intFiles", "HaplotypeCaller_INDEL.recal")
+    output_tranches = os.path.join(output_dir, "intFiles", "HaplotypeCaller_INDEL.tranches")
+    output_rscript = os.path.join(output_dir, "intFiles", "HaplotypeCaller_INDEL.plots.R")
+    cmd = [ "cmo_gatk",
+            "-T", "VariantRecalibrator",
+            "-R", "hg19",
+            "-input", vcf,
+            "-resource:mills,known=false,training=true,truth=true,prior=12.0", indels_1000g_gold_standard,
+            "-an", "DP", "-an", "FS", "-an", "MQRankSum", 
+            "-an", "ReadPosRankSum", "-mode", "INDEL", "-tranche", "100.0",
+            "-tranche", "99.9", "-tranche", "99.0", "-tranche", "90.0",
+            "--maxGaussians", "4", "-recalFile", output_file,
+            "-tranchesFile", output_tranches,
+            "-rscriptFile", output_rscript,
+            "-nt", "4"]
+    job = workflow.Job(" ".join(cmd), name="VQSR INDELS", processors=4, resources="rusage[mem=1]")
+    return(job, output_file, output_tranches)
+
+def apply_recalibration_indels(vcf, recal_file, tranches_file, output_dir):
+    output_file = os.path.join(output_dir, "variants", "haplotypecaller", "HaplotypeCaller.vcf")
+    if not os.path.exists(os.path.dirname(output_file)):
+            os.makedirs(os.path.dirname(output_file))
+    cmd = ["cmo_gatk",
+            "-T", "ApplyRecalibration",
+            "-R", "hg19",
+            "--ts_filter_level", "99.0",
+            "-mode", "INDEL",
+            "-tranchesFile", tranches_file, 
+            "-recalFile", recal_file, 
+            "-o", output_file,
+            "-nt", "1"]
+    job = workflow.Job(" ".join(cmd), name="Apply SNP Recal", resources="rusage[mem=1]", processors=1)
+    return (job, output_file)
+
+
+def apply_recalibration_snps(vcf, recal_file, tranches_file, output_dir):
+    output_file = os.path.join(output_dir, "intFiles", "HaplotypeCaller_SNP_vqsr.vcf")
+    cmd = ["cmo_gatk",
+            "-T", "ApplyRecalibration",
+            "-R", "hg19",
+            "--ts_filter_level", "99.0",
+            "-mode", "SNP",
+            "-tranchesFile", tranches_file, 
+            "-recalFile", recal_file, 
+            "-o", output_file,
+            "-nt", "1"]
+    job = workflow.Job(" ".join(cmd), name="Apply SNP Recal", resources="rusage[mem=1]", processors=1)
+    return (job, output_file)
+
+    
+
+def combine_variants(hc_vcfs, output_dir):
+    output_file = os.path.join(output_dir, "intFiles", "HaplotypeCaller_RAW.vcf")
+    cmd = ["cmo_gatk",
+            "-T", "CombineVariants",
+            "-R", "hg19",
+            "-o", output_file,
+            "--assumeIdenticalSamples"]
+    for vcf in hc_vcfs:
+        cmd = cmd + ["--variant", vcf]
+    job = workflow.Job(" ".join(cmd), name="combine Haplo calls", resources="rusage[mem=2]", processors=1)
+    return (job, output_file)
+
+
+def haplotype_caller(chrom, bams, output_dir):
+    output_file = os.path.join(output_dir, "intFiles", "chr" +chrom+ "_HaplotypeCaller.vcf")
+    cmd = ["cmo_gatk",
+            "-T", "HaplotypeCaller",
+            "-R ", "hg19",
+            "-L", "chr"+chrom,
+            "--dbsnp", dbsnp,
+            "--downsampling_type", "NONE",
+            "--annotation", "AlleleBalanceBySample",
+            "--annotation", "ClippingRankSumTest",
+            "--read_filter", "BadCigar",
+            "--num_cpu_threads_per_data_thread", "24",
+            "--out", output_file,
+            ]
+    for bam in bams:
+        cmd = cmd + ["-I", bam]
+    job = workflow.Job(" ".join(cmd), name="Run HaplotypeCaller " + chrom, resources="rusage[mem=90]", processors=24)
+    return (job, output_file)
+   
+
 
 
 def realigner_targets(group, chrom, bam_list, output_dir):
@@ -186,7 +302,7 @@ def realigner_targets(group, chrom, bam_list, output_dir):
             "-R", "hg19",
             "-L", "chr" + chrom,
             "--known", indels_1000g_gold_standard,
-            "--known", "/ifs/depot/annotation/H.sapiens/dbSNP/v135/dbsnp_135.hg19__ReTag.vcf",
+            "--known", dbsnp,
             "-S", "LENIENT",
             "-nt", "10",
             "-rf", "BadCigar",
@@ -206,7 +322,7 @@ def indel_realigner(group, chrom, bam_list, interval_file, output_dir):
             "-R", "hg19",
             "-L", "chr" + chrom,
             "--knownAlleles", indels_1000g_gold_standard,
-            "--knownAlleles", "/ifs/depot/annotation/H.sapiens/dbSNP/v135/dbsnp_135.hg19__ReTag.vcf",
+            "--knownAlleles", dbsnp,
             "-S", "LENIENT",
             "--targetIntervals", interval_file,
             "--maxReadsForRealignment", "500000",
@@ -214,6 +330,8 @@ def indel_realigner(group, chrom, bam_list, interval_file, output_dir):
             "--maxReadsForConsensus", "500000",
             "-rf", "BadCigar",
             "--out", realigned_bam]
+    for bam in bam_list:
+        cmd += ["-I", bam]
     job = workflow.Job(" ".join(cmd), name="_".join(["IndelRealigner", group, chrom]), resources="rusage[mem=15]", processors="1") 
     return (job, realigned_bam)
 
@@ -225,7 +343,7 @@ def base_recalibrator(group, bams, output_dir):
             "-l", "INFO",
             "-R", "hg19",
             "-S", "LENIENT",
-            "--knownSites", "/ifs/depot/annotation/H.sapiens/dbSNP/v135/dbsnp_135.hg19__ReTag.vcf",
+            "--knownSites", dbsnp,
             "--knownSites", indels_1000g_gold_standard,
             "--knownSites", hapmap33,
             "--knownSites", snps_1000g_phase1_hc,
@@ -276,6 +394,8 @@ def merge_sam_files(group, bam_hash, output_dir):
 
 def splitsamfiles(merged_bam, sample_list, output_dir):
     out_prefix = os.path.join(output_dir, "alignments", "indelRealigned_recal_")
+    if not os.path.exists(os.path.basedir(out_prefix)):
+        os.makedirs(os.path.basedir(out_prefix))
     cmd = [ "cmo_gatk", 
             "-T", "SplitSamFile",
             "-R", "hg19",
@@ -617,7 +737,11 @@ def process_bams(merged_bams, output_dir, last_align_jobs, targets):
         job_deps[lib_merge_job] = markdup_job
         sample_id = samplelib_sample[lib]['sample_id']
         by_sample_bams[sample_id].append(mkdup_bam)
-        by_sample_jobs[sample_id].append(markdup_job)
+        #can be more than one mkdup+index, if more than one library
+        (index_job) = samtools_index(mkdup_bam)
+        job_deps[markdup_job]=index_job
+        jobs_list.append(index_job)
+        by_sample_jobs[sample_id].append(index_job)
     #merge deduplicated library bams by sample
     for sample, bams in by_sample_bams.items():
         bysample_output_directory = os.path.join(output_dir,
@@ -628,9 +752,7 @@ def process_bams(merged_bams, output_dir, last_align_jobs, targets):
         (sample_merge_job, merged_bam) = picard_merge(bams, sample, bysample_output_directory)
         (index_job) = samtools_index(merged_bam)
         jobs_list.append(sample_merge_job)
-        jobs_list.append(index_job)
-        job_deps[sample_merge_job]=index_job
-        final_sample_job[sample]=index_job
+        final_sample_job[sample]=sample_merge_job
         final_sample_bams[sample]=merged_bam
         for precursor_job in by_sample_jobs[sample]:
             job_deps[precursor_job]=sample_merge_job
@@ -796,7 +918,7 @@ def oxog_metrics(sample,bam, output_dir):
     cmd = cmd + ["--O", out]
     #FIXME accept arbitrary refseq
     cmd = cmd + ["--R", "hg19"]
-    cmd = cmd + ["--DB_SNP", "/ifs/depot/annotation/H.sapiens/dbSNP/v135/dbsnp_135.hg19__ReTag.vcf"]
+    cmd = cmd + ["--DB_SNP", dbsnp]
     print " ".join(cmd)
     metrics_job = workflow.Job(" ".join(cmd), name="AlignmentSummary " + sample,resources="rusage[mem=10]", processors=3)
     return (metrics_job, out)
