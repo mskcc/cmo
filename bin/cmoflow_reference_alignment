@@ -17,6 +17,7 @@ hapmap33 = "/ifs/work/socci/Pipelines/CBE/variants_pipeline/data/hg19/hapmap_3.3
 omni = "/ifs/work/socci/Pipelines/CBE/variants_pipeline/data/hg19/1000G_omni2.5.hg19.vcf"
 snps_1000g_phase1_hc =  "/ifs/work/socci/Pipelines/CBE/variants_pipeline/data/hg19/1000G_phase1.snps.high_confidence.hg19.vcf"
 dbsnp = "/ifs/depot/annotation/H.sapiens/dbSNP/v135/dbsnp_135.hg19__ReTag.vcf"
+cosmic = "/ifs/work/socci/Pipelines/CBE/variants_pipeline/data/hg19/CosmicCodingMuts_v67_20131024.vcf"
 def add_sample_to_lib_grouping(sample_dict, sample_key):
     sample_id = sample_dict['sample_id']
     lib_id = sample_dict['library_id']
@@ -112,6 +113,7 @@ def fix_bam_and_call_variants(mdbam_group_file, pair_file, final_sample_jobs, ou
     chrom_range = [str(x) for x in range(1,22)] + ["X", "Y", "M"]
     all_sample_bams_by_chrom = defaultdict(list)
     print_reads_by_chrom = defaultdict(list)
+    splitsamfiles_jobs = list()
     while(1):
         line = fh.readline()
         if not line:
@@ -157,11 +159,13 @@ def fix_bam_and_call_variants(mdbam_group_file, pair_file, final_sample_jobs, ou
         (splitsamfile_job, by_sample_bams) = splitsamfiles(merged_bam, sample_list, output_dir) 
         job_deps[mergesamfiles_job]=splitsamfile_job
         job_list.append(splitsamfile_job)
+        splitsamfiles_jobs.append(splitsamfile_job)
         for job in print_reads_jobs:
             job_deps[job]=[mergesamfiles_job]
         job_deps[base_recalibrator_job]=print_reads_jobs
     hc_vcfs = list()
     hc_jobs = list()
+    #######RUN HAPLOTYPE CALLER BY CHROMOSOME, THEN VQSR
     for chrom in chrom_range:
         (haplotype_caller_job, hc_vcf) = haplotype_caller(chrom, all_sample_bams_by_chrom[chrom], output_dir)
         hc_vcfs.append(hc_vcf)
@@ -185,7 +189,47 @@ def fix_bam_and_call_variants(mdbam_group_file, pair_file, final_sample_jobs, ou
     job_deps[hc_snp_apply_recal_job] = hc_indel_recal_job
     job_deps[hc_indel_recal_job]=hc_indel_apply_recal_job
     job_list = job_list + [hc_snp_recal_job, hc_indel_recal_job, hc_snp_apply_recal_job, hc_indel_apply_recal_job]
+    #####NOW DO PAIRED CALLING WITH MUTECt
+    pair_csv = csv.reader(open(pair_file, "r"), delimiter="\t")
+    for row in pair_csv:
+        normal = row[0]
+        tumor = row[1]
+        if normal not in sample_map:
+            print >>sys.stderr, "Normal sample %s not in sampl map, skipping row" % normal
+            continue
+        if tumor not in sample_map:
+            print >>sys.stderr, "tumor sample %s not in sampl map, skipping row" % tumor
+            continue
+        #FIXME improve dependencies to match pairs to group (would be nice to have them in same file...)
+        (mutect_job, mutect_vcf) = mutect(normal, tumor, output_dir)
+        for job in splitsamfiles_jobs:
+            if job in job_deps:
+                job_deps[job].append(mutect_job)
+            else:
+                job_deps[job]=[mutect_job]
+        job_list.append(mutect_job)
     return(job_list, job_deps)
+
+def mutect(normal, tumor, output_dir):
+    output_file = os.path.join(output_dir, "variants", "mutect", "_".join([normal, tumor, "mutect_calls.vcf"]))
+    if not os.path.exists(os.path.dirname(output_file)):
+        os.makedirs(os.path.dirname(output_file))
+    cmd = ["cmo_mutect", "--analysis_type", "MuTect",
+            "-R", "hg19",
+            "--dbsnp", dbsnp,
+            "--cosmic", cosmic,
+            "--input_file:normal", sample_map[normal]['final_bam'],
+            "--input_file:tumor", sample_map[tumor]['final_bam'],
+            "--vcf", output_file,
+            "--out", output_file.replace(".vcf", ".txt"),
+            "-rf", "BadCigar", "--enable_extended_output", "--downsampling_type", "None"]
+    job=workflow.Job(" ".join(cmd), name="Mutect " + tumor, resources="rusage[mem=4]", processors=2)
+    return (job, output_file)
+            
+
+
+
+
 
 def recalibrate_snps(vcf, output_dir):
     output_file = os.path.join(output_dir, "intFiles", "HaplotypeCaller_SNP.recal")
@@ -239,7 +283,8 @@ def apply_recalibration_indels(vcf, recal_file, tranches_file, output_dir):
             "-tranchesFile", tranches_file, 
             "-recalFile", recal_file, 
             "-o", output_file,
-            "-nt", "1"]
+            "-nt", "1",
+            "-input", vcf]
     job = workflow.Job(" ".join(cmd), name="Apply SNP Recal", resources="rusage[mem=1]", processors=1)
     return (job, output_file)
 
@@ -254,7 +299,8 @@ def apply_recalibration_snps(vcf, recal_file, tranches_file, output_dir):
             "-tranchesFile", tranches_file, 
             "-recalFile", recal_file, 
             "-o", output_file,
-            "-nt", "1"]
+            "-nt", "1"
+            "-input", vcf]
     job = workflow.Job(" ".join(cmd), name="Apply SNP Recal", resources="rusage[mem=1]", processors=1)
     return (job, output_file)
 
@@ -394,8 +440,8 @@ def merge_sam_files(group, bam_hash, output_dir):
 
 def splitsamfiles(merged_bam, sample_list, output_dir):
     out_prefix = os.path.join(output_dir, "alignments", "indelRealigned_recal_")
-    if not os.path.exists(os.path.basedir(out_prefix)):
-        os.makedirs(os.path.basedir(out_prefix))
+    if not os.path.exists(os.path.dirname(out_prefix)):
+        os.makedirs(os.path.dirname(out_prefix))
     cmd = [ "cmo_gatk", 
             "-T", "SplitSamFile",
             "-R", "hg19",
@@ -403,7 +449,11 @@ def splitsamfiles(merged_bam, sample_list, output_dir):
             "--outputRoot", out_prefix]
     by_sample_bams = list()
     for sample in sample_list:
-        by_sample_bams.append(out_prefix + sample + ".bam")
+        sample_bam = out_prefix + sample + ".bam"
+        by_sample_bams.append(sample_bam)
+        #FIXME global bullshit
+        global sample_map
+        sample_map[sample]['final_bam']=sample_bam
     job = workflow.Job(" ".join(cmd), name="Split Sam Files", resources="rusage[mem=10]", processors=1)
     return (job, by_sample_bams)
 
