@@ -18,6 +18,7 @@ omni = "/ifs/work/socci/Pipelines/CBE/variants_pipeline/data/hg19/1000G_omni2.5.
 snps_1000g_phase1_hc =  "/ifs/work/socci/Pipelines/CBE/variants_pipeline/data/hg19/1000G_phase1.snps.high_confidence.hg19.vcf"
 dbsnp = "/ifs/depot/annotation/H.sapiens/dbSNP/v135/dbsnp_135.hg19__ReTag.vcf"
 cosmic = "/ifs/work/socci/Pipelines/CBE/variants_pipeline/data/hg19/CosmicCodingMuts_v67_20131024.vcf"
+project = "Project"
 def add_sample_to_lib_grouping(sample_dict, sample_key):
     sample_id = sample_dict['sample_id']
     lib_id = sample_dict['library_id']
@@ -521,13 +522,14 @@ def sort_fastqs_into_dict(files):
     paired_by_sample = defaultdict(dict)
     for file in files:
         base = os.path.basename(file)
-        m = re.search("(\S+)_(\S+)_(\S+)(R[12])_(\d\d\d)", base)
-        if not m.group(1) and m.group(2) and m.group(3):
+        m = re.search("([^_]+)_?(\S+)?_(\S+)_(R[12])_(\d\d\d).fastq.gz", base)
+        print m.groups()
+        if not m or not ( m.group(1) and m.group(4) and m.group(5)):
             #FIXME LOGGING instead of CRITICAL fail?
             print >>sys.stderr, "Can't find filename parts (Sample/Barcode, R1/2, group) for this fastq: %s" % file
             sys.exit(1)
         #fastq file large sample and barcode prefix
-        readset = "_".join([m.group(2) + m.group(3)  + m.group(5)])
+        readset = "_".join([m.group(1) + m.group(3)  + m.group(5)])
         if m.group(1) not in sorted:
             sorted[m.group(1)]=dict()
         if readset not in sorted[m.group(1)]:
@@ -596,7 +598,17 @@ def align_reads(alignment_directories, output_dir):
         #GUNZIP, ConvertQuality Score, and split raw fastqs into 4million read chunks
         for sample, sample_readsets in read_pairs.items():
             #FIXME this god damn underscore dash hack 
-            sample_map_key = "s_" + sample.replace("-","_")
+            if sample not in sample_map:
+                sample_map_key = sample.replace("-","_")
+                if sample_map_key not in sample_map:
+                    sample_map_key = "s_" + sample_map_key
+                    if sample_map_key not in sample_map:
+                        print >>sys.stderr, "can't lookup sample in internal sample_map, even with s_ and hyphern replacement: %s" % sample
+                        print >>sys.stderr, "Sample map contents:"
+                        print >>sys.stderr, sample_map
+                        sys.exit(1)
+            else:
+                sample_map_key = sample
             for readset, fastqs in sample_readsets.items():
                 readset_outputs = defaultdict(list)
                 for fastq in fastqs:
@@ -1001,8 +1013,10 @@ if __name__=='__main__':
     parser.add_argument("--genome", help="genome to align against", choices = cmo.util.genomes.keys())
     parser.add_argument("--pair-file", help="file listing tumor/normal pairs for mutect/maf conversion")
     parser.add_argument("--patient-file", help="if a patient file is given, patient wide fillout will be added to maf file")
+    parser.add_argument("--project", help="name of project", default="RefAlign")
     parser.add_argument("--targets", choices=cmo.util.targets.keys(), required=True)
     parser.add_argument("--workflow-mode", choices=["serial","LSF"], default="LSF", help="select 'serial' to run all jobs on the launching box. select 'LSF' to parallelize jobs as much as possible on luna")
+    parser.add_argument("--workflow-name", default="Reference alignment", help="name for this worklfow on GUI")
     (args) = parser.parse_args()
     if args.output_dir:
         args.output_dir = os.path.abspath(args.output_dir)
@@ -1017,10 +1031,13 @@ if __name__=='__main__':
                 args_dict[key]=os.path.abspath(args_dict[key])
     #validate config
     check_configuration(args.config_file)
+    global project
+    project=args.project
+
 
 
     (jobs, dependencies)  = construct_workflow(args.map_file, args.pair_file, args.group_file, args.output_dir, args.targets)
-    refalign_workflow = workflow.Workflow(jobs, dependencies, name="refalign test")
+    refalign_workflow = workflow.Workflow(jobs, dependencies, name=args.workflow_name)
     refalign_workflow.run(args.workflow_mode)
          
 
