@@ -111,7 +111,7 @@ def fix_bam_and_call_variants(mdbam_group_file, pair_file, final_sample_jobs, ou
     #RUN ABRA OR
     #FIXME WRITE ABRA SWITCH
     fh = open(mdbam_group_file, "rb")
-    chrom_range = [str(x) for x in range(1,22)] + ["X", "Y", "M"]
+    chrom_range = cmo.util.find_chromosomes(genome_string)
     all_sample_bams_by_chrom = defaultdict(list)
     print_reads_by_chrom = defaultdict(list)
     splitsamfiles_jobs = list()
@@ -216,7 +216,7 @@ def mutect(normal, tumor, output_dir):
     if not os.path.exists(os.path.dirname(output_file)):
         os.makedirs(os.path.dirname(output_file))
     cmd = ["cmo_mutect", "--analysis_type", "MuTect",
-            "-R", "hg19",
+            "-R", genome_string,
             "--dbsnp", dbsnp,
             "--cosmic", cosmic,
             "--input_file:normal", sample_map[normal]['final_bam'],
@@ -238,7 +238,7 @@ def recalibrate_snps(vcf, output_dir):
     output_rscript = os.path.join(output_dir, "intFiles", "HaplotypeCaller_SNP.plots.R")
     cmd = [ "cmo_gatk",
             "-T", "VariantRecalibrator",
-            "-R", "hg19",
+            "-R", genome_string,
             "-input", vcf,
             "-resource:hapmap,known=false,training=true,truth=true,prior=15.0", hapmap33,
             "-resource:omni,known=false,training=true,truth=true,prior=12.0", omni,
@@ -259,7 +259,7 @@ def recalibrate_indels(vcf, output_dir):
     output_rscript = os.path.join(output_dir, "intFiles", "HaplotypeCaller_INDEL.plots.R")
     cmd = [ "cmo_gatk",
             "-T", "VariantRecalibrator",
-            "-R", "hg19",
+            "-R", genome_string,
             "-input", vcf,
             "-resource:mills,known=false,training=true,truth=true,prior=12.0", indels_1000g_gold_standard,
             "-an", "DP", "-an", "FS", "-an", "MQRankSum", 
@@ -278,7 +278,7 @@ def apply_recalibration_indels(vcf, recal_file, tranches_file, output_dir):
             os.makedirs(os.path.dirname(output_file))
     cmd = ["cmo_gatk",
             "-T", "ApplyRecalibration",
-            "-R", "hg19",
+            "-R", genome_string,
             "--ts_filter_level", "99.0",
             "-mode", "INDEL",
             "-tranchesFile", tranches_file, 
@@ -294,7 +294,7 @@ def apply_recalibration_snps(vcf, recal_file, tranches_file, output_dir):
     output_file = os.path.join(output_dir, "intFiles", "HaplotypeCaller_SNP_vqsr.vcf")
     cmd = ["cmo_gatk",
             "-T", "ApplyRecalibration",
-            "-R", "hg19",
+            "-R", genome_string,
             "--ts_filter_level", "99.0",
             "-mode", "SNP",
             "-tranchesFile", tranches_file, 
@@ -311,7 +311,7 @@ def combine_variants(hc_vcfs, output_dir):
     output_file = os.path.join(output_dir, "intFiles", "HaplotypeCaller_RAW.vcf")
     cmd = ["cmo_gatk",
             "-T", "CombineVariants",
-            "-R", "hg19",
+            "-R", genome_string,
             "-o", output_file,
             "--assumeIdenticalSamples"]
     for vcf in hc_vcfs:
@@ -321,11 +321,11 @@ def combine_variants(hc_vcfs, output_dir):
 
 
 def haplotype_caller(chrom, bams, output_dir):
-    output_file = os.path.join(output_dir, "intFiles", "chr" +chrom+ "_HaplotypeCaller.vcf")
+    output_file = os.path.join(output_dir, "intFiles", chrom+ "_HaplotypeCaller.vcf")
     cmd = ["cmo_gatk",
             "-T", "HaplotypeCaller",
-            "-R ", "hg19",
-            "-L", "chr"+chrom,
+            "-R ", genome_string,
+            "-L", chrom,
             "--dbsnp", dbsnp,
             "--downsampling_type", "NONE",
             "--annotation", "AlleleBalanceBySample",
@@ -343,11 +343,11 @@ def haplotype_caller(chrom, bams, output_dir):
 
 
 def realigner_targets(group, chrom, bam_list, output_dir):
-    interval_file = os.path.join(output_dir, "intFiles", "_".join([group, "CHR"+chrom, "indelRealigner.intervals"]))
+    interval_file = os.path.join(output_dir, "intFiles", "_".join([group, chrom, "indelRealigner.intervals"]))
     cmd = ["cmo_gatk",
             "-T", "RealignerTargetCreator",
-            "-R", "hg19",
-            "-L", "chr" + chrom,
+            "-R", genome_string,
+            "-L", chrom,
             "--known", indels_1000g_gold_standard,
             "--known", dbsnp,
             "-S", "LENIENT",
@@ -363,11 +363,11 @@ def realigner_targets(group, chrom, bam_list, output_dir):
 
 
 def indel_realigner(group, chrom, bam_list, interval_file, output_dir):
-    realigned_bam = os.path.join(output_dir, "intFiles", "_".join([group, "CHR"+chrom, "indelRealigned.bam"]))
+    realigned_bam = os.path.join(output_dir, "intFiles", "_".join([group, chrom, "indelRealigned.bam"]))
     cmd = ["cmo_gatk",
             "-T", "IndelRealigner", 
-            "-R", "hg19",
-            "-L", "chr" + chrom,
+            "-R", genome_string,
+            "-L", chrom,
             "--knownAlleles", indels_1000g_gold_standard,
             "--knownAlleles", dbsnp,
             "-S", "LENIENT",
@@ -388,7 +388,7 @@ def base_recalibrator(group, bams, output_dir):
     cmd = ["cmo_gatk",
             "-T", "BaseRecalibrator",
             "-l", "INFO",
-            "-R", "hg19",
+            "-R", genome_string,
             "-S", "LENIENT",
             "--knownSites", dbsnp,
             "--knownSites", indels_1000g_gold_standard,
@@ -408,11 +408,11 @@ def base_recalibrator(group, bams, output_dir):
 
 
 def print_reads(group, chrom, bam_recal_matrix, input_bam, output_dir):
-    out_bam = os.path.join(output_dir, "intFiles", "_".join([group, "CHR"+chrom, "indelRealigned_recal.bam"]))
+    out_bam = os.path.join(output_dir, "intFiles", "_".join([group, chrom, "indelRealigned_recal.bam"]))
     cmd = ["cmo_gatk",
             "-T", "PrintReads",
-            "-R", "hg19",
-            "-L", "chr" + chrom,
+            "-R", genome_string,
+            "-L", chrom,
             "--emit_original_quals",
             "-BQSR", bam_recal_matrix,
             "--num_cpu_threads_per_data_thread" , "6",
@@ -445,7 +445,7 @@ def splitsamfiles(merged_bam, sample_list, output_dir):
         os.makedirs(os.path.dirname(out_prefix))
     cmd = [ "cmo_gatk", 
             "-T", "SplitSamFile",
-            "-R", "hg19",
+            "-R", genome_string,
             "-I", merged_bam, 
             "--outputRoot", out_prefix]
     by_sample_bams = list()
@@ -715,7 +715,7 @@ def bwa(read1, read2, readgroup):
     #FIXME handle species and references
     #rg has tabs so make sure quoted in final command line
     bam = read1 + ".bwa.bam"
-    cmd = ["cmo_bwa_mem", "--version default", "--genome hg19", "--fastq1", read1, "--fastq2", read2, "--output", bam, "-P", "-M", "-R", '"' + readgroup +'"', "-t 12"]
+    cmd = ["cmo_bwa_mem", "--version default", "--genome", genome_string, "--fastq1", read1, "--fastq2", read2, "--output", bam, "-P", "-M", "-R", '"' + readgroup +'"', "-t 12"]
     #FIXME proper LSF resource request for bwa
     bwa_job =  workflow.Job(" ".join(cmd), resources="rusage[mem=12]", processors="12",name="bwa " + os.path.basename(bam))
     print " ".join(cmd)
@@ -979,7 +979,7 @@ def oxog_metrics(sample,bam, output_dir):
     cmd = cmd + ["--I", bam]
     cmd = cmd + ["--O", out]
     #FIXME accept arbitrary refseq
-    cmd = cmd + ["--R", "hg19"]
+    cmd = cmd + ["--R", genome_string]
     cmd = cmd + ["--DB_SNP", dbsnp]
     print " ".join(cmd)
     metrics_job = workflow.Job(" ".join(cmd), name="AlignmentSummary " + sample,resources="rusage[mem=10]", processors=3)
@@ -991,7 +991,7 @@ def gatk_doc(sample,bam, output_dir, targets):
     cmd = ["cmo_gatk", "-T DepthOfCoverage"]
     cmd = cmd + ["-o", out]
     #FIXME accept arbitrary refseq
-    cmd = cmd + ["-R", "hg19"]
+    cmd = cmd + ["-R", genome_string]
     cmd = cmd + ["-omitLocusTable", "-omitSampleSummary"]
     cmd = cmd + ["--includeRefNSites"]
     cmd = cmd + ["-I", bam]
@@ -1010,13 +1010,13 @@ if __name__=='__main__':
     parser.add_argument("--config-file", help="configuration file")
     parser.add_argument("--map-file", help="file listing sample information for processing")
     parser.add_argument("--group-file", help="file listing grouping of samples for realign/recal steps")
-    parser.add_argument("--genome", help="genome to align against", choices = cmo.util.genomes.keys())
     parser.add_argument("--pair-file", help="file listing tumor/normal pairs for mutect/maf conversion")
     parser.add_argument("--patient-file", help="if a patient file is given, patient wide fillout will be added to maf file")
     parser.add_argument("--project", help="name of project", default="RefAlign")
     parser.add_argument("--targets", choices=cmo.util.targets.keys(), required=True)
     parser.add_argument("--workflow-mode", choices=["serial","LSF"], default="LSF", help="select 'serial' to run all jobs on the launching box. select 'LSF' to parallelize jobs as much as possible on luna")
     parser.add_argument("--workflow-name", default="Reference alignment", help="name for this worklfow on GUI")
+    parser.add_argument("--genome", choices=["GRCh37", "hg19"], default="GRCh37")
     (args) = parser.parse_args()
     if args.output_dir:
         args.output_dir = os.path.abspath(args.output_dir)
@@ -1031,8 +1031,16 @@ if __name__=='__main__':
                 args_dict[key]=os.path.abspath(args_dict[key])
     #validate config
     check_configuration(args.config_file)
-    global project
     project=args.project
+    genome_string = args.genome
+    omni = cmo.util.genomes[args.genome]['omni']
+    snps_1000g_phase1_hc = cmo.util.genomes[args.genome]['snps_1000g']
+    dbsnp  = cmo.util.genomes[args.genome]['dbsnp']
+    cosmic = cmo.util.genomes[args.genome]['cosmic']
+    indels_1000g_gold_standard = cmo.util.genomes[args.genome]['indels_1000g']
+    hapmap33 = cmo.util.genomes[args.genome]['hapmap33']
+
+
 
 
 

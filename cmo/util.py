@@ -1,5 +1,5 @@
 from collections import defaultdict
-import json, subprocess, sys, re, magic
+import json, subprocess, sys, re, magic, csv
 #STRAWMAN FIXME
 #THIS WOULD BE A PROGRAMMATICALLY INGESTED JSON ON MODULE LOAD IN REAL LIFE
 #DONT HATE THIS PART
@@ -18,6 +18,24 @@ genomes = json_config['genomes']
 chr1_fingerprints = json_config['chr1_fingerprints']
 keys = json_config['keys']
 targets = json_config['targets']
+
+
+def find_chromosomes(genome_string, extended=False):
+    try:
+        fasta = genomes[genome_string]['fasta']
+    except:
+        print >>sys.stderr ,"Genome %s does not have a fasta entry in cmo_resources.json, unable to find chromosome list" % genome_string
+        sys.exit(1)
+    fai = fasta + ".fai"
+    fai_csv = csv.reader(open(fai, "rb"), delimiter="\t")
+    chrom_range = list()
+    for row in fai_csv:
+        chrom_range.append(row[0])
+    if(extended):
+        return chrom_range
+    else: 
+        return chrom_range[0:25]
+        
 
 def samtools_index(bam):
     samtools = programs['samtools']['0.1.2']

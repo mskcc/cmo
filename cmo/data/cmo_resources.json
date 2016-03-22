@@ -52,10 +52,12 @@
         },
         "vcf2maf":
         {
-            "default":"/opt/common/CentOS_6-dev/vcf2maf/v1.6.3/",
+            "default":"/opt/common/CentOS_6-dev/vcf2maf/develop/",
             "1.6.1":"/opt/common/CentOS_6-dev/vcf2maf/v1.6.1/",
             "1.6.2":"/opt/common/CentOS_6-dev/vcf2maf/v1.6.2/",
             "1.6.3":"/opt/common/CentOS_6-dev/vcf2maf/v1.6.3/",
+            "1.6.4":"/opt/common/CentOS_6-dev/vcf2maf/v1.6.4/",
+            "1.6.5":"/opt/common/CentOS_6-dev/vcf2maf/v1.6.5/",
             "develop":"/opt/common/CentOS_6-dev/vcf2maf/develop/"
         },
         "mutect":
@@ -91,6 +93,7 @@
             "default":"/opt/common/CentOS_6-dev/facets_lib/0.3.7/",
             "0.3.7":"/opt/common/CentOS_6-dev/facets_lib/0.3.7/",
             "0.3.8-hg18":"/opt/common/CentOS_6-dev/facets_lib/0.3.8-hg18/",
+            "0.3.9":"/opt/common/CentOS_6-dev/facets_lib/0.3.9/",
             "current":""
         },
         "getbasecounts":
@@ -108,11 +111,32 @@
         },
         "R":
         {
-            "default":"/opt/common/CentOS_6-dev/R/R-3.2.2/bin/"
+            "default":"/opt/common/CentOS_6-dev/R/R-3.2.2/bin/",
+            "3.1.2":"/opt/common/CentOS_6/R/R-3.1.2/bin/"
         },
         "qc":
         {
             "default":"/opt/common/CentOS_6-dev/qc/default"
+        },
+        "mergePicardMetrics":
+        {
+            "default":"/opt/common/CentOS_6-dev/qc/default/mergePicardMetrics.pl"
+        },
+        "analyzeFingerprint":
+        {
+            "default":"/opt/common/CentOS_6-dev/qc/default/analyzeFingerprint.py"
+        },
+        "cqs_metrics":
+        {
+            "default":"/opt/common/CentOS_6-dev/qc/default/mergeConvertQualityScoreMetrics.py"
+        },
+        "mergeInsertSizeHistograms":
+        {
+            "default":"/opt/common/CentOS_6-dev/qc/default/mergeInsertSizeHistograms.py"
+        },
+        "cutadapt_metrics":
+        {
+            "default":"/opt/common/CentOS_6-dev/qc/default/mergeCutAdaptStats.py"
         },
         "postprocess":
         {
@@ -126,9 +150,10 @@
         },
         "vep":
         {
-            "default":"/opt/common/CentOS_6-dev/vep/v82/",
+            "default":"/opt/common/CentOS_6-dev/vep/v83/",
             "81":"/opt/common/CentOS_6-dev/vep/v81/",
-            "82":"/opt/common/CentOS_6-dev/vep/v82/"
+            "82":"/opt/common/CentOS_6-dev/vep/v82/",
+            "83":"/opt/common/CentOS_6-dev/vep/v83/"
         },
         "varscan":
         {
@@ -166,7 +191,14 @@
             "facets_snps":"/ifs/work/socci/Depot/Pipelines/FACETS/v3/lib/dbsnp_137.hg19__RmDupsClean__plusPseudo50__DROP_SORT.vcf.gz",
             "bedtools_genome":"/opt/common/CentOS_6-dev/bedtools_genomes/human.hg19.genome",
             "impact410_targets":"/opt/common/CentOS_6-dev/postprocess/1.3.1/db/IMPACT_410_hg19_targets_plus3bp.bed",
-            "bwa_fasta":"/ifs/depot/assemblies/H.sapiens/hg19/index/bwa/0.7.4-r385/hg19.fasta"
+            "bwa_fasta":"/ifs/depot/assemblies/H.sapiens/hg19/index/bwa/0.7.4-r385/hg19.fasta",
+            "cosmic":"/ifs/work/socci/Pipelines/CBE/variants_pipeline/data/hg19/CosmicCodingMuts_v67_20131024.vcf",
+            "dbsnp":"/ifs/depot/annotation/H.sapiens/dbSNP/v135/dbsnp_135.hg19__ReTag.vcf",
+            "snps_1000g":"/ifs/work/socci/Pipelines/CBE/variants_pipeline/data/hg19/1000G_phase1.snps.high_confidence.hg19.vcf",
+            "omni":"/ifs/work/socci/Pipelines/CBE/variants_pipeline/data/hg19/1000G_omni2.5.hg19.vcf",
+            "hapmap33":"/ifs/work/socci/Pipelines/CBE/variants_pipeline/data/hg19/hapmap_3.3.hg19.vcf",
+            "indels_1000g":"/ifs/work/socci/Pipelines/CBE/variants_pipeline/data/hg19/Mills_and_1000G_gold     _standard.indels.hg19.vcf"
+
         },
         "hg18":
         {
@@ -183,7 +215,14 @@
         {
             "fasta":"/ifs/depot/assemblies/H.sapiens/b37/b37.fasta",
             "facets_snps":"/ifs/work/socci/Depot/Pipelines/FACETS/v3/lib/dbsnp_137.b37__RmDupsClean__plusPseudo50__DROP_SORT.vcf.gz",
-            "bedtools_genome":"/opt/common/CentOS_6-dev/bedtools_genomes/human.b37.genome"
+            "bwa_fasta":"/ifs/depot/assemblies/H.sapiens/b37/index/bwa/0.7.12/b37.fasta",
+            "bedtools_genome":"/opt/common/CentOS_6-dev/bedtools_genomes/human.b37.genome",
+            "dbsnp":"/ifs/work/socci/Pipelines/CBE/variants_pipeline/data/b37/dbsnp_138.b37.vcf",
+            "snps_1000g":"/ifs/work/socci/Pipelines/CBE/variants_pipeline/data/b37/1000G_phase1.snps.high_confidence.b37.vcf",
+            "omni":"/ifs/work/socci/Pipelines/CBE/variants_pipeline/data/b37/1000G_omni2.5.b37.vcf",
+            "hapmap33":"/ifs/work/socci/Pipelines/CBE/variants_pipeline/data/b37/hapmap_3.3.b37.vcf",
+            "indels_1000g":"/ifs/work/socci/Pipelines/CBE/variants_pipeline/data/b37/Mills_and_1000G_gold_standard.indels.b37.vcf",
+            "cosmic":"/ifs/work/socci/Pipelines/CBE/variants_pipeline/data/b37/CosmicCodingMuts_v74_b37_20151120.vcf"
         },
         "GRCh38":
         {
@@ -245,7 +284,8 @@
              "baits_ilist":"/opt/common/CentOS_6-dev/cmo/targets/AgilentExon_51MB_hg19_v3/AgilentExon_51MB_hg19_v3_baits.ilist",
              "targets_ilist":"/opt/common/CentOS_6-dev/cmo/targets/AgilentExon_51MB_hg19_v3/AgilentExon_51MB_hg19_v3_targets.ilist",
              "targets_plus5bp_ilist":"/opt/common/CentOS_6-dev/cmo/targets/AgilentExon_51MB_hg19_v3/AgilentExon_51MB_hg19_v3_targets.ilist",
-             "tiling_genotypes":"/opt/common/CentOS_6-dev/cmo/targets/AgilentExon_51MB_hg19_v3/Agilent51MBExome__hg19__FP_tiling_genotypes.txt"
+             "FP_tiling_genotypes":"/opt/common/CentOS_6-dev/cmo/targets/AgilentExon_51MB_hg19_v3/Agilent51MBExome__hg19__FP_tiling_genotypes.txt",
+             "FP_intervals":"/opt/common/CentOS_6-dev/cmo/targets/AgilentExon_51MB_hg19_v3/Agilent51MBExome__hg19__FP_intervals.list"
          },
          "Agilent_MouseAllExonV1_mm10_v1":"",
          "Genomic_mm10":"",
