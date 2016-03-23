@@ -56,14 +56,29 @@ if __name__ =='__main__':
             else: 
                 parser_group.add_argument(long_arg, action=action,  help=help)
     cmo.util.add_logging_options(parser)
-    args = parser.parse_args()
+    (args, unknowns) = parser.parse_known_args()
     stderr=args.stderr
     stdout=args.stdout
     if args.java_args:
         gatk_helper.java_args=args.java_args
     if args.java_temp:
         gatk_helper.temp_dir = args.java_temp
+    #hack to get mutect to run with the weird colon arguments, but must be improved if it would also support weird arguments without a value 
+    #e.g. ---resource::shitballs with no trailing value would braek this, still
+    if len(unknowns) > 0:
+        print >>sys.stderr, "WARNING: INCLUDING UNKNOWN ARGUMENTS (DID YOU TYPO, OR IS THIS A WEIRD COLON ARGUMENT THAT GATK SUCKS FOR HAVING?"
+        print >>sys.stderr, " ".join(unknowns)
+    unknowns_dict = dict()
+    for i in range(0, len(unknowns), 2):
+        unknowns_dict[re.sub("^--?", "", unknowns[i])]=unknowns[i+1]
+    if args.java_args:
+        gatk_helper.java_args=args.java_args
+    if args.java_temp:
+        gatk_helper.temp_dir = java_temp
     command_specific_args = vars(args)
+    if len(unknowns_dict.keys()) > 0:
+        command_specific_args.update(unknowns_dict)
+
     command_specific_args = dict((k, v) for k, v in command_specific_args.iteritems() if v)
     command_specific_args['reference_sequence']=cmo.util.genomes[args.reference_sequence]['fasta']
     for key in  ["version", "java_version", "sub_command", "java_args", "java_temp"]:

@@ -18,7 +18,7 @@ class Picard:
             sys.exit(1)
         self.java_args = java_args
         self.default_args = {
-                "TMP_DIR" : "None",
+                "TMP_DIR" : "/scratch/",
                 "VERBOSITY" : "INFO",
                 "QUIET": "false",
                 "VALIDATION_STRINGENCY":"SILENT",

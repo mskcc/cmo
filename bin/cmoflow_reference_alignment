@@ -215,8 +215,7 @@ def mutect(normal, tumor, output_dir):
     output_file = os.path.join(output_dir, "variants", "mutect", "_".join([normal, tumor, "mutect_calls.vcf"]))
     if not os.path.exists(os.path.dirname(output_file)):
         os.makedirs(os.path.dirname(output_file))
-    cmd = ["cmo_mutect", "--analysis_type", "MuTect",
-            "-R", genome_string,
+    cmd = ["cmo_mutect", "-R", genome_string,
             "--dbsnp", dbsnp,
             "--cosmic", cosmic,
             "--input_file:normal", sample_map[normal]['final_bam'],
@@ -609,6 +608,9 @@ def align_reads(alignment_directories, output_dir):
                         sys.exit(1)
             else:
                 sample_map_key = sample
+            bams = []
+            bwa_jobs = []
+            readset_id = sample_map[sample_map_key]['readset_id']
             for readset, fastqs in sample_readsets.items():
                 readset_outputs = defaultdict(list)
                 for fastq in fastqs:
@@ -623,10 +625,8 @@ def align_reads(alignment_directories, output_dir):
                     job_deps[cqs_job]=[split_job, cqs_metrics_job]
                     #store split jobs for dependencies)
                     split_jobs[readset].append(split_job)
-                bams = []
                 #store bwa jobs for dependencies of merge
                 cut_jobs = defaultdict(list)
-                bwa_jobs = []
                 for readset_chunk, fastqs in readset_outputs.items():
                     #FIXME could be broken for Single end
                     for i in range(0, len(fastqs[0])):
@@ -651,13 +651,16 @@ def align_reads(alignment_directories, output_dir):
                         for split_job in split_jobs[readset_chunk]:
                             job_deps[split_job]=cut_jobs[readset_chunk]
                  #put final bam in the fastq directory!
-                (merge_job, final_bam) = picard_merge(bams, sample_map[sample_map_key]['readset_id'], directory)
-                jobs_list = jobs_list + [merge_job]
-                for job in bwa_jobs:
-                    job_deps[job] = merge_job
-                
-                merged_bams[sample_map[sample_map_key]['readset_id']]=final_bam
-                final_align_jobs[sample_map[sample_map_key]['readset_id']]=merge_job
+            (merge_job, final_bam) = picard_merge(bams, readset_id, directory)
+            jobs_list = jobs_list + [merge_job]
+            for job in bwa_jobs:
+                job_deps[job] = merge_job
+            if readset_id not in merged_bams:
+                merged_bams[readset_id]=[final_bam]
+                final_align_jobs[readset_id]=[merge_job]
+            else:
+                merged_bams[readset_id].append(final_bam)
+                final_align_jobs[readset_id].append(merge_job)
     return (jobs_list, job_deps, merged_bams, final_align_jobs)
                 #pipeline should be done!
 
@@ -781,7 +784,7 @@ def process_bams(merged_bams, output_dir, last_align_jobs, targets):
     for lib, readset_list in samplelib_grouping.items():
         bams = list()
         for readset in readset_list:
-            bams.append(merged_bams[readset])
+            bams = bams + merged_bams[readset]
         bylib_output_directory = os.path.join(output_dir, 
                 samplelib_sample[lib]['sample_id'],
                 samplelib_sample[lib]['library_id'],
@@ -791,7 +794,8 @@ def process_bams(merged_bams, output_dir, last_align_jobs, targets):
         (lib_merge_job, merged_bam) = picard_merge(bams, lib, bylib_output_directory)    
         jobs_list.append(lib_merge_job)
         for readset in samplelib_sample[lib]['readset_id']:
-            job_deps[last_align_jobs[readset]]=lib_merge_job
+            for job in last_align_jobs[readset]:
+                job_deps[job]=lib_merge_job
         (markdup_job, mkdup_bam, metrics_file ) = picard_markdups(merged_bam, lib, bylib_output_directory)
         sample_map[samplelib_sample[lib]['sample_id']]['md_bams'].append(mkdup_bam)
         metrics_jobs_and_files['MarkDuplicateMetrics'].append((markdup_job, metrics_file))

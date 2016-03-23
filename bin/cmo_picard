@@ -35,8 +35,8 @@ if __name__ =='__main__':
         if(arg == "R"):
            parser.add_argument("--R","--genome", required=True, choices=cmo.util.genomes.keys())
            continue
-        if(arg =="LEVEL"):
-            parser.add_argument("--LEVEL", action="append")
+        if(arg =="LEVEL" or arg=="I"):
+            parser.add_argument("--" + arg, action="append")
             continue
         if re.search("Required.", help) != None:
             required=True
