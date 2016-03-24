@@ -299,7 +299,7 @@ def apply_recalibration_snps(vcf, recal_file, tranches_file, output_dir):
             "-tranchesFile", tranches_file, 
             "-recalFile", recal_file, 
             "-o", output_file,
-            "-nt", "1"
+            "-nt", "1",
             "-input", vcf]
     job = workflow.Job(" ".join(cmd), name="Apply SNP Recal", resources="rusage[mem=1]", processors=1)
     return (job, output_file)
