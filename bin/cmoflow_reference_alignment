@@ -521,19 +521,21 @@ def sort_fastqs_into_dict(files):
     paired_by_sample = defaultdict(dict)
     for file in files:
         base = os.path.basename(file)
-        m = re.search("([^_]+)_?(\S+)?_(\S+)_(R[12])_(\d\d\d).fastq.gz", base)
+        m = re.search("(?P<sample>[^_]+)_?(?P<barcode>\S+)?_(?P<lane>\S+)_(?P<read>R[12])_(?P<set>\d\d\d).fastq.gz", base)
+        if not m:
+            m = re.search("(?P<sample>[^_]+)_?(?P<barcode>\S+)?_(?P<flowcell>\S+)_(?P<lane>\S+)_(?P<set>\d\d\d).(?P<read>R[12]).fastq.gz", base)
         print m.groups()
-        if not m or not ( m.group(1) and m.group(4) and m.group(5)):
+        if not m or not ( m.group('sample') and m.group('read') and m.group('set')):
             #FIXME LOGGING instead of CRITICAL fail?
             print >>sys.stderr, "Can't find filename parts (Sample/Barcode, R1/2, group) for this fastq: %s" % file
             sys.exit(1)
         #fastq file large sample and barcode prefix
-        readset = "_".join([m.group(1) + m.group(3)  + m.group(5)])
-        if m.group(1) not in sorted:
-            sorted[m.group(1)]=dict()
-        if readset not in sorted[m.group(1)]:
-            sorted[m.group(1)][readset]=dict()
-        sorted[m.group(1)][readset][m.group(4)]=file
+        readset = "_".join([m.group('sample') + m.group('lane')  + m.group('set')])
+        if m.group('sample') not in sorted:
+            sorted[m.group('sample')]=dict()
+        if readset not in sorted[m.group('sample')]:
+            sorted[m.group('sample')][readset]=dict()
+        sorted[m.group('sample')][readset][m.group('read')]=file
     for sample in sorted:
         for readset in sorted[sample]:
             for read in ["R1", "R2"]:
