@@ -4,7 +4,7 @@ from fireworks.core import rocket_launcher
 from fireworks.utilities.fw_serializers import load_object_from_file
 from pymongo import MongoClient
 import getpass, os, sys, time, uuid, daemon, atexit
-import logging
+import logging, yaml, copy
 FW_LPAD_CONFIG_LOC = "/opt/common/CentOS_6-dev/cmo/fireworks_config_files"
 FW_WFLOW_LAUNCH_LOC = "/ifs/res/pwg/logs/fireworks_workflows"
 class Job(fireworks.Firework):
@@ -139,6 +139,34 @@ class Workflow():
                 if failed_fws:
                     self.launchpad.m_logger.info("FAILED to recover offline fw_ids: {}".format(failed_fws))
             db.daemons.remove({"user":getpass.getuser()})
+    def dump_yaml(self, yaml_filename):
+        ofh = open(yaml_filename, "w")
+        job_list = {'fws': list()}
+        old_jobs = dict()
+        for i, job in enumerate(self.jobs_list):
+            new_job = dict()
+            new_job['spec'] = copy.deepcopy(job.spec)
+            new_job['spec']['_tasks']=dict({'_fw_name': 'ScriptTask'})
+            new_job['spec']['_tasks']['script']=job.spec['_tasks'][0]['script'][0]
+            new_job['fw_id']=i
+            new_job['name']=job.name
+            job_list['fws'].append(new_job)
+            old_jobs[job]=i
+        ofh.write(yaml.safe_dump(job_list, default_flow_style=False))
+        links = { 'links': dict()}
+        for (key, value) in self.job_dependencies.items():
+            if isinstance(value, list):
+                links['links'][old_jobs[key]]=list()
+                for item in value:
+                    links['links'][old_jobs[key]].append(old_jobs[item])
+            else:
+                links['links'][old_jobs[key]]=list(old_jobs[value])
+        ofh.write(yaml.safe_dump(links, default_flow_style=False))
+        ofh.write(yaml.safe_dump({"metadata":dict()}))
+        ofh.close()
+
+
+
 
 
 
