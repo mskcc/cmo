@@ -1,0 +1,47 @@
+#!/opt/common/CentOS_6-dev/python/python-2.7.10/bin/python
+
+import argparse, os, sys, signal, subprocess, math
+import cmo
+
+if __name__ =='__main__':
+    parser = argparse.ArgumentParser(description="restart watcher daemon")
+    parser.add_argument('-n', "--num-pieces", action='store', help="number of pieces to split the file into", required=True)
+    parser.add_argument('-f', "--file", action='store', help="filename to split", required=True)
+    parser.add_argument('-op', "--out-prefix", action="store", help="out prefix", required=True)
+    args = parser.parse_args()
+    num_reads_cmd = ["cat", args.file, "|", "wc -l", "|", "cut -f 1"]
+    print " ".join(num_reads_cmd)
+    num_lines = subprocess.check_output(" ".join(num_reads_cmd), shell=True)
+    lines_per_chunk = math.ceil(float(num_lines) / int(args.num_pieces))
+    while lines_per_chunk % 4 != 0:
+        lines_per_chunk +=1
+    fh = open(args.file, "rb")
+    output_file_count = 0
+    output_file_lines = 0
+    ofh = open(args.out_prefix + "{:0>3d}".format(output_file_count), "wb")
+    while(1):
+        line = fh.readline()
+        if not line:
+            break;
+        ofh.write(line)
+        output_file_lines+=1
+        if output_file_lines == lines_per_chunk:
+            if(output_file_count < int(args.num_pieces)-1):
+                output_file_lines=0
+                ofh.close()
+                output_file_count +=1
+                ofh = open(args.out_prefix + "{:0>3d}".format(output_file_count), "wb")
+    ofh.close()
+
+        
+
+
+        
+
+
+
+
+      
+   
+
+
