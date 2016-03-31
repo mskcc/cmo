@@ -1,0 +1,104 @@
+#!/opt/common/CentOS_6-dev/python/python-2.7.10/bin/python
+
+import argparse, os, sys, subprocess, glob 
+import cmo
+import csv
+non_synonymous = ["missense_variant", "stop_gained", "frameshift_variant", "splice_donor_variant", "splice_acceptor_variant", "inframe_insertion", "inframe_deletion", "stop_lost", "exon_loss_variant", "disruptive_inframe_deletion", "disruptive_inframe_insertion", "start_lost"]
+
+def find_maf_in_proj(directory):
+    maybe_this_dir = os.path.abspath(os.path.join(directory, "post"))
+    maf_pattern = "*SOMATIC_FACETS.vep.maf"
+    maf = glob.glob(os.path.join(maybe_this_dir, maf_pattern))
+    if len(maf) > 0 and os.path.exists(maf[0]):
+        return maf[0], None
+    #otherwise did they give us an r_blahblahblah?
+    dirs = glob.glob("r_*")
+    if len(dirs)>0:
+        dirs = sorted(dirs)
+        newest = dirs[-1]
+    probably_this_dir = os.path.abspath(os.path.join(directory, newest, "post"))
+    maf = glob.glob(os.path.join(probably_this_dir, maf_pattern))
+    if len(maf) > 0 and os.path.exists(maf[0]):
+        return maf[0], newest
+    print >>sys.stderr, "Cant find maf in r_###/post/*_SOMATIC_FACETS.vep.maf OR /post/*_SOMATIC_FACETS.vep.maf"
+    sys.exit(1)
+
+def find_bams_in_dir(directory, relative_dir):
+    bam_dict = dict()
+    if relative_dir:
+        directory = os.path.abspath(os.path.join(directory, relative_dir, "alignments"))
+    else:
+        directory = os.path.abspath(os.path.join(directory, "alignments"))
+    for bam in glob.glob(os.path.join(directory, "*.bam")):
+        sample = cmo.util.infer_sample_from_bam(os.path.join(directory,bam))
+        bam_dict[sample]=bam
+    return bam_dict
+
+
+
+
+
+if __name__ =='__main__':
+    parser = argparse.ArgumentParser(description="the less effort, the faster and more powerful you will be", epilog="a tool for people who want to plot mutations in igv good and do other stuff good too")
+#    parser.add_argument("-m", "--maf", action="store", help="Maf file to plot from, if not using -d")
+    parser.add_argument("-v", "--variant-types", action="append", help="plot what consequence type of variants in your maf? default is all non synonymous consequences. can be specified multiple times")
+    parser.add_argument("-d", "--project-directory", help="I'mma look in this directory and do magic for u", required=True)
+    parser.add_argument("-o", "--output-directory", help="put locus files and pngs here")
+    args = parser.parse_args()
+    if not args.variant_types:
+        args.variant_types = non_synonymous
+    (maf, relative_dir) = find_maf_in_proj(args.project_directory)
+    bam_dict = find_bams_in_dir(args.project_directory, relative_dir)
+    maffh = open(maf, "rb")
+    reader = csv.DictReader(filter(lambda row: row[0]!='#', maffh), delimiter="\t")
+    row_count = 0
+    locus_files = dict()
+    print >>sys.stderr, "aggregating variants into locus files...."
+    for row in reader:
+        row_count+=1
+        if row['Consequence'] in args.variant_types:
+            #WE GON GRAPH DIS
+            tumor_barcode = row['Tumor_Sample_Barcode']
+            normal_barcode = row['Matched_Norm_Sample_Barcode']
+            tumor_bam = bam_dict[tumor_barcode]
+            normal_bam = bam_dict[normal_barcode]
+            chrom = row['Chromosome']
+            try:
+                position = row['Start_Position']
+            except:
+                position = row['Start_position']
+            position_string = chrom + ":" + position
+            if tumor_barcode not in locus_files:
+                locus_files[tumor_barcode]=dict()
+                if normal_barcode not in locus_files[tumor_barcode]:
+                    locus_files[tumor_barcode][normal_barcode]=list()
+            locus_files[tumor_barcode][normal_barcode].append(position_string)
+        if(row_count % 10000 == 0):
+            print "\r %d variants processed" % row_count,
+    print >>sys.stderr, "Taking screenshots..."
+    for tumor_barcode in locus_files.keys():
+        for normal_barcode in locus_files[tumor_barcode].keys():
+            prefix = "_".join([tumor_barcode, normal_barcode])
+            os.makedirs(prefix)
+            locus_filename = os.path.abspath(os.path.join(args.output_directory, prefix, prefix +".locus"))
+            locus_file = open(locus_filename, "wb")
+            locus_file.write("\n".join(locus_files[tumor_barcode][normal_barcode]))
+            locus_file.close()
+            output_prefix = os.path.abspath(os.path.join(args.output_directory, prefix, prefix))
+            cmd = ["igv_plotter",
+                    bam_dict[tumor_barcode],
+                    bam_dict[normal_barcode],
+                    "-L", locus_filename,
+                    "-o", output_prefix,
+                    "--max-panel-height", "1024",
+                    "--height", "1024",
+                    "--width", "768",
+                    "--igv-jar-path","/opt/common/CentOS_6-dev/igv/v2.3.60/igv.jar"]
+            print " ".join(cmd)
+            subprocess.call(cmd)
+
+                   
+
+
+
+
