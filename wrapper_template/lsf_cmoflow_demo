@@ -1,7 +1,8 @@
 #!/opt/common/CentOS_6-dev/python/python-2.7.10/bin/python
 
-import cmo
+import cmo, yaml, copy
 from cmo import workflow
+import fireworks
 task1 = workflow.Job('echo "Ingrid is the CEO"', name="Task 1", queue="test",resources="rusage[iounits=1]")
 task2 = workflow.Job('echo "Jill is a manager."', name="Task 2", queue="test")
 task3 = workflow.Job('echo "Jack is a manager."', name="Task 3", queue="test")
@@ -11,7 +12,8 @@ task4 = workflow.Job('echo "Kip is an intern."', name="Task 4", queue="test", re
 jobs_list = [task1,task2,task3,task4]
 jobs_dict = {task1: [task2,task3], task2: [task4], task3:[task4]}
 new_workflow = workflow.Workflow(jobs_list, jobs_dict, name="Test LSF Workflow")
-new_workflow.run('LSF')
+new_workflow.dump_yaml('test.yaml')
+#new_workflow.run('LSF')
 
 
 

@@ -37,7 +37,7 @@ def construct_workflow(tumorbam, normalbam, tag, facets_args, output_dir,snps=No
     
     for (bam, base) in [(tumorbam, tumor_sample), (normalbam, normal_sample)]:
         out_file = os.path.abspath(os.path.join(output_dir, base + ".dat"))
-        if os.path.exists(out_file + ".gz"):
+        if os.path.exists(out_file + ".gz") and not force:
             #pretend we did this shitty slow step
             tumor_normal_counts.append(out_file)
             continue
@@ -99,7 +99,7 @@ def construct_workflow(tumorbam, normalbam, tag, facets_args, output_dir,snps=No
         jobs.append(merge_job)
     #make workflow
     jobs.append(facets_job)
-    return (jobs, dependencies, " ".join(["Facets", tag]), facets_job)
+    return (jobs, dependencies, " ".join(["Facets", tag]), facets_job, count_jobs)
 
 
 

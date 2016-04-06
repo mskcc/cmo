@@ -86,7 +86,7 @@ def main(pairing_file, pipeline_output_dir, project_id, output_dir, workflow_mod
             print >>sys.stderr, "Supply a PROJECT ID at command line to run with this dir."
             print >>sys.stderr, "Bailing out!"
             sys.exit(1)
-    project_id = m.group(1)
+        project_id = m.group(1)
     try:
         haplotype_vcf = glob.glob(haplotype_vcf_pattern)[0]
     except:

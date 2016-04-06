@@ -158,9 +158,11 @@ class Workflow():
             if isinstance(value, list):
                 links['links'][old_jobs[key]]=list()
                 for item in value:
+                    print key, item
                     links['links'][old_jobs[key]].append(old_jobs[item])
             else:
-                links['links'][old_jobs[key]]=list(old_jobs[value])
+                links['links'][old_jobs[key]]=list()
+                links['links'][old_jobs[key]].append(old_jobs[value])
         ofh.write(yaml.safe_dump(links, default_flow_style=False))
         ofh.write(yaml.safe_dump({"metadata":dict()}))
         ofh.close()

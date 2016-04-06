@@ -4,11 +4,13 @@ import argparse, os, sys, re, csv
 import cmo, glob, copy 
 from collections import defaultdict
 import subprocess, math
+import distutils.spawn, imp
 #WHOA, existentially troubling, man
 PYTHON = cmo.util.programs['python']['default']
 sample_map = {}
 samplelib_grouping = {}
 samplelib_sample = {}
+fastq_chunks = {}
 r1_adaptor = 'AGATCGGAAGAGCACACGTCT';
 r2_adaptor = 'AGATCGGAAGAGCGTCGTGTA';
 dir2readgroup = {}
@@ -40,7 +42,7 @@ def add_sample_to_lib_grouping(sample_dict, sample_key):
 
 def generate_group_file(sample_group_file, output_dir):
     fh = csv.reader(open(sample_group_file), delimiter="\t")
-    outfile = os.path.join(output_dir, "bam_groupings.txt")
+    outfile = os.path.join(output_dir, project + "_bam_groupings.txt")
     ofh = csv.writer(open(outfile, "w"),
             delimiter="\t",
             quoting=csv.QUOTE_NONE)
@@ -73,6 +75,7 @@ def construct_workflow(map_file, pair_file, group_file, output_dir, targets):
     (qc_job_list, qc_job_deps) = merge_stats(metric_jobs_and_files, output_dir, pair_file )
     mdbam_group_file = generate_group_file(group_file, output_dir)
     (variants_jobs, variant_job_deps) = fix_bam_and_call_variants(mdbam_group_file, pair_file, final_sample_jobs, output_dir)
+    
 
     #FIXME move this into workflow or provide convenience function?
     for key in process_job_deps.keys():
@@ -185,16 +188,27 @@ def fix_bam_and_call_variants(mdbam_group_file, pair_file, final_sample_jobs, ou
     (hc_snp_apply_recal_job, snp_recal_vcf) = apply_recalibration_snps(merge_hc_vcf, snp_recal_file, snps_tranches, output_dir)
     (hc_indel_recal_job, indel_recal_file, indels_tranches) = recalibrate_indels(snp_recal_vcf, output_dir)
     (hc_indel_apply_recal_job, final_recal_vcf) = apply_recalibration_indels(snp_recal_vcf, indel_recal_file,indels_tranches, output_dir)
+    (fh_job, filtered_hap_maf) = filter_hap_job(final_recal_vcf, pair_file, output_dir)
     job_deps[combine_variants_job]=[hc_snp_recal_job]
     job_deps[hc_snp_recal_job]=hc_snp_apply_recal_job
     job_deps[hc_snp_apply_recal_job] = hc_indel_recal_job
     job_deps[hc_indel_recal_job]=hc_indel_apply_recal_job
-    job_list = job_list + [hc_snp_recal_job, hc_indel_recal_job, hc_snp_apply_recal_job, hc_indel_apply_recal_job]
+    job_deps[hc_indel_apply_recal_job]=fh_job
+    job_list = job_list + [hc_snp_recal_job, hc_indel_recal_job, hc_snp_apply_recal_job, hc_indel_apply_recal_job, fh_job]
     #####NOW DO PAIRED CALLING WITH MUTECt
     pair_csv = csv.reader(open(pair_file, "r"), delimiter="\t")
+    final_maf_jobs = [fh_job]
+    cmoflow_facets = distutils.spawn.find_executable("cmoflow_facets")
+    facets = imp.load_source("facets", cmoflow_facets)
+    mafs_to_merge = [filtered_hap_maf]
+    last_facets_jobs = list()
     for row in pair_csv:
         normal = row[0]
         tumor = row[1]
+        facets_dir = os.path.join(output_dir, tumor + "__" + normal)
+        if not os.path.exists(facets_dir):
+            os.makedirs(facets_dir)
+
         if normal not in sample_map:
             print >>sys.stderr, "Normal sample %s not in sampl map, skipping row" % normal
             continue
@@ -203,16 +217,115 @@ def fix_bam_and_call_variants(mdbam_group_file, pair_file, final_sample_jobs, ou
             continue
         #FIXME improve dependencies to match pairs to group (would be nice to have them in same file...)
         (mutect_job, mutect_vcf) = mutect(normal, tumor, output_dir)
+        (fm_job, mutect_maf) = filter_mutect_job(mutect_vcf, pair_file, output_dir)
+        mafs_to_merge.append(mutect_maf)
+        (facets_jobs, facets_deps, name, terminal_job, count_jobs) = facets.construct_workflow(sample_map[normal]['final_bam'], sample_map[tumor]['final_bam'], None, None, facets_dir, force=True)
+
         for job in splitsamfiles_jobs:
             if job in job_deps:
-                job_deps[job].append(mutect_job)
+                job_deps[job] += count_jobs + [mutect_job]
             else:
-                job_deps[job]=[mutect_job]
-        job_list.append(mutect_job)
+                job_deps[job]= count_jobs + [mutect_job]
+        job_list = job_list + [mutect_job, fm_job]
+        job_deps[mutect_job]=fm_job
+        final_maf_jobs.append(fm_job)
+        #do facets at this time as well
+        job_list += facets_jobs
+        for job in facets_deps:
+            if job in job_deps:
+                job_deps[job].append(facets_deps[job])
+            else:
+                job_deps[job]=facets_deps[job]
+        last_facets_jobs.append(terminal_job)
+
+    (mm_job, merged_maf) = merged_maf_job(mafs_to_merge, output_dir)
+    (trinuc_job, trinuc_impact, trinuc_sequence) = trinuc_and_impact_job(merged_maf, output_dir)
+    (maf2maf_job, annotated_maf) = maf2maf(merged_maf, output_dir)
+    (final_maf_job, final_maf) = add_variant_info(trinuc_sequence, trinuc_impact, annotated_maf, output_dir)
+    for job in final_maf_jobs:
+        job_deps[job]=mm_job
+    job_deps[mm_job]=[trinuc_job, maf2maf_job]
+    job_deps[trinuc_job]=final_maf_job
+    job_deps[maf2maf_job]=final_maf_job
+    (ff_job, facets_data_file) = facets_file_job(output_dir)
+    for job in last_facets_jobs:
+        job_deps[job]=ff_job
+    (ma_job, final_maf_w_facets) = maf_anno_job(facets_data_file, final_maf, output_dir)
+    job_deps[ff_job]=ma_job
+    job_deps[final_maf_job]=ma_job
+    job_list += [mm_job, trinuc_job, maf2maf_job, final_maf_job, ff_job, ma_job]
+
     return(job_list, job_deps)
 
+
+def facets_file_job(output_dir):
+    output_file = os.path.join(output_dir, "facets_data_file")
+    ff_cmd = ['cmo_make_facets_file', '--output-file', output_file, '--pipeline-dir', output_dir]
+    print >>sys.stderr ," ".join(ff_cmd)
+    return (workflow.Job(" ".join(ff_cmd), name="Make Facets Data File"), output_file)
+
+def maf_anno_job(facets_file, input_maf, output_dir):
+    output_maf = os.path.join(output_dir, project+ "___SOMATIC.vep.facets_anno.maf") 
+    ma_cmd = ['cmo_facets', 'mafAnno', '-m', input_maf, '-f', facets_file, '-o', output_maf]
+    print >>sys.stderr, " ".join(ma_cmd)
+    return (workflow.Job(" ".join(ma_cmd), name="Annotate MAF with Facets"), output_maf)
+
+
+
+def filter_hap_job(input, pairing_file, output_dir):
+    hapmaf_filename = project + "__qSomHC_InDels__TCGA_MAF.txt"
+    output_filename = os.path.join(output_dir, hapmaf_filename)
+    #FIXME TEMP DIRECTORY?!?!?!?
+    haplo_cmd = ["cmo_filter_haplotype", "--pairing-file", pairing_file, "--haplotype-vcf", input, "--output-file", output_filename, "--temp-dir", output_dir]
+    return (workflow.Job(" ".join(haplo_cmd),name="Filter Haplotype"), output_filename)
+
+def filter_mutect_job(input, pairing_file, output_dir):
+    output_name = os.path.basename(input.replace(".vcf", ".DMP_FILTER.maf"))
+    output_path = os.path.join(output_dir, output_name)
+    cmd = ["cmo_filter_mutect", "--pairing-file", pairing_file, "--mutect-vcf", os.path.abspath(input), "--output-file", output_path, '--temp-dir', output_dir ]
+    return (workflow.Job(" ".join(cmd), name="Filter Mutect"), output_path)
+
+def merged_maf_job(maf_inputs, output_dir):
+    merged_maf_name = os.path.join(output_dir, "merge_maf3")
+    merge_mafs_cmd = ["cmo_merge_mafs", " ".join(maf_inputs), "--output-file", merged_maf_name]
+    print >>sys.stderr, " ".join(merge_mafs_cmd)
+    return (workflow.Job(" ".join(merge_mafs_cmd), name="Merge Mafs"), merged_maf_name)
+
+def trinuc_and_impact_job(merged_maf_name, output_dir):
+    seq_output = os.path.join(output_dir, "merged_maf3.seq")
+    impact_output = os.path.join(output_dir, "merged_maf3.impact410")
+    trinuc_cmd = ["cmo_trinuc_and_impact" , "--source-file", merged_maf_name, 
+            "--genome", genome, 
+            "--output-seq", seq_output, 
+            "--output-impact", impact_output]
+    print >>sys.stderr, " ".join(trinuc_cmd)
+    return (workflow.Job(" ".join(trinuc_cmd), name="Trinuc and Impact"), seq_output, impact_output)
+
+def maf2maf(merged_maf_name, output_dir):
+    output_file = os.path.abspath(os.path.join(output_dir, "merge_maf3.vep"))
+    maf2maf_cmd = ['cmo_maf2maf', '--version=default', '--vep-forks 12', 
+            '--vep-release', '82', 
+            '--retain-cols', 
+            'Center,Verification_Status,Validation_Status,Mutation_Status,Sequencing_Phase,Sequence_Source,Validation_Method,Score,BAM_file,Sequencer,Tumor_Sample_UUID,Match_Norm_Sample_UUID,Caller',
+            '--custom-enst', os.path.join(cmo.util.programs['vcf2maf']['develop'], "data", "isoform_overrides_at_mskcc"),
+            '--input-maf', merged_maf_name,
+            '--output-maf', output_file
+            ]
+    print >>sys.stderr, " ".join(maf2maf_cmd)
+    return (workflow.Job(" ".join(maf2maf_cmd), name="maf2maf"), output_file)
+
+def add_variant_info(seq_input, impact_pos_input, orig_maf, output_dir):
+    output_file = os.path.join(output_dir, project + "__SOMATIC.vep.maf")
+    add_var_info_cmd = ['cmo_add_variant_info', '--sequence-data-file',
+            seq_input, '--impact-positions', impact_pos_input,
+            '--original-maf', orig_maf, '--output-file', output_file]
+    return (workflow.Job(" ".join(add_var_info_cmd), name="Add Variant Info"), output_file)
+
+
+
+
 def mutect(normal, tumor, output_dir):
-    output_file = os.path.join(output_dir, "variants", "mutect", "_".join([normal, tumor, "mutect_calls.vcf"]))
+    output_file = os.path.join(output_dir, "variants", "mutect", "_".join([project,normal, tumor, "mutect_calls.vcf"]))
     if not os.path.exists(os.path.dirname(output_file)):
         os.makedirs(os.path.dirname(output_file))
     cmd = ["cmo_mutect", "-R", genome_string,
@@ -232,9 +345,9 @@ def mutect(normal, tumor, output_dir):
 
 
 def recalibrate_snps(vcf, output_dir):
-    output_file = os.path.join(output_dir, "intFiles", "HaplotypeCaller_SNP.recal")
-    output_tranches = os.path.join(output_dir, "intFiles", "HaplotypeCaller_SNP.tranches")
-    output_rscript = os.path.join(output_dir, "intFiles", "HaplotypeCaller_SNP.plots.R")
+    output_file = os.path.join(output_dir, "intFiles", project + "HaplotypeCaller_SNP.recal")
+    output_tranches = os.path.join(output_dir, "intFiles", project + "HaplotypeCaller_SNP.tranches")
+    output_rscript = os.path.join(output_dir, "intFiles", project + "HaplotypeCaller_SNP.plots.R")
     cmd = [ "cmo_gatk",
             "-T", "VariantRecalibrator",
             "-R", genome_string,
@@ -253,9 +366,9 @@ def recalibrate_snps(vcf, output_dir):
     return(job, output_file, output_tranches)
 
 def recalibrate_indels(vcf, output_dir):
-    output_file = os.path.join(output_dir, "intFiles", "HaplotypeCaller_INDEL.recal")
-    output_tranches = os.path.join(output_dir, "intFiles", "HaplotypeCaller_INDEL.tranches")
-    output_rscript = os.path.join(output_dir, "intFiles", "HaplotypeCaller_INDEL.plots.R")
+    output_file = os.path.join(output_dir, "intFiles", project + "HaplotypeCaller_INDEL.recal")
+    output_tranches = os.path.join(output_dir, "intFiles", project + "HaplotypeCaller_INDEL.tranches")
+    output_rscript = os.path.join(output_dir, "intFiles", project + "HaplotypeCaller_INDEL.plots.R")
     cmd = [ "cmo_gatk",
             "-T", "VariantRecalibrator",
             "-R", genome_string,
@@ -272,7 +385,7 @@ def recalibrate_indels(vcf, output_dir):
     return(job, output_file, output_tranches)
 
 def apply_recalibration_indels(vcf, recal_file, tranches_file, output_dir):
-    output_file = os.path.join(output_dir, "variants", "haplotypecaller", "HaplotypeCaller.vcf")
+    output_file = os.path.join(output_dir, "variants", "haplotypecaller", project  + "_HaplotypeCaller.vcf")
     if not os.path.exists(os.path.dirname(output_file)):
             os.makedirs(os.path.dirname(output_file))
     cmd = ["cmo_gatk",
@@ -290,7 +403,7 @@ def apply_recalibration_indels(vcf, recal_file, tranches_file, output_dir):
 
 
 def apply_recalibration_snps(vcf, recal_file, tranches_file, output_dir):
-    output_file = os.path.join(output_dir, "intFiles", "HaplotypeCaller_SNP_vqsr.vcf")
+    output_file = os.path.join(output_dir, "intFiles", project + "_HaplotypeCaller_SNP_vqsr.vcf")
     cmd = ["cmo_gatk",
             "-T", "ApplyRecalibration",
             "-R", genome_string,
@@ -307,7 +420,7 @@ def apply_recalibration_snps(vcf, recal_file, tranches_file, output_dir):
     
 
 def combine_variants(hc_vcfs, output_dir):
-    output_file = os.path.join(output_dir, "intFiles", "HaplotypeCaller_RAW.vcf")
+    output_file = os.path.join(output_dir, "intFiles", project + "_HaplotypeCaller_RAW.vcf")
     cmd = ["cmo_gatk",
             "-T", "CombineVariants",
             "-R", genome_string,
@@ -320,7 +433,7 @@ def combine_variants(hc_vcfs, output_dir):
 
 
 def haplotype_caller(chrom, bams, output_dir):
-    output_file = os.path.join(output_dir, "intFiles", chrom+ "_HaplotypeCaller.vcf")
+    output_file = os.path.join(output_dir, "intFiles", "_".join([project, chrom, "HaplotypeCaller.vcf"]))
     cmd = ["cmo_gatk",
             "-T", "HaplotypeCaller",
             "-R ", genome_string,
@@ -342,7 +455,7 @@ def haplotype_caller(chrom, bams, output_dir):
 
 
 def realigner_targets(group, chrom, bam_list, output_dir):
-    interval_file = os.path.join(output_dir, "intFiles", "_".join([group, chrom, "indelRealigner.intervals"]))
+    interval_file = os.path.join(output_dir, "intFiles", "_".join([project, group, chrom, "indelRealigner.intervals"]))
     cmd = ["cmo_gatk",
             "-T", "RealignerTargetCreator",
             "-R", genome_string,
@@ -362,7 +475,7 @@ def realigner_targets(group, chrom, bam_list, output_dir):
 
 
 def indel_realigner(group, chrom, bam_list, interval_file, output_dir):
-    realigned_bam = os.path.join(output_dir, "intFiles", "_".join([group, chrom, "indelRealigned.bam"]))
+    realigned_bam = os.path.join(output_dir, "intFiles", "_".join([project, group, chrom, "indelRealigned.bam"]))
     cmd = ["cmo_gatk",
             "-T", "IndelRealigner", 
             "-R", genome_string,
@@ -383,7 +496,7 @@ def indel_realigner(group, chrom, bam_list, interval_file, output_dir):
 
 
 def base_recalibrator(group, bams, output_dir):
-    recal_matrix = os.path.join(output_dir, "intFiles", "_".join([group, "recal_data.grp"]))
+    recal_matrix = os.path.join(output_dir, "intFiles", "_".join([project, group, "recal_data.grp"]))
     cmd = ["cmo_gatk",
             "-T", "BaseRecalibrator",
             "-l", "INFO",
@@ -407,7 +520,7 @@ def base_recalibrator(group, bams, output_dir):
 
 
 def print_reads(group, chrom, bam_recal_matrix, input_bam, output_dir):
-    out_bam = os.path.join(output_dir, "intFiles", "_".join([group, chrom, "indelRealigned_recal.bam"]))
+    out_bam = os.path.join(output_dir, "intFiles", "_".join([project, group, chrom, "indelRealigned_recal.bam"]))
     cmd = ["cmo_gatk",
             "-T", "PrintReads",
             "-R", genome_string,
@@ -428,7 +541,7 @@ def print_reads(group, chrom, bam_recal_matrix, input_bam, output_dir):
 def merge_sam_files(group, bam_hash, output_dir):
     '''run picard merge'''
     #FIXME fix picard helper to accept default options instead of hiding them?
-    out_bam = os.path.join(output_dir, "intFiles", "_".join([group,"indelRealigned_recal.bam"]))
+    out_bam = os.path.join(output_dir, "intFiles", "_".join([project, group,"indelRealigned_recal.bam"]))
     cmd = ["cmo_picard", "--cmd MergeSamFiles", "--SO coordinate", ]
     for bam in bam_hash.values():
         cmd = cmd + ["--I", bam]
@@ -439,7 +552,7 @@ def merge_sam_files(group, bam_hash, output_dir):
         
 
 def splitsamfiles(merged_bam, sample_list, output_dir):
-    out_prefix = os.path.join(output_dir, "alignments", "indelRealigned_recal_")
+    out_prefix = os.path.join(output_dir, "alignments", project + "_indelRealigned_recal_")
     if not os.path.exists(os.path.dirname(out_prefix)):
         os.makedirs(os.path.dirname(out_prefix))
     cmd = [ "cmo_gatk", 
@@ -521,9 +634,10 @@ def sort_fastqs_into_dict(files):
     paired_by_sample = defaultdict(dict)
     for file in files:
         base = os.path.basename(file)
-        m = re.search("(?P<sample>[^_]+)_?(?P<barcode>\S+)?_(?P<lane>\S+)_(?P<read>R[12])_(?P<set>\d\d\d).fastq.gz", base)
+        print base
+        m = re.search("(?P<sample>[^_]+)_?(?P<barcode>\S+)?_?(?P<flowcell>\S+)?_(?P<lane>\S+)_(?P<read>R[12])_(?P<set>\d\d\d).fastq.gz", base)
         if not m:
-            m = re.search("(?P<sample>[^_]+)_?(?P<barcode>\S+)?_(?P<flowcell>\S+)_(?P<lane>\S+)_(?P<set>\d\d\d).(?P<read>R[12]).fastq.gz", base)
+            m = re.search("(?P<sample>[^_]+)_(?P<barcode>\S+)_(?P<flowcell>\S+)_(?P<lane>\S+)_(?P<set>\d\d\d).(?P<read>R[12]).fastq.gz", base)
         print m.groups()
         if not m or not ( m.group('sample') and m.group('read') and m.group('set')):
             #FIXME LOGGING instead of CRITICAL fail?
@@ -531,6 +645,8 @@ def sort_fastqs_into_dict(files):
             sys.exit(1)
         #fastq file large sample and barcode prefix
         readset = "_".join([m.group('sample') + m.group('lane')  + m.group('set')])
+        if (m.group('flowcell') != None):
+            readset = "_".join([m.group('sample') + m.group('lane') + m.group('flowcell')  + m.group('set')])
         if m.group('sample') not in sorted:
             sorted[m.group('sample')]=dict()
         if readset not in sorted[m.group('sample')]:
@@ -540,7 +656,11 @@ def sort_fastqs_into_dict(files):
         for readset in sorted[sample]:
             for read in ["R1", "R2"]:
                 if readset in paired_by_sample[sample]:
-                    paired_by_sample[sample][readset].append(sorted[sample][readset][read])
+                    try:
+                        paired_by_sample[sample][readset].append(sorted[sample][readset][read])
+                    except: 
+                        print >>sys.stderr, "cant find %s for %s" % (read, readset)
+                        print >>sys.stderr, "aligning as single end"
                 else:
                     paired_by_sample[sample][readset]=[sorted[sample][readset][read]]
     return paired_by_sample
@@ -579,7 +699,14 @@ def cutadapt_metrics(root_dir):
                 output_file]
     return workflow.Job(" ".join(cmd), name="Merge CutAdapt Stats")
 
-    
+   
+def read_in_fastq_counts(fastq_count_file):
+    fastq_counts = dict()
+    counts = csv.reader(open(fastq_count_file, "rb"), delimiter="\t")
+    for row in counts:
+        fastq_counts[row[0]]=row[1]
+    return fastq_counts
+
 
 def align_reads(alignment_directories, output_dir):
     merged_bams = {}
@@ -684,17 +811,36 @@ def convert_quality_score(fastq):
     cqs_job = workflow.Job(" ".join(cmd), name="CQS " + os.path.basename(fastq))
     return (output, cqs_job)
 
+def approximate_pieces_by_filesize(filename):
+    #this shit will be gzip compressed.
+    #240 million reads = 5gb for an average read one
+    #whole lane WGS
+    #gigabytes x 10 = number of pieces?
+    #nonreadpsecific name ensures we use the same number of pieces for r1/2 
+    #no matter what their sizes are, whichever calculates first wins
+    non_read_specific_name = re.sub("R[12]", "", filename)
+    if non_read_specific_name in fastq_chunks:
+        return fastq_chunks[non_read_specific_name]
+    else:
+        cmd = "ls -Ll %s | cut -f 5 -d' '" % filename
+        filesize = subprocess.check_output(cmd, shell=True).strip()
+        num_pieces = math.ceil(float(filesize) / 350000000)
+        fastq_chunks[non_read_specific_name]=num_pieces
+        return num_pieces
+
+
 def split_reads(cqs_fastq, orig_gzip_fastq):
     out_prefix=cqs_fastq + "__"
-    cmd = ['/usr/bin/split', "-a 3", "-l 16000000", "-d", cqs_fastq, out_prefix]
+    num_pieces = approximate_pieces_by_filesize(orig_gzip_fastq)
+    cmd = ['cmo_split_reads',
+    "-n", str(num_pieces),
+    "-op", out_prefix,
+    "-f", cqs_fastq
+    ]
     split_job = workflow.Job(" ".join(cmd), name="split "+os.path.basename(cqs_fastq))
     print " ".join(cmd)
-    num_reads_cmd = ["zcat", orig_gzip_fastq, "|", "wc -l", "|", "cut -f 1"]
-    print " ".join(num_reads_cmd)
-    num_reads = subprocess.check_output(" ".join(num_reads_cmd), shell=True)
-    num_files = math.ceil(float(num_reads) / 16000000)
     out_files = []
-    for i in range(0, int(num_files)):
+    for i in range(0, int(num_pieces)):
         out_files.append(out_prefix + "{:0>3d}".format(i))
     return (out_files, split_job)
 
@@ -702,14 +848,24 @@ def cutadapt(read1, read2, min_read_length):
     ''' run cutadapt '''
     #FIXME handle no read2
     read1_out = read1 + "_CT_PE.fastq"
-    read2_out = read2 + "_CT_PE.fastq"
     stats_file = read1 + "_CUTADAPT.stats"
-    cmd = [PYTHON, cmo.util.programs['cutadapt']['default'], 
-            "-f fastq", "-a", r1_adaptor,
-            "-A", r2_adaptor, "-O 10", "-m", str(min_read_length), 
-            "-q 3", "--paired-output", read2_out, "-o", read1_out, 
-            read1, read2,
-            ">", stats_file]
+    try:
+        read2_out = read2 + "_CT_PE.fastq"
+        cmd = [PYTHON, cmo.util.programs['cutadapt']['default'], 
+               "-f fastq", "-a", r1_adaptor,
+               "-A", r2_adaptor, "-O 10", "-m", str(min_read_length), 
+               "-q 3", "--paired-output", read2_out, "-o", read1_out, 
+               read1, read2,
+               ">", stats_file]
+
+    except:
+        read2_out = None
+        print >>sys.stderr, "No read 2 for %s" % read1
+        cmd = [PYTHON, cmo.util.programs['cutadapt']['default'], 
+              "-f fastq", "-a", r1_adaptor,
+              "-O 10", "-m", str(min_read_length), 
+              "-q 3", "-o", read1_out, 
+              read1, ">", stats_file]
     print " ".join(cmd)
     cut_job = workflow.Job(" ".join(cmd), name="cutadapt " + os.path.basename(read1_out))
     return (read1_out, read2_out, cut_job)
@@ -720,8 +876,11 @@ def bwa(read1, read2, readgroup):
     #FIXME handle species and references
     #rg has tabs so make sure quoted in final command line
     bam = read1 + ".bwa.bam"
-    cmd = ["cmo_bwa_mem", "--version default", "--genome", genome_string, "--fastq1", read1, "--fastq2", read2, "--output", bam, "-P", "-M", "-R", '"' + readgroup +'"', "-t 12"]
-    #FIXME proper LSF resource request for bwa
+    if read2:
+        cmd = ["cmo_bwa_mem", "--version default", "--genome", genome_string, "--fastq1", read1, "--fastq2", read2, "--output", bam, "-P", "-M", "-R", '"' + readgroup +'"', "-t 12"]
+        #FIXME proper LSF resource request for bwa
+    else:
+        cmd = ["cmo_bwa_mem", "--version default", "--genome", genome_string, "--fastq1", read1, "--output", bam, "-P", "-M", "-R", '"' + readgroup +'"', "-t 12"]
     bwa_job =  workflow.Job(" ".join(cmd), resources="rusage[mem=12]", processors="12",name="bwa " + os.path.basename(bam))
     print " ".join(cmd)
     return(bam, bwa_job)
@@ -735,7 +894,7 @@ def picard_merge(bams, readset, directory):
     '''run picard merge'''
     #FIXME fix picard helper to accept default options instead of hiding them?
     out_bam = os.path.join(directory, readset+".bam")
-    cmd = ["cmo_picard", "--cmd MergeSamFiles", "--SO coordinate", ]
+    cmd = ["cmo_picard", "--cmd MergeSamFiles", "--SO coordinate" ]
     for bam in bams:
         cmd = cmd + ["--I", bam]
     cmd = cmd + ["--O", out_bam]
@@ -895,7 +1054,7 @@ def merge_gatk_metrics(jobs_and_files, pair_file, root_dir, output_dir):
     return (new_job, job_deps)
 
 def merge_histograms(stat_type, jobs_and_files, root_dir, output_dir):
-    output_file = os.path.join(output_dir, stat_type + ".txt")
+    output_file = os.path.join(output_dir, project + "_"+  stat_type + ".txt")
     jobs = []
     files = []
     for (job, file) in jobs_and_files:
@@ -913,7 +1072,7 @@ def merge_histograms(stat_type, jobs_and_files, root_dir, output_dir):
 
 
 def merge_picard_metrics(jobs_and_files, stat_type, output_dir):
-    output_file = os.path.join(output_dir, stat_type + ".txt")
+    output_file = os.path.join(output_dir, project + "_" + stat_type + ".txt")
     jobs = []
     files = []
     print jobs_and_files
@@ -938,7 +1097,7 @@ def merge_picard_metrics(jobs_and_files, stat_type, output_dir):
 
         
 def hs_metrics(sample,bam, output_dir, targets): 
-    out = os.path.join(output_dir, "HsMetrics_" + sample + ".txt")
+    out = os.path.join(output_dir, project + "_HsMetrics_" + sample + ".txt")
     cmd = ["cmo_picard", "--cmd CalculateHsMetrics"]
     cmd = cmd + ["--I", bam]
     cmd = cmd + ["--O", out]
@@ -956,7 +1115,7 @@ def hs_metrics(sample,bam, output_dir, targets):
     return (metrics_job, out)
 
 def insertsize_metrics(sample,bam, output_dir):
-    out = os.path.join(output_dir, "InsertSizeMetrics_" + sample + ".txt")
+    out = os.path.join(output_dir, project + "_InsertSizeMetrics_" + sample + ".txt")
     outhist = os.path.join(output_dir, "InsertSizeMetrics_Histogram_" + sample + ".txt")
     cmd = ["cmo_picard", "--cmd CollectInsertSizeMetrics"]
     cmd = cmd + ["--I", bam]
@@ -969,7 +1128,7 @@ def insertsize_metrics(sample,bam, output_dir):
     return (metrics_job, out, outhist)
 
 def alignment_summary(sample,bam, output_dir):
-    out = os.path.join(output_dir, "AlignmentSummaryMetrics_" + sample + ".txt")
+    out = os.path.join(output_dir, project + "_AlignmentSummaryMetrics_" + sample + ".txt")
     cmd = ["cmo_picard", "--cmd CollectAlignmentSummaryMetrics"]
     cmd = cmd + ["--I", bam]
     cmd = cmd + ["--O", out]
@@ -980,7 +1139,7 @@ def alignment_summary(sample,bam, output_dir):
     return (metrics_job, out)
 
 def oxog_metrics(sample,bam, output_dir):
-    out = os.path.join(output_dir, "OxoGMetrics_" + sample + ".txt")
+    out = os.path.join(output_dir, project + "_OxoGMetrics_" + sample + ".txt")
     cmd = ["cmo_picard", "--cmd CollectOxoGMetrics"]
     cmd = cmd + ["--I", bam]
     cmd = cmd + ["--O", out]
@@ -1052,6 +1211,7 @@ if __name__=='__main__':
 
     (jobs, dependencies)  = construct_workflow(args.map_file, args.pair_file, args.group_file, args.output_dir, args.targets)
     refalign_workflow = workflow.Workflow(jobs, dependencies, name=args.workflow_name)
+    refalign_workflow.dump_yaml(os.path.join(args.output_dir, "workflow.yaml"))
     refalign_workflow.run(args.workflow_mode)
          
 

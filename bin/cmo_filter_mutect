@@ -7,7 +7,7 @@ import cmo
 #first version is for pipeline parity
 def main(pairing_file, mutect_vcf, pipeline_dir, final_output_file, temp_dir=None):
     vcf2maf0 = os.path.join(pipeline_dir, "vcf2maf0.py")
-    m = re.search("_(s_.*?)_(s_.*?)_mutect", mutect_vcf)
+    m = re.search("_((?:s|TCGA)_.*?)_((?:s|TCGA)_.*?)_mutect", mutect_vcf)
     normal = m.group(1)
     tumor = m.group(2)
     outputs = ["mt_maf0", "mt_maf1", "mt_maf2"]

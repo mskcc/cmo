@@ -9,6 +9,7 @@ if __name__ =='__main__':
     parser.add_argument('-f', "--file", action='store', help="filename to split", required=True)
     parser.add_argument('-op', "--out-prefix", action="store", help="out prefix", required=True)
     args = parser.parse_args()
+    args.num_pieces = args.num_pieces.replace(".0", "")
     num_reads_cmd = ["cat", args.file, "|", "wc -l", "|", "cut -f 1"]
     print " ".join(num_reads_cmd)
     num_lines = subprocess.check_output(" ".join(num_reads_cmd), shell=True)

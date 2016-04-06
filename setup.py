@@ -33,7 +33,8 @@ setup(name='cmo',
                  'bin/cmo_make_facets_file',
                  'bin/cmo_abra',
                  'bin/cmo_qcpdf',
-                 'bin/cmoflow_reference_alignment'
+                 'bin/cmoflow_reference_alignment',
+                 'bin/cmo_split_reads'
                  ],
         zip_safe=False)
 
