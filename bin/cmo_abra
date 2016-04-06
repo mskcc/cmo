@@ -78,9 +78,7 @@ def process_options(parser, cmd_options):
             parser.add_argument(arg, required=True, help=help)
         elif (arg == "--out"):
             parser.add_argument(arg, required=True, help=help)
-        elif (arg == "--bwa-ref"):
-            parser.add_argument(arg, required=True, help=help)
-        elif (arg == "--targets"):
+        elif (arg == "--working"):
             parser.add_argument(arg, required=True, help=help)
         elif (arg == "--lr"):
             parser.add_argument(arg, action="store_true", help=help)
@@ -101,6 +99,9 @@ This method takes the parser and converts the default values to paths from the j
 
 def convert_default_variables(parser):
     args = parser.parse_args()
+    args.bwa_ref = cmo.util.genomes[args.ref]['bwa_fasta']
+    if not args.targets:
+        args.targets = cmo.util.targets['abra'][args.ref]
     command_specific_args = vars(args)
     command_specific_args = dict((k, v) for k, v in command_specific_args.iteritems() if v)
     command_specific_args['ref'] = cmo.util.genomes[args.ref]['fasta']
@@ -127,6 +128,7 @@ This method makes the final command as a list and returns the list
 def make_command_to_run(java, abra_jar, command_specific_args):
     cmd = [java, "-jar", abra_jar]
     for option, value in command_specific_args.items():
+        option = option.replace("_","-")
         if value == True:
             cmd = cmd + ["--" + option]
         elif value != False:
@@ -156,6 +158,7 @@ def main():
     print "Start Time:", time.ctime(start_time)
     cmd = make_command_to_run(java, abra_jar, command_specific_args)
     print " ".join(cmd)
+    cmo.util.call_cmd(" ".join(cmd), shell=True)
     end_time = time.time()
     print "End Time:", time.ctime(end_time)
     print("Elapsed time was %g seconds" % (end_time - start_time))
