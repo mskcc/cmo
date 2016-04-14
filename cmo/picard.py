@@ -24,7 +24,7 @@ class Picard:
                 "VALIDATION_STRINGENCY":"SILENT",
                 "COMPRESSION_LEVEL": "5",
                 "MAX_RECORDS_IN_RAM": "500000",
-                "CREATE_INDEX": "false",
+                "CREATE_INDEX": "true",
                 "CREATE_MD5_FILE": "false",
                 "REFERENCE_SEQUENCE": "null",
            #     "GA4GH_CLIENT_SECRETS":"null",

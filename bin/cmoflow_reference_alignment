@@ -21,6 +21,7 @@ snps_1000g_phase1_hc =  "/ifs/work/socci/Pipelines/CBE/variants_pipeline/data/hg
 dbsnp = "/ifs/depot/annotation/H.sapiens/dbSNP/v135/dbsnp_135.hg19__ReTag.vcf"
 cosmic = "/ifs/work/socci/Pipelines/CBE/variants_pipeline/data/hg19/CosmicCodingMuts_v67_20131024.vcf"
 project = "Project"
+gatk_indel = False
 def add_sample_to_lib_grouping(sample_dict, sample_key):
     sample_id = sample_dict['sample_id']
     lib_id = sample_dict['library_id']
@@ -128,31 +129,51 @@ def fix_bam_and_call_variants(mdbam_group_file, pair_file, final_sample_jobs, ou
         (group, bam_list, samples_in_group) = line.strip().split("\t")
         sample_list = samples_in_group.split(",")
         #FIXME no hardcode chroms :(
-        realigned_chr_bams_for_group = list()
+        realigned_bams_for_group = list()
         realigner_target_jobs = list()
         indel_realigner_jobs = list()
         bams_by_chrom = defaultdict(dict)
         bam_list = bam_list.split(",")
-        for chrom in chrom_range:
-            (realigner_target_job, interval_file) = realigner_targets(group,chrom, bam_list, output_dir)
-            (indel_realigner_job, realigned_bam) = indel_realigner(group, chrom, bam_list, interval_file, output_dir)
-            bams_by_chrom['realign'][chrom]=realigned_bam
-            realigned_chr_bams_for_group.append(realigned_bam)
-            realigner_target_jobs.append(realigner_target_job)
-            indel_realigner_jobs.append(indel_realigner_job)
-            job_deps[realigner_target_job]=indel_realigner_job
-            job_list = job_list + [realigner_target_job, indel_realigner_job]
-        #hook up this new section the pipeline to the previous jobs in terms of job dependencies
-        for sample, job in final_sample_jobs.items():
-            if sample in sample_list:
-                job_deps[job]=realigner_target_jobs 
-        (base_recalibrator_job, bam_recal_matrix) = base_recalibrator(group, realigned_chr_bams_for_group, output_dir)
+        if(gatk_indel):
+            for chrom in chrom_range:
+                (realigner_target_job, interval_file) = realigner_targets(group,chrom, bam_list, output_dir)
+                (indel_realigner_job, realigned_bam) = indel_realigner(group, chrom, bam_list, interval_file, output_dir)
+                bams_by_chrom['realign'][chrom]=realigned_bam
+                realigned_bams_for_group.append(realigned_bam)
+                realigner_target_jobs.append(realigner_target_job)
+                indel_realigner_jobs.append(indel_realigner_job)
+                job_deps[realigner_target_job]=indel_realigner_job
+                job_list = job_list + [realigner_target_job, indel_realigner_job]
+            #hook up this new section the pipeline to the previous jobs in terms of job dependencies
+            for sample, job in final_sample_jobs.items():
+                if sample in sample_list:
+                    job_deps[job]=realigner_target_jobs 
+        else:
+            #abra
+            (abra_job, out_bams) = run_abra(bam_list, output_dir, group)
+            for sample, job in final_sample_jobs.items():
+                if sample in sample_list:
+                    job_deps[job]=abra_job
+            job_list.append(abra_job)
+            for bam in out_bams:
+                (fixmate_job, fixmate_bam) = fixmate(bam, output_dir)
+                job_list.append(fixmate_job)
+                realigned_bams_for_group.append(fixmate_bam)
+                #misnamed variable here, only true for GATK- but these jobs are the precursor to 
+                #base recalibrator still, so THATS JUST FUCKING FINE
+                indel_realigner_jobs.append(fixmate_job)
+            job_deps[abra_job]=indel_realigner_jobs
+        (base_recalibrator_job, bam_recal_matrix) = base_recalibrator(group, realigned_bams_for_group, output_dir)
         for job in indel_realigner_jobs:
             job_deps[job]=base_recalibrator_job
         job_list.append(base_recalibrator_job)
         print_reads_jobs = list()
         for chrom in chrom_range:
-            (print_reads_job, recal_bam) = print_reads(group, chrom, bam_recal_matrix,  bams_by_chrom['realign'][chrom], output_dir)
+            if(gatk_indel):
+                input_bams = [bams_by_chrom['realign'][chrom]]
+            else:
+                input_bams = realigned_bams_for_group
+            (print_reads_job, recal_bam) = print_reads(group, chrom, bam_recal_matrix,  input_bams, output_dir)
             bams_by_chrom['recal'][chrom]=recal_bam
             all_sample_bams_by_chrom[chrom].append(recal_bam)
             print_reads_jobs.append(print_reads_job)
@@ -205,7 +226,7 @@ def fix_bam_and_call_variants(mdbam_group_file, pair_file, final_sample_jobs, ou
     for row in pair_csv:
         normal = row[0]
         tumor = row[1]
-        facets_dir = os.path.join(output_dir, tumor + "__" + normal)
+        facets_dir = os.path.join(output_dir, "facets",  tumor + "__" + normal)
         if not os.path.exists(facets_dir):
             os.makedirs(facets_dir)
 
@@ -219,7 +240,7 @@ def fix_bam_and_call_variants(mdbam_group_file, pair_file, final_sample_jobs, ou
         (mutect_job, mutect_vcf) = mutect(normal, tumor, output_dir)
         (fm_job, mutect_maf) = filter_mutect_job(mutect_vcf, pair_file, output_dir)
         mafs_to_merge.append(mutect_maf)
-        (facets_jobs, facets_deps, name, terminal_job, count_jobs) = facets.construct_workflow(sample_map[normal]['final_bam'], sample_map[tumor]['final_bam'], None, None, facets_dir, force=True)
+        (facets_jobs, facets_deps, name, terminal_job, count_jobs) = facets.construct_workflow(sample_map[normal]['final_bam'], sample_map[tumor]['final_bam'], None, None, facets_dir, tumor_sample=tumor, normal_sample=normal,force=True)
 
         for job in splitsamfiles_jobs:
             if job in job_deps:
@@ -239,7 +260,7 @@ def fix_bam_and_call_variants(mdbam_group_file, pair_file, final_sample_jobs, ou
         last_facets_jobs.append(terminal_job)
 
     (mm_job, merged_maf) = merged_maf_job(mafs_to_merge, output_dir)
-    (trinuc_job, trinuc_impact, trinuc_sequence) = trinuc_and_impact_job(merged_maf, output_dir)
+    (trinuc_job, trinuc_sequence, trinuc_impact) = trinuc_and_impact_job(merged_maf, output_dir)
     (maf2maf_job, annotated_maf) = maf2maf(merged_maf, output_dir)
     (final_maf_job, final_maf) = add_variant_info(trinuc_sequence, trinuc_impact, annotated_maf, output_dir)
     for job in final_maf_jobs:
@@ -260,7 +281,8 @@ def fix_bam_and_call_variants(mdbam_group_file, pair_file, final_sample_jobs, ou
 
 def facets_file_job(output_dir):
     output_file = os.path.join(output_dir, "facets_data_file")
-    ff_cmd = ['cmo_make_facets_file', '--output-file', output_file, '--pipeline-dir', output_dir]
+    facets_dir = os.path.join(output_dir, "facets", "")
+    ff_cmd = ['cmo_make_facets_file', '--output-file', output_file, '--pipeline-dir', facets_dir]
     print >>sys.stderr ," ".join(ff_cmd)
     return (workflow.Job(" ".join(ff_cmd), name="Make Facets Data File"), output_file)
 
@@ -271,38 +293,65 @@ def maf_anno_job(facets_file, input_maf, output_dir):
     return (workflow.Job(" ".join(ma_cmd), name="Annotate MAF with Facets"), output_maf)
 
 
+def run_abra(bam_list, output_dir, group):
+    working_dir = os.path.join(output_dir, "intFiles", group)
+    outbam_list = list()
+    for bam in bam_list:
+        outbam_list.append(bam.replace(".bam", "_ABRA.bam"))
+    cmd = ["cmo_abra",
+            "--in", ",".join(bam_list),
+            "--out", ",".join(outbam_list),
+            "--ref", genome_string,
+            "--working", working_dir,
+            ]
+    job = workflow.Job(" ".join(cmd), name="Abra Group " + group, resources="rusage[mem=500]", processors=12)
+    return (job, outbam_list)
+    
+def fixmate(bam, output_dir):
+    out_bam = bam.replace(".bam", "_FM.bam")
+    cmd = ["cmo_picard", 
+            "--cmd", "FixMateInformation",
+            "--I", bam,
+            "--O", out_bam,
+            "--SO", "coordinate"
+            ]
+    job = workflow.Job(" ".join(cmd), name="FixMate", resources="rusage[mem=50]", processors=1)
+    return (job, out_bam)
+
+
+
 
 def filter_hap_job(input, pairing_file, output_dir):
     hapmaf_filename = project + "__qSomHC_InDels__TCGA_MAF.txt"
-    output_filename = os.path.join(output_dir, hapmaf_filename)
+    output_filename = os.path.join(output_dir, "intFiles", hapmaf_filename)
     #FIXME TEMP DIRECTORY?!?!?!?
     haplo_cmd = ["cmo_filter_haplotype", "--pairing-file", pairing_file, "--haplotype-vcf", input, "--output-file", output_filename, "--temp-dir", output_dir]
     return (workflow.Job(" ".join(haplo_cmd),name="Filter Haplotype"), output_filename)
 
 def filter_mutect_job(input, pairing_file, output_dir):
     output_name = os.path.basename(input.replace(".vcf", ".DMP_FILTER.maf"))
-    output_path = os.path.join(output_dir, output_name)
+    output_path = os.path.join(output_dir, "intFiles", output_name)
     cmd = ["cmo_filter_mutect", "--pairing-file", pairing_file, "--mutect-vcf", os.path.abspath(input), "--output-file", output_path, '--temp-dir', output_dir ]
     return (workflow.Job(" ".join(cmd), name="Filter Mutect"), output_path)
 
 def merged_maf_job(maf_inputs, output_dir):
-    merged_maf_name = os.path.join(output_dir, "merge_maf3")
+    merged_maf_name = os.path.join(output_dir, "intFiles", "merge_maf3")
     merge_mafs_cmd = ["cmo_merge_mafs", " ".join(maf_inputs), "--output-file", merged_maf_name]
     print >>sys.stderr, " ".join(merge_mafs_cmd)
     return (workflow.Job(" ".join(merge_mafs_cmd), name="Merge Mafs"), merged_maf_name)
 
 def trinuc_and_impact_job(merged_maf_name, output_dir):
-    seq_output = os.path.join(output_dir, "merged_maf3.seq")
+    seq_output = os.path.join(output_dir, "intFiles", "merged_maf3.seq")
     impact_output = os.path.join(output_dir, "merged_maf3.impact410")
     trinuc_cmd = ["cmo_trinuc_and_impact" , "--source-file", merged_maf_name, 
-            "--genome", genome, 
+            "--genome", genome_string, 
             "--output-seq", seq_output, 
             "--output-impact", impact_output]
     print >>sys.stderr, " ".join(trinuc_cmd)
     return (workflow.Job(" ".join(trinuc_cmd), name="Trinuc and Impact"), seq_output, impact_output)
 
 def maf2maf(merged_maf_name, output_dir):
-    output_file = os.path.abspath(os.path.join(output_dir, "merge_maf3.vep"))
+    output_file = os.path.abspath(os.path.join(output_dir, "intFiles", "merge_maf3.vep"))
     maf2maf_cmd = ['cmo_maf2maf', '--version=default', '--vep-forks 12', 
             '--vep-release', '82', 
             '--retain-cols', 
@@ -519,7 +568,7 @@ def base_recalibrator(group, bams, output_dir):
     return (job, recal_matrix)
 
 
-def print_reads(group, chrom, bam_recal_matrix, input_bam, output_dir):
+def print_reads(group, chrom, bam_recal_matrix, input_bams, output_dir):
     out_bam = os.path.join(output_dir, "intFiles", "_".join([project, group, chrom, "indelRealigned_recal.bam"]))
     cmd = ["cmo_gatk",
             "-T", "PrintReads",
@@ -530,8 +579,9 @@ def print_reads(group, chrom, bam_recal_matrix, input_bam, output_dir):
             "--num_cpu_threads_per_data_thread" , "6",
             "-rf", "BadCigar",
             "--downsampling_type", "NONE",
-            "--out", out_bam,
-            "-I", input_bam]
+            "--out", out_bam]
+    for bam in input_bams:
+        cmd = cmd + ["-I", bam]
     job = workflow.Job(" ".join(cmd), name="_".join(["PrintReads", group, chrom]), resources="rusage[mem=30]", processors="6")
     return (job, out_bam)
 
@@ -1182,6 +1232,7 @@ if __name__=='__main__':
     parser.add_argument("--workflow-mode", choices=["serial","LSF"], default="LSF", help="select 'serial' to run all jobs on the launching box. select 'LSF' to parallelize jobs as much as possible on luna")
     parser.add_argument("--workflow-name", default="Reference alignment", help="name for this worklfow on GUI")
     parser.add_argument("--genome", choices=["GRCh37", "hg19"], default="GRCh37")
+    parser.add_argument("--gatk-indel", default=False, action='store_true', help="use GATK isntead of abra (don't do this)")
     (args) = parser.parse_args()
     if args.output_dir:
         args.output_dir = os.path.abspath(args.output_dir)
@@ -1200,10 +1251,15 @@ if __name__=='__main__':
     genome_string = args.genome
     omni = cmo.util.genomes[args.genome]['omni']
     snps_1000g_phase1_hc = cmo.util.genomes[args.genome]['snps_1000g']
-    dbsnp  = cmo.util.genomes[args.genome]['dbsnp']
-    cosmic = cmo.util.genomes[args.genome]['cosmic']
+    try:
+        dbsnp  = cmo.util.genomes[args.genome]['dbsnp']['129']
+    except:
+        #for HG19 I don't have 129 i dont think but we do have dis file
+        dbsnp = cmo.util.genomes[args.genome]['dbsnp']['135']
+    cosmic = cmo.util.genomes[args.genome]['cosmic']['67']
     indels_1000g_gold_standard = cmo.util.genomes[args.genome]['indels_1000g']
     hapmap33 = cmo.util.genomes[args.genome]['hapmap33']
+    gatk_indel = args.gatk_indel
 
 
 

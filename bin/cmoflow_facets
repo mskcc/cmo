@@ -34,6 +34,12 @@ def construct_workflow(tumorbam, normalbam, tag, facets_args, output_dir,snps=No
     #count jobs
     count_jobs = []
     tumor_normal_counts = []
+    if not os.path.exists(os.path.abspath(tumorbam)):
+        print >>sys.stderr, "Tumor bam does not exist? is %s a real path to a bam? " % tumorbam
+        sys.exit(1)
+    if not os.path.exists(os.path.abspath(normalbam)):
+        print >>sys.stderr, "Normal bam does not exist? is %s a real path to a bam? " % normalbam
+        sys.exit(1)
     
     for (bam, base) in [(tumorbam, tumor_sample), (normalbam, normal_sample)]:
         out_file = os.path.abspath(os.path.join(output_dir, base + ".dat"))
@@ -119,7 +125,7 @@ if __name__=='__main__':
         args.output_dir = os.path.abspath(args.output_dir)
     args.tumor_bam = os.path.abspath(args.tumor_bam)
     args.normal_bam = os.path.abspath(args.normal_bam)
-    (jobs, dependencies, name, terminal_job) = construct_workflow(args.tumor_bam, args.normal_bam, args.tag, facets_args, args.output_dir, snps=args.vcf, tumor_sample = args.tumor_name, normal_sample=args.normal_name, force=args.force)
+    (jobs, dependencies, name, terminal_job, count_jobs) = construct_workflow(args.tumor_bam, args.normal_bam, args.tag, facets_args, args.output_dir, snps=args.vcf, tumor_sample = args.tumor_name, normal_sample=args.normal_name, force=args.force)
     facets_workflow = workflow.Workflow(jobs, dependencies, name=name)
     facets_workflow.run(args.workflow_mode)
          
