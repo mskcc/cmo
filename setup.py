@@ -34,7 +34,8 @@ setup(name='cmo',
                  'bin/cmo_abra',
                  'bin/cmo_qcpdf',
                  'bin/cmoflow_reference_alignment',
-                 'bin/cmo_split_reads'
+                 'bin/cmo_split_reads',
+                 'bin/cmo_samstat'
                  ],
         zip_safe=False)
 
