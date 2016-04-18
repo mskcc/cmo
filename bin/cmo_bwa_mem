@@ -13,7 +13,7 @@ if __name__ =='__main__':
     args_dict = parse_bwa_help(cmo.util.programs['bwa']['default'] + " mem")
     parser.add_argument("--genome", choices=cmo.util.genomes.keys(), required=True)
     parser.add_argument("--fastq1", required=True)
-    parser.add_argument("--fastq2", required=True)
+    parser.add_argument("--fastq2" )
     parser.add_argument("--output", required=True)
     parser.add_argument("--sam", action='store_true', help="Produce Sam instead of the default  bam (Boolean)")
     parser.add_argument("--version", required=True, choices=cmo.util.programs['bwa'].keys())
