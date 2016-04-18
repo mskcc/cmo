@@ -597,7 +597,7 @@ def merge_sam_files(group, bam_hash, output_dir):
         cmd = cmd + ["--I", bam]
     cmd = cmd + ["--O", out_bam]
     print " ".join(cmd)
-    job = workflow.Job(" ".join(cmd), name="Merge bams",resources="rusage[iounits=6]")
+    job = workflow.Job(" ".join(cmd), name="Merge bams",resources="rusage[iounits=6, mem=20]")
     return (job, out_bam)
         
 
@@ -949,7 +949,7 @@ def picard_merge(bams, readset, directory):
         cmd = cmd + ["--I", bam]
     cmd = cmd + ["--O", out_bam]
     print " ".join(cmd)
-    picard_job = workflow.Job(" ".join(cmd), name="Merge bams " + readset,resources="rusage[iounits=6]")
+    picard_job = workflow.Job(" ".join(cmd), name="Merge bams " + readset,resources="rusage[iounits=6, mem=20]")
     return (picard_job, out_bam)
 
 

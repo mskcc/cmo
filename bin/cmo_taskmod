@@ -1,0 +1,51 @@
+#!/opt/common/CentOS_6-dev/python/python-2.7.10/bin/python
+
+import argparse, os, sys, subprocess
+import cmo
+from fireworks.scripts.lpad_run import *
+import getpass
+from cStringIO import StringIO
+
+LPAD_CONFIG_LOC = "/opt/common/CentOS_6-dev/cmo/fireworks_config_files/"
+
+class Capturing(list):
+    def __enter__(self):
+        self._stdout = sys.stdout
+        sys.stdout = self._stringio = StringIO()
+        return self
+    def __exit__(self, *args):
+        self.extend(self._stringio.getvalue().splitlines())
+        sys.stdout = self._stdout
+
+if __name__ =='__main__':
+    parser = argparse.ArgumentParser(description="inspect or modify command line of firework job")
+    parser.add_argument('-i', "--fw_id", required=True, type=int, action='store', help="fireworks to insepct command line", nargs="+")
+    parser.add_argument('-u', '--user', action="store", help="user to inspect firework for (default: you)")
+    args = parser.parse_args()
+    user = args.user
+    if not args.user:
+        user = getpass.getuser()
+    fireworks_db = os.path.join(LPAD_CONFIG_LOC, user + ".yaml")
+    if not os.path.exists(fireworks_db):
+        print >>sys.stderr, "Can't find db file for user %s" % user
+        sys.exit(1)
+    args.launchpad_file = fireworks_db
+    args.name = None
+    args.state = None
+    args.query = {}
+    args.qid=None
+    args.display_format="all"
+    args.sort=None
+    args.rsort=None
+    args.max=0
+    args.output=get_output_func("json")
+    with Capturing() as output:
+        get_fws(args)
+    output = json.loads("".join(output))
+    print output['spec']['_tasks'][0]['script'][0]
+
+
+
+
+
+

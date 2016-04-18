@@ -23,14 +23,17 @@ class Picard:
                 "QUIET": "false",
                 "VALIDATION_STRINGENCY":"SILENT",
                 "COMPRESSION_LEVEL": "5",
-                "MAX_RECORDS_IN_RAM": "500000",
+                "MAX_RECORDS_IN_RAM": "5000000",
                 "CREATE_INDEX": "true",
                 "CREATE_MD5_FILE": "false",
                 "REFERENCE_SEQUENCE": "null",
            #     "GA4GH_CLIENT_SECRETS":"null",
                 }
     def picard_cmd(self, command, default_args_override={}, command_specific_args={}):
+        if command == "MergeSamFiles" or command == "MarkDuplicates":
+            self.java_args = "-Xms256m -Xmx30g -XX:-UseGCOverheadLimit -Djava.io.tmpdir=/scratch/"
         cmd = [self.java_cmd, self.java_args, "-jar", self.picard_jar, command]
+        
         for arg, value in self.default_args.items():
             if arg not in default_args_override:
                 cmd = cmd + [arg + "=" + value]
@@ -43,6 +46,7 @@ class Picard:
             else:
                 if value != None:
                     cmd = cmd + [arg + "=" + value]
+        print >>sys.stderr, " ".join(cmd)
         return " ".join(cmd)
     def picard_cmd_help(self, command):
         cmd = [self.java_cmd, self.java_args, "-jar", self.picard_jar, command, " -h"]

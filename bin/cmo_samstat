@@ -1,0 +1,27 @@
+#!/opt/common/CentOS_6-dev/python/python-2.7.10/bin/python
+
+import argparse, os, sys, shutil
+import cmo
+
+if __name__ =='__main__':
+    parser = argparse.ArgumentParser(description="get information about a bam or fastq")
+    parser.add_argument('-i',"--input-file",  action='append', help="fastq or bam to interrogate for information- can be specified multiple times -i foo -i bar to do multiple files in one run", required = True)
+    parser.add_argument('-o', "--output_dir", action="store", help="output-directory, defaults to current working directory")
+    args = parser.parse_args()
+    samstat = cmo.util.programs['samstat']['default']
+    cmd = [samstat]
+    for input in args.input_file:
+       cmd = cmd + [ os.path.abspath(input)]
+    cmo.util.call_cmd(" ".join(cmd), shell=True)
+    if not args.output_dir:
+        args.output_dir = os.getcwd()
+    else:
+        args.output_dir = os.path.abspath(args.output_dir)
+    for input in args.input_file:
+        samstat_output = input + ".samstat.html"
+        shutil.move(samstat_output, args.output_dir)
+
+
+
+
+
