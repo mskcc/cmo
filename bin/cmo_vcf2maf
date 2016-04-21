@@ -27,7 +27,10 @@ if __name__ =='__main__':
     args_dict = vars(args)
     args_dict['vep_data']=cmo.util.programs['vep'][args.vep_release]
     args_dict['vep_path']=cmo.util.programs['vep'][args.vep_release]
-    args_dict['ref_fasta']=cmo.util.genomes[args.ref_fasta]['fasta']
+    try:
+        args_dict['ref_fasta']=cmo.util.genomes[args.ncbi_build]['fasta']
+    except:
+        args_dict['ref_fasta']=cmo.util.genomes['GRCh37']['fasta']
     for key in ["version", "vep_release"]:
         del args_dict[key]
     cmd = [cmo.util.programs['perl']['default'], script_path]
