@@ -867,7 +867,9 @@ def approximate_pieces_by_filesize(filename):
     #whole lane WGS
     #gigabytes x 10 = number of pieces?
     #nonreadpsecific name ensures we use the same number of pieces for r1/2 
-    #no matter what their sizes are, whichever calculates first wins
+    #no matter what their sizes are, whichever calculates first wins 
+    #In testing this metric has proven accurate for 4million read chunks to within 10%, e.g. 3.6mil to 4.5. 
+    #good enuf
     non_read_specific_name = re.sub("R[12]", "", filename)
     if non_read_specific_name in fastq_chunks:
         return fastq_chunks[non_read_specific_name]
@@ -897,6 +899,7 @@ def split_reads(cqs_fastq, orig_gzip_fastq):
 def cutadapt(read1, read2, min_read_length):
     ''' run cutadapt '''
     #FIXME handle no read2
+    #I THINK THIS FIXME IS HANDLED THO RIGHT?
     read1_out = read1 + "_CT_PE.fastq"
     stats_file = read1 + "_CUTADAPT.stats"
     try:
@@ -922,8 +925,7 @@ def cutadapt(read1, read2, min_read_length):
     
 def bwa(read1, read2, readgroup):
     ''' run bwa mem '''
-    #FIXME handle no read2
-    #FIXME handle species and references
+    #FIXME handle species
     #rg has tabs so make sure quoted in final command line
     bam = read1 + ".bwa.bam"
     if read2:
@@ -957,6 +959,8 @@ def picard_merge(bams, readset, directory):
 def picard_markdups(bam, readset, directory):
     ''' run picard markdups '''
     #FIXME fix picard helper to accept default options instead of hiding them?
+    #FIXME there are "large mem" java arguments hidden in cmo_picard to make this and mergeSamFiles work 
+    #but they should probably be moved up here for clarity
     out_bam = os.path.join(directory, readset +"_MD.bam")
     out_metrics = os.path.join(directory, readset + "_markDuplicatesMetrics.txt")
     cmd = ["cmo_picard", "--cmd MarkDuplicates"]
@@ -1212,6 +1216,7 @@ def gatk_doc(sample,bam, output_dir, targets):
     cmd = cmd + ["-I", bam]
     cmd = cmd + ["-L", cmo.util.targets[targets]['FP_intervals']]
     cmd = cmd + ["-rf", "BadCigar"]
+    cmd = cmd + ["-baseCounts"]
     cmd = cmd + ["-mmq", "20", "-mbq", "0"]
     print " ".join(cmd)
     metrics_job = workflow.Job(" ".join(cmd), name="GATK DoC " + sample,resources="rusage[mem=10]", processors=3)
