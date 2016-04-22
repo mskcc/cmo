@@ -84,8 +84,6 @@ def process_options(parser, cmd_options):
             parser.add_argument(arg, action="store_true", help=help)
         elif (arg == "--ib"):
             parser.add_argument(arg, action="store_true", help=help)
-        elif (arg == "--sv"):
-            parser.add_argument(arg, action="store_true", help=help)
         else:
             parser.add_argument(arg, action="store", help=help)
 
