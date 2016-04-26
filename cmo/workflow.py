@@ -38,6 +38,10 @@ class Workflow():
         self.name=name
         db = DatabaseManager()
         self.db = db
+        # Make sure the user has rlaunch in their PATH
+        if self.which('rlaunch') is None:
+            print >>sys.stderr, "Can't find rlaunch in $PATH. Please see readme to set $PATH correctly"
+            sys.exit(1)
         self.launchpad = fireworks.LaunchPad.from_file(db.find_lpad_config())
     def run(self, processing_mode, daemon_log=None):
         if not daemon_log:
@@ -57,6 +61,25 @@ class Workflow():
             self.workflow = fireworks.Workflow(self.jobs_list, self.job_dependencies, name=self.name)
             self.launchpad.add_wf(self.workflow)
             self.watcher_daemon(daemon_log)
+
+    # Look through user's path for a program
+    def which(self, program):
+        import os
+        def is_exe(fpath):
+            return os.path.isfile(fpath) and os.access(fpath, os.X_OK)
+
+        fpath, fname = os.path.split(program)
+        if fpath:
+            if is_exe(program):
+                return program
+        else:
+            for path in os.environ["PATH"].split(os.pathsep):
+                path = path.strip('"')
+                exe_file = os.path.join(path, program)
+                if is_exe(exe_file):
+                    return exe_file
+
+        return None
 
     def set_launch_dir(self):
         if self.name:
@@ -167,11 +190,6 @@ class Workflow():
         ofh.write(yaml.safe_dump({"metadata":dict()}))
         ofh.close()
 
-
-
-
-
-
 class DatabaseManager():
     def __init__(self, host="u36.cbio.private", port="27017", user=getpass.getuser()):
         self.host=host
@@ -211,8 +229,12 @@ class DatabaseManager():
             print >>sys.stderr, "Qadapt: %s: %s" %(key, value)
             fh.write(key + ": " + value + "\n")
         fh.close()
-         
+
     def create_lpad_config(self):
+        # Make sure the user didn't bsub/qsub the cmoflow command that led us here
+        if 'LSB_JOBID' in os.environ or 'PBS_JOBID' in os.environ or 'JOB_ID' in os.environ:
+            print >>sys.stderr, "Please run cmoflow commands in an interactive shell. Don't bsub/qsub them!"
+            sys.exit(1)
         print >>sys.stderr, "Writing new config file for your user"
         print >>sys.stderr, "Initializing a new DB will destroy any data in Mongo if you have anything there"
         date = raw_input("Enter today's date in YYYY-MM-DD to confirm:")
@@ -242,12 +264,3 @@ class DatabaseManager():
             return None
     def remove_daemon_pid(self, user=getpass.getuser()):
         return self.client.daemons.daemons.remove({"user":user})
-        
-
-
-        
-        
-
-
-
-
