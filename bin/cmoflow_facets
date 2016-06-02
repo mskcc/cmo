@@ -36,10 +36,8 @@ def construct_workflow(tumorbam, normalbam, tag, facets_args, output_dir,snps=No
     tumor_normal_counts = []
     if not os.path.exists(os.path.abspath(tumorbam)):
         print >>sys.stderr, "Tumor bam does not exist? is %s a real path to a bam? " % tumorbam
-        sys.exit(1)
     if not os.path.exists(os.path.abspath(normalbam)):
         print >>sys.stderr, "Normal bam does not exist? is %s a real path to a bam? " % normalbam
-        sys.exit(1)
     
     for (bam, base) in [(tumorbam, tumor_sample), (normalbam, normal_sample)]:
         out_file = os.path.abspath(os.path.join(output_dir, base + ".dat"))

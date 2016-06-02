@@ -13,7 +13,7 @@ if __name__ =='__main__':
     parser.add_argument('-l', '--log-file', action="store", help="optional log file for daemon")
     args = parser.parse_args()
     if not args.log_file:
-        args.log_file = os.path.join (FW_LOG_LOC, getpass.getuser(), "daemon.log")
+        args.log_file = os.path.join(FW_LOG_LOC, getpass.getuser(), "daemon.log")
     print >>sys.stderr, "writing log to %s" % args.log_file
     dummy = workflow.Workflow([],{})
     if(args.f):

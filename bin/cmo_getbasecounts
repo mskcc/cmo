@@ -41,6 +41,7 @@ if __name__ =='__main__':
     parser = argparse.ArgumentParser(parents= [ verparser ], add_help=True)
     command = cmo.util.programs['getbasecounts'][options.version]
     command_options = find_command_options(command)
+    print command_options
     for arg, help in command_options.items():
         help = help.replace("%","%%")
         if(arg =="--fasta"):

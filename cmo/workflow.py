@@ -18,9 +18,10 @@ class Job(fireworks.Firework):
         for key in['queue', 'resources', 'walltime', 'est_wait_time', 'processors']:
             if key in kwargs:
                 bsub_options_dict[key]=kwargs[key]
+        spec = {}
         if len(bsub_options_dict.keys()) > 0:
-            spec = {}
             spec['_queueadapter']=bsub_options_dict
+        spec['_dupefinder']={"_fw_name" : "DupeFinderScript"}
         if 'name' in kwargs:
             name=kwargs['name']
         return fireworks.Firework(fireworks.ScriptTask.from_str(command), name=name, spec=spec)
@@ -104,11 +105,13 @@ class Workflow():
             daemons.daemons.remove({"user":getpass.getuser()})
     def watcher_daemon(self, log_file):
         log=None
+        
         if(log_file):
             try:
                 log = open(log_file, "w")
             except:
                 log = log_file #hope its a filehandle instead!
+        print >>sys.stderr ,"Log file opened!"
         #about to fork a process, throw away all handlers.
         #fireworks will create a new queue log handler to write to test with
         #lil hacky but who cares right now
@@ -117,7 +120,9 @@ class Workflow():
         old_sys_stdout = sys.stdout
         self.db.client.close()
         self.launchpad.connection.close()
+        print >>sys.stderr, "Connections closed, preparing to fork..."
         with daemon.DaemonContext( stdout=log, stderr=log):
+            logging.handlers=[]
             dbm = DatabaseManager()
             self.db = dbm
             #reconnect to mongo after fork

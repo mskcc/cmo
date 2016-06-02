@@ -30,7 +30,8 @@ class Picard:
            #     "GA4GH_CLIENT_SECRETS":"null",
                 }
     def picard_cmd(self, command, default_args_override={}, command_specific_args={}):
-        if command == "MergeSamFiles" or command == "MarkDuplicates":
+        #TODO -make this resource hack better
+        if command == "MergeSamFiles" or command == "MarkDuplicates" or command == "FixMateInformation":
             self.java_args = "-Xms256m -Xmx30g -XX:-UseGCOverheadLimit -Djava.io.tmpdir=/scratch/"
         cmd = [self.java_cmd, self.java_args, "-jar", self.picard_jar, command]
         
