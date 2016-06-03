@@ -21,7 +21,7 @@ class Job(fireworks.Firework):
         spec = {}
         if len(bsub_options_dict.keys()) > 0:
             spec['_queueadapter']=bsub_options_dict
-        spec['_dupefinder']={"_fw_name" : "DupeFinderScript"}
+     #   spec['_dupefinder']={"_fw_name" : "DupeFinderScript"}
         if 'name' in kwargs:
             name=kwargs['name']
         return fireworks.Firework(fireworks.ScriptTask.from_str(command), name=name, spec=spec)
