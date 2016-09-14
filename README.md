@@ -2,7 +2,12 @@
 
 Add this to your `~/.profile` to get access to the `cmo_*` and `cmoflow_*` tools:
 ```bash
-# Set PATH to include MSKCC's python bin if found
+# Set PATH to include MSKCC's bin of tools, if found
+if [ -d "/opt/common/CentOS_6-dev/bin/current" ]; then
+    PATH="/opt/common/CentOS_6-dev/bin/current:$PATH"
+fi
+
+# Set PATH to include MSKCC's bin of python tools, if found
 if [ -d "/opt/common/CentOS_6-dev/python/python-2.7.10/bin" ]; then
     PATH="/opt/common/CentOS_6-dev/python/python-2.7.10/bin:$PATH"
 fi
