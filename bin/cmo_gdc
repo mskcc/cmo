@@ -8,15 +8,15 @@ from random import randint
 import cmo
 
 try:
-    token_filename = cmo.util['cmo_gdc']['gdc_token']
-    gdc_client_binary = cmo.util['programs']['gdc-client']['default']
-    final_files_dirname = cmo.util['cmo_gdc']['file_repository']
-    jobs_inprogress_dirname = cmo.util['cmo_gdc']['tmp_jobs_dir']
-    client = MongoClient(cmo.util['cmo_gdc']['mongodb_uri'])
-    gdc_db = client[cmo.util['cmo_gdc']['mongodb_db_name']]
-    cmo_gdc_url = cmo.util['cmo_gdc']['gdc_url']
-    gencode_gtf_file = cmo.util['genomes']['GRCh38']['gencode']['25']
-    num_parallel_slicing_downloads = cmo.util['cmo_gdc']['num_parallel_slicing_downloads']
+    gdc_client_binary = cmo.util.programs['gdc-client']['default']
+    token_filename = cmo.util.config['gdc']['gdc_token']
+    final_files_dirname = cmo.util.config['gdc']['file_repository']
+    jobs_inprogress_dirname = cmo.util.config['gdc']['tmp_jobs_dir']
+    client = MongoClient(cmo.util.config['gdc']['mongodb_uri'])
+    gdc_db = client[cmo.util.config['gdc']['mongodb_db_name']]
+    cmo_gdc_url = cmo.util.config['gdc']['gdc_url']
+    gencode_gtf_file = cmo.util.genomes['GRCh38']['gencode']['25']
+    num_parallel_slicing_downloads = cmo.util.config['gdc']['num_parallel_slicing_downloads']
 except KeyError, e:
     print >> sys.stderr, "Invalid Key Error in cmo_resources.json: " + str(e)
     exit(1)

@@ -18,7 +18,7 @@ genomes = json_config['genomes']
 chr1_fingerprints = json_config['chr1_fingerprints']
 keys = json_config['keys']
 targets = json_config['targets']
-
+config = json_config['config']
 
 def find_chromosomes(genome_string, extended=False):
     try:
