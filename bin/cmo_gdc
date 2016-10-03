@@ -5,17 +5,18 @@ import time, sys, datetime
 import requests, json, subprocess
 from pymongo import MongoClient
 from random import randint
+import cmo
 
 try:
-    json_config = json.load(open("/ifs/work/bandlamc/gdc_downloader/cmo_resources.json"))
-    token_filename = json_config['cmo_gdc']['gdc_token']
-    gdc_client_binary = json_config['programs']['gdc-client']['default']
-    final_files_dirname = json_config['cmo_gdc']['file_repository']
-    jobs_inprogress_dirname = json_config['cmo_gdc']['tmp_jobs_dir']
-    client = MongoClient(json_config['cmo_gdc']['mongodb_uri'])
-    gdc_db = client[json_config['cmo_gdc']['mongodb_db_name']]
-    cmo_gdc_url = json_config['cmo_gdc']['gdc_url']
-    gencode_gtf_file = json_config['genomes']['GRCh38']['gencode']['25']
+    token_filename = cmo.util['cmo_gdc']['gdc_token']
+    gdc_client_binary = cmo.util['programs']['gdc-client']['default']
+    final_files_dirname = cmo.util['cmo_gdc']['file_repository']
+    jobs_inprogress_dirname = cmo.util['cmo_gdc']['tmp_jobs_dir']
+    client = MongoClient(cmo.util['cmo_gdc']['mongodb_uri'])
+    gdc_db = client[cmo.util['cmo_gdc']['mongodb_db_name']]
+    cmo_gdc_url = cmo.util['cmo_gdc']['gdc_url']
+    gencode_gtf_file = cmo.util['genomes']['GRCh38']['gencode']['25']
+    num_parallel_slicing_downloads = cmo.util['cmo_gdc']['num_parallel_slicing_downloads']
 except KeyError, e:
     print >> sys.stderr, "Invalid Key Error in cmo_resources.json: " + str(e)
     exit(1)
@@ -470,10 +471,9 @@ def main():
         query_string += "region=" + str(range_)
 
     # Implementing parallelization for BAM slicing
-    nparallel = 10
     buckets = []
     current_bucket = 0
-    for i in range(0, nparallel):
+    for i in range(0, num_parallel_slicing_downloads):
         buckets.append([])
 
     for line in rt_lines:
@@ -485,7 +485,7 @@ def main():
                 (args.genomic_range is not None or args.slicing_genes is not None):
             buckets[current_bucket].append(r)
             current_bucket += 1
-            if current_bucket == nparallel:
+            if current_bucket == num_parallel_slicing_downloads:
                 current_bucket = 0
 
     batch_file_names = []
@@ -527,7 +527,8 @@ def main():
     master_batch_job_file.close()
 
     try:
-        bsub_slice_cmd = "bsub -n 10 -K -R \"select[internet]\" -We 0:59 " \
+        bsub_slice_cmd = "bsub -n " + str(num_parallel_slicing_downloads) + " -K " \
+                         "-R \"select[internet]\" -We 0:59 " \
                          "bash " + master_batch_job_file_name + " > " + \
                          master_batch_job_file_name + ".bsub.log 2> " + \
                          master_batch_job_file_name + ".bsub.err "
