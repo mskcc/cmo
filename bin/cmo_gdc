@@ -1,0 +1,967 @@
+#!/opt/common/CentOS_6-dev/python/python-2.7.10/bin/python
+
+import argparse, os, re, errno
+import time, sys, datetime
+import requests, json, subprocess
+from pymongo import MongoClient
+from random import randint
+
+try:
+    json_config = json.load(open("/ifs/work/bandlamc/gdc_downloader/cmo_resources.json"))
+    token_filename = json_config['cmo_gdc']['gdc_token']
+    gdc_client_binary = json_config['programs']['gdc-client']['default']
+    final_files_dirname = json_config['cmo_gdc']['file_repository']
+    jobs_inprogress_dirname = json_config['cmo_gdc']['tmp_jobs_dir']
+    client = MongoClient(json_config['cmo_gdc']['mongodb_uri'])
+    gdc_db = client[json_config['cmo_gdc']['mongodb_db_name']]
+    cmo_gdc_url = json_config['cmo_gdc']['gdc_url']
+    gencode_gtf_file = json_config['genomes']['GRCh38']['gencode']['25']
+except KeyError, e:
+    print >> sys.stderr, "Invalid Key Error in cmo_resources.json: " + str(e)
+    exit(1)
+except Exception, e:
+    print >> sys.stderr, "Error retrieving cmo_gdc config info from cmo_resources.json file: " + str(e)
+    exit(1)
+
+job_id = randint(10000000, 99999999)
+
+if 'gdc_file_manifest' not in gdc_db.collection_names():
+    gdc_db.create_collection('gdc_file_manifest')
+
+if 'gdc_downloads_log' not in gdc_db.collection_names():
+    gdc_db.create_collection('gdc_downloads_log')
+
+def main():
+    tumor_types = ['LAML', 'ACC', 'BLCA', 'LGG', 'BRCA', 'CESC', 'CHOL', 'COAD', 'ESCA',
+                   'FPPP', 'GBM', 'HNSC', 'KICH', 'KIRC', 'KIRP', 'LIHC', 'LUAD', 'LUSC',
+                   'DLBC', 'MESO', 'OV', 'PAAD', 'PCPG', 'PRAD', 'READ', 'SARC', 'SKCM',
+                   'STAD', 'TGCT', 'THYM', 'THCA', 'UCS', 'UCEC', 'UVM']
+
+    data_types = {'AlignedReads': 'Aligned Reads',
+                  'GeneExpressionQuantification': 'Gene Expression Quantification',
+                  'IsoformExpressionQuantification': 'Isoform Expression Quantification',
+                  'BiospecimenSupplement': 'Biospecimen Supplement',
+                  'ClincialSupplement': 'Clinical Supplement',
+                  'AggregatedSomaticMutation': 'Aggregated Somatic Mutation',
+                  'MaskedSomaticMutation': 'Masked Somatic Mutation'
+                  }
+    exp_strategies = {'WXS': 'WXS', 'RNA-Seq': 'RNA-Seq', 'miRNA-Seq': 'miRNA-Seq',
+                      'GenotypingArray': 'Genotyping Array'}
+
+    prog_description = (
+        "Query and download GDC data (see use cases below for correct usage). Files "
+        "already downloaded to the CMO-GDC repository are not downloaded. \n\n"
+        "NOTE: BAMs downloaded from GDC are hg38 aligned.  So, make sure your "
+        "slicing regions are referencing hg38 build."
+    )
+    prog_epilog = (
+        "NOTES: Program is designed for two canonical use cases based on how files are chosen for download:\n"
+        "   Case 1: \n"
+        "       INPUT: \n"
+        "       --manifest (required)\n"
+        "       --output_file (required)\n"
+        "       --genomic_range (optional)\n"
+        "       DESCRIPTION: \n"
+        "       Query for the data on the GDC web-portal (https://gdc-portal.nci.nih.gov). \n"
+        "       --manifest is required to have at least one column with the columnname \n"
+        "       'id' containing file_id(s). Program downloads each file based on the file_id. \n"
+        "       To extract sliced bams, provide the --genomic_range.  \n"
+        "   Case 2: \n"
+        "       INPUT: \n"
+        "       --experimental_strategy (required)\n"
+        "       --data_type (required)\n"
+        "       --output_file (required)\n"
+        "       --tumor_type (optional)\n"
+        "       --participant_id or --participant_id_file (optional)\n"
+        "       DESCRIPTION: \n"
+        "       Queries GDC by performing logical conjunction (AND) between tumor_type, \n"
+        "       participant_ids, experimental_strategy and data_format. In this use case, \n"
+        "       --experimental_strategy, --data_type as well as one or both of --tumor_type\n"
+        "       and --participant_id are REQUIRED. As in previous use case, \n"
+        "       if --genomic_range is provided, sliced bams are downloaded \n"
+        "   Case 3: \n"
+        "       INPUT: \n"
+        "       --retrieve_cmo_manifest (required)\n"
+        "       --output_file (required)\n"
+        "       DESCRIPTION: \n"
+        "       Download the latest manifest of all files within CMO-GDC repository. \n"
+
+        "Program Output:\n"
+        "       Two output files are produced.  <output_file> is a listing of files  \n"
+        "       downloaded along with the full path (within /ifs/res/pwg/data/gdc/files/). \n"
+        "       Second output file, <output_file>.failed_downloads.manifest, is a manifest \n"
+        "       file of the failed downloads.  This can be input to cmo_gdc.py directly to \n"
+        "       re-attempt failed downloads \n"
+        "       \n"
+        "\n\n"
+    )
+
+    parser = argparse.ArgumentParser(description=prog_description,
+                                     epilog=prog_epilog,
+                                     formatter_class=argparse.RawDescriptionHelpFormatter,
+                                     add_help=True)
+
+    parser.add_argument("--manifest_file", required=False,
+                        help="full path to manifest file "
+                             "downloaded from GDC portal at (http://gdc-portal.nci.nih.gov). At minimum "
+                             "When this is provided, all other parameters except "
+                             "--genomic_range (when provided) are ignored",
+                        metavar='')
+    parser.add_argument("--tumor_type", required=False, choices=tumor_types,
+                        help="Enter one tumor type. Allowed values: " +
+                             ", ".join(tumor_types),
+                        metavar='')
+    parser.add_argument("--participant_id", required=False,
+                        help="Enter one or more participant ids. "
+                             "If >1, separated by commas (no spaces). "
+                             "Eg: TCGA-XX-1234,TCGA-YY-5678. Mutually exclusive "
+                             "with --participant_id_file",
+                        metavar='')
+    parser.add_argument("--participant_id_file", required=False,
+                        help="Full path to file with single column (no-header) "
+                             "containing participant ids. Mutually exclusive with "
+                             "--participant_id",
+                        metavar='')
+    parser.add_argument("--experimental_strategy", required=False,
+                        choices=exp_strategies.keys(),
+                        help="Only download files associated with a specific platform run. "
+                             "Allowed values: " + ", ".join(exp_strategies.keys()),
+                        metavar='')
+    parser.add_argument("--data_type", required=False,
+                        choices=data_types.keys(),
+                        help="data type to download. Allowed values: " +
+                             ", ".join(data_types.keys()),
+                        metavar='')
+    parser.add_argument("--genomic_range", required=False,
+                        help="Genomic range for bam slicing. Multiple ranges are accepted."
+                             "Example 1: chr17:22000000-23000000. "
+                             "Example 2: chr10,chr17:22000000-23000000,chrX,chrY. "
+                             "Argument ignored for non-bam files. <sliced_bam_file>.regions.txt "
+                             "containing a list of regions in the bam file is also generated",
+                        metavar='')
+    parser.add_argument("--slicing_genes", required=False,
+                        help="comma separated list of Gencode v25 genes for which to retrieve "
+                             "sliced bams. Genes can be Ensemble IDs (gene_id in GTF) or "
+                             "gene names (gene_name in GTF). Mutually exclusive with "
+                             "--genomic_range.",
+                        metavar='')
+    parser.add_argument("--output_dir_sliced_bams", required=False,
+                        help="Directory where sliced bams are downloaded to. Required "
+                             "if --genomic_range is provided",
+                        metavar='')
+    parser.add_argument("--sliced_bam_filename_prefix", required=False,
+                        help="prefix for sliced_bam file names. Output file name will "
+                             "be: <prefix>.<file_id>.num_regions.<num_regions>.bam",
+                        metavar='')
+    parser.add_argument("--retrieve_cmo_manifest", required=False,
+                        help="When flag is set, retrieves all the gdc files downloaded to CMO GDC repo. "
+                             "In addition, entries in gdc_manfiest_file MongoDB table are removed "
+                             "if the corresponding file no longer exists. Manifest written to "
+                             "--output_file.",
+                        action='store_true')
+    parser.add_argument("--force_download", required=False,
+                        help="When flag is set, program ignores the 'InProgress' state of files that"
+                             " may or may not be currently being downloaded. Useful when download(s) terminate "
+                             "without changing state from 'InProgress' to 'Failed' in the database",
+                        action='store_true')
+    parser.add_argument("--output_file", required=True,
+                        help="Full path to an output file. A manifest of downloaded "
+                             "files along with the full path to the file in the "
+                             "CMO GDC Repository is written to this file.  ",
+                        metavar='')
+
+    args = parser.parse_args()
+    stats_downloads_requested = 0
+    stats_downloads_completed = 0
+    stats_downloads_skipped = 0
+    stats_downloads_failed = 0
+
+    output_filename = str(args.output_file)
+    output_dir_sliced_bams = str(args.output_dir_sliced_bams)
+    sliced_bam_filename_prefix = str(args.sliced_bam_filename_prefix)
+    _tmp_resp_line = ResponseLine("", "")  # to simply print the header
+    output_file = open(output_filename, "w", 0)
+    output_manifest_file = open(output_filename + ".failed_downloads.manifest", "w", 0)
+    output_file.write(_tmp_resp_line.print_to_str(True) + "\tlist_of_sliced_regions\tdownload_status\n")
+    output_manifest_file.write(_tmp_resp_line.print_to_manifest_line(True) + "\n")
+
+    if args.retrieve_cmo_manifest is not None and args.retrieve_cmo_manifest:
+        ifs_files_dict = dict()
+        proc = subprocess.Popen(["find", final_files_dirname],
+                                stdout=subprocess.PIPE)
+        (out, err) = proc.communicate()
+        for fp in out.split("\n"):
+            fp = fp.replace("//", "/")
+            ifs_files_dict[fp] = 1
+
+        files_cursor = gdc_db.gdc_file_manifest.find()
+        for fc in files_cursor:
+            fc["cmo_path_to_file"] = fc["cmo_path_to_file"].replace("//", "/")
+            if fc["cmo_path_to_file"] not in ifs_files_dict.keys():
+                print "Removing file_id: " + fc["file_id"] + " from database"
+                gdc_db.gdc_file_manifest.remove(
+                    {
+                        "file_id": fc["file_id"]
+                    }
+                )
+            else:
+                output_file.write(print_gdc_manifest_file_line(fc["file_id"]))
+        output_file.close()
+        exit(0)
+
+    force_download = False
+    if args.force_download is not None and args.force_download:
+        force_download = True
+
+    token_file = open(token_filename, 'r')
+    token_str = token_file.readline()
+
+    timestamp = time.strftime("%Y%m%d-%H%M%S")  # + "-" + str(datetime.datetime.now().microsecond)
+    current_job_dirname = jobs_inprogress_dirname + "job." + str(job_id) + "." + timestamp + "/"
+    current_job_data_dirname = current_job_dirname + "data/"
+
+    mkdir_p(final_files_dirname)
+    mkdir_p(jobs_inprogress_dirname)
+    os.mkdir(current_job_dirname)
+    os.mkdir(current_job_data_dirname)
+
+    manifest_file = ""
+    payload = dict()
+    payload["format"] = 'tsv'   # potential future enhancement: download as JSON
+    payload["size"] = "100000"
+    payload[
+        "fields"] = "analysis.analysis_id,analysis.analysis_type,analysis.created_datetime," \
+                    "analysis.state,analysis.submitter_id,analysis.workflow_link," \
+                    "analysis.workflow_start_datetime,analysis.workflow_type," \
+                    "analysis.workflow_version,data_format,data_type,experimental_strategy," \
+                    "file_id,file_name,file_size,file_state,md5sum,platform,submitter_id,tags," \
+                    "type,updated_datetime,cases.project.project_id,cases.submitter_id"
+
+    filters = dict()
+    filters["op"] = "and"
+    filters["content"] = []
+    payload["filters"] = filters
+
+    if args.manifest_file is not None:
+        if os.path.exists(args.manifest_file):
+            manifest_file = args.manifest_file
+        else:
+            print >> sys.stderr, "Error: --manifest_file '" + args.manifest_file + "' does not exist.  Exiting."
+            exit(1)
+
+        # open manifest file and read all the file ids, build payload, and retrieve annotation for these files
+        manifest_file_obj = open(manifest_file, 'r')
+        line = manifest_file_obj.readline() # skip headerline
+        manifest_file_ids = []
+        for line in manifest_file_obj.readlines():
+            line = re.sub(r'\s+', r'\t', line)
+            file_id = line.split("\t")[0]
+            if re.match(r'[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89aAbB][a-f0-9]{3}-[a-f0-9]{12}', file_id):
+                manifest_file_ids.append(file_id)
+            else:
+                print "Manifest file parsing error: file_id in not proper format: " + file_id
+                exit(0)
+        print "Loaded " + str(len(manifest_file_ids)) + " file_ids from the manifest file"
+
+        filter_file_ids = {}
+        if len(manifest_file_ids) > 0:
+            filter_file_ids["op"] = "in"
+            filter_file_ids["content"] = {}
+            filter_file_ids["content"]["field"] = "file_id"
+            filter_file_ids["content"]["value"] = manifest_file_ids
+            filters["content"].append(filter_file_ids)
+
+    else:
+        tumor_type = ""
+        participants = []
+
+        # Make sure a valid tumor type is provided
+        if args.tumor_type is not None:
+            tumor_type = str(args.tumor_type)
+
+        if args.experimental_strategy is None:
+            print >> sys.stderr, "Error: --experimental_strategy is required. Exiting."
+            exit(1)
+
+        if args.data_type is None:
+            print >> sys.stderr, "Error: --data_type is required. Exiting."
+            exit(1)
+
+        experimental_strategy = str(args.experimental_strategy)
+        data_type = data_types[str(args.data_type)]
+
+        if args.participant_id is not None:
+            participants = str(args.participant_id).split(",")
+
+        if args.participant_id_file is not None:
+            participant_id_file = args.participant_id_file
+            if not os.path.exists(participant_id_file):
+                print >> sys.stderr, "Error: --participant_id_file '" + participant_id_file + \
+                                     "' does not exist. Exiting."
+                exit(1)
+            pfile = open(participant_id_file, 'r')
+            for line in pfile:
+                line = re.sub('\s+|\t|"|,', '', line)
+                participants.append(line)
+
+        # Now, ensure that participant ids are in correct format
+        bad_tcga_ids = list((i for i, tcga_id in enumerate(participants)
+                        if not re.match(r'^TCGA-\w\w-\w\w\w\w$', tcga_id)))
+
+        if bad_tcga_ids is not None and len(bad_tcga_ids) > 0:
+            print >> sys.stderr, "Error: --participant_id_file. " + str(len(bad_tcga_ids)) + \
+                                 " ids in this file are in not TCGA-XX-1111 format. Exiting."
+            exit(1)
+
+        # tumor_type filter
+        filter_tumortype = {}
+        if len(tumor_type) > 0:
+            filter_tumortype["op"] = "in"
+            filter_tumortype["content"] = {}
+            filter_tumortype["content"]["field"] = "cases.project.project_id"
+            filter_tumortype["content"]["value"] = "TCGA-" + tumor_type
+            filters["content"].append(filter_tumortype)
+
+        # data_type filter
+        filter_datatype = {}
+        if len(data_type) > 0:
+            filter_datatype["op"] = "="
+            filter_datatype["content"] = {}
+            filter_datatype["content"]["field"] = "files.data_type"
+            filter_datatype["content"]["value"] = data_type
+            filters["content"].append(filter_datatype)
+
+        # experimental_strategy filter
+        filter_exp_strategy = {}
+        if len(experimental_strategy) > 0:
+            filter_exp_strategy["op"] = "="
+            filter_exp_strategy["content"] = {}
+            filter_exp_strategy["content"]["field"] = "files.experimental_strategy"
+            filter_exp_strategy["content"]["value"] = experimental_strategy
+            filters["content"].append(filter_exp_strategy)
+
+        # experimental_strategy filter
+        filter_participants = {}
+        if len(participants) > 0:
+            filter_participants["op"] = "in"
+            filter_participants["content"] = {}
+            filter_participants["content"]["field"] = "cases.submitter_id"
+            filter_participants["content"]["value"] = participants
+            filters["content"].append(filter_participants)
+
+    if args.slicing_genes is not None and args.genomic_range is not None:
+        print >> sys.stderr, "Error: --slicing_genes and --genomic_range are mutually exclusive"
+
+    genomic_ranges = []
+    slicing_genes = []
+    if args.genomic_range is not None:
+        if args.output_dir_sliced_bams is None:
+            print >> sys.stderr, "Error --output_dir_sliced_bams is required when --genomic_range " \
+                                 "is provided. Exiting."
+            exit(0)
+        if args.sliced_bam_filename_prefix is None:
+            print >> sys.stderr, "Error --sliced_bam_filename_prefix is required when --genomic_range " \
+                                 "is provided. Exiting."
+            exit(0)
+        mkdir_p(str(args.output_dir_sliced_bams))
+
+        ranges = str(args.genomic_range).split(",")
+        for r in ranges:
+            if not r.startswith("chr"):
+                r = "chr" + r
+            if not re.search(r'chr[\d+|X|Y|MT](:\d+-\d+)?', r):
+                print >> sys.stderr, "Error: --genomic_range '" + args.genomic_range + \
+                                     "' is not in proper format. Exiting\n"
+                exit(1)
+            genomic_ranges.append(r)
+
+    gencode_gene_boundaries = dict()
+    if args.slicing_genes is not None:
+        if args.output_dir_sliced_bams is None:
+            print >> sys.stderr, "Error --output_dir_sliced_bams is required when --slicing_genes " \
+                                 "is provided. Exiting."
+            exit(0)
+        if args.sliced_bam_filename_prefix is None:
+            print >> sys.stderr, "Error --sliced_bam_filename_prefix is required when --slicing_genes " \
+                                 "is provided. Exiting."
+            exit(0)
+        mkdir_p(str(args.output_dir_sliced_bams))
+        slicing_genes = str(args.slicing_genes).split(",")
+        # Check the validity of the genes
+        for sg in slicing_genes:
+            if len(gencode_gene_boundaries.keys()) == 0:
+                gencode_gtf = open(gencode_gtf_file, "r")
+                for gtf_line in gencode_gtf:
+                    if gtf_line.startswith("#"):
+                        continue
+                    gtf_cols = gtf_line.split("\t")
+                    if gtf_cols[2] != "gene":
+                        continue
+                    desc_col = gtf_cols[8]
+                    gene_id = ""
+                    gene_name = ""
+                    for c in desc_col.split(";"):
+                        match1 = re.match(r'.*gene_id\s\"(.*)\"', c)
+                        match2 = re.match(r'.*gene_name\s\"(.*)\"', c)
+                        if match1:
+                            gene_id = match1.group(1)
+                        if match2:
+                            gene_name = match2.group(1)
+
+                    if gene_id == "" or gene_name == "":
+                        print >> sys.stderr, "GTF file parsing error: \n" + gtf_line + "\n"
+                        print "In: " + gencode_gtf_file
+                        exit(1)
+                    bounds = gtf_cols[0] + ":" + str(gtf_cols[3]) + "-" + str(gtf_cols[4])
+                    gencode_gene_boundaries[gene_id] = bounds
+                    gencode_gene_boundaries[gene_name] = bounds
+
+            if sg not in gencode_gene_boundaries.keys():
+                print >> sys.stderr, "Error unidentified genes found in --slicing_genes: " + sg
+                exit(1)
+            genomic_ranges.append(gencode_gene_boundaries[sg])
+
+    counter = 1
+    rt = None
+    while counter < 4:
+        try:
+            fw1 = open(current_job_data_dirname + "/payload.json", 'w')
+            fw1.write(json.dumps(payload, indent=4, sort_keys=True))
+            fw1.close()
+            rt = requests.post(cmo_gdc_url, json=payload)
+            fw2 = open(current_job_data_dirname + "/requests.post.output", 'w')
+            fw2.writelines(rt.text)
+            fw2.close()
+            counter = 4  # if the previous request was successful, bail out of the loop
+        except requests.exceptions.RequestException as e:  # This is the correct syntax
+            if counter == 3:
+                print >> sys.stderr, "ERROR occurred during https request.  \n"
+                print >> sys.stderr, e
+                print >> sys.stderr, "Check job logs in: " + current_job_data_dirname
+                if rt is not None:
+                    fw2 = open(current_job_data_dirname + "/requests.post.output", 'w')
+                    fw2.writelines(rt.text)
+                    fw2.close()
+                exit(1)
+            time.sleep(counter * 3)  # if failed, wait a short while and try again
+            counter += 1
+
+    rt_lines = rt.text.split("\r")
+    if len(rt_lines[0].split("\t")) < 5:
+        # TODO: need to properly check for error codes.  This is just temporary
+        print >> sys.stderr, "Error occurred during https request.  Check job logs in: " + \
+                             current_job_data_dirname
+        print >> sys.stderr, "NOTE: It is possible that your query did not return any results."
+        fw1 = open(current_job_data_dirname + "/payload.json", 'w')
+        fw1.write(json.dumps(payload, indent=4, sort_keys=True))
+        fw1.close()
+
+        fw2 = open(current_job_data_dirname + "/requests.post.output", 'w')
+        fw2.writelines(rt_lines)
+        fw2.close()
+        exit(1)
+
+    header_line = rt_lines[0].strip()
+    del rt_lines[0]
+    query_string = ""
+    for range_ in genomic_ranges:
+        if len(query_string) > 0:
+            query_string += "&"
+        query_string += "region=" + str(range_)
+
+    # Implementing parallelization for BAM slicing
+    nparallel = 10
+    buckets = []
+    current_bucket = 0
+    for i in range(0, nparallel):
+        buckets.append([])
+
+    for line in rt_lines:
+        line = line.strip()
+        if len(line) < 10:  # handle situation where empty rows are returned in the response
+            continue
+        r = ResponseLine(header_line, line)
+        if r.data_format == "BAM" and \
+                (args.genomic_range is not None or args.slicing_genes is not None):
+            buckets[current_bucket].append(r)
+            current_bucket += 1
+            if current_bucket == nparallel:
+                current_bucket = 0
+
+    batch_file_names = []
+    batch_file_name_to_response = dict()
+    batch_id = 0
+    master_batch_job_file_name = current_job_data_dirname + \
+                                 "/sliced_bam_download_batch.master.sh"
+    master_batch_job_file = open(master_batch_job_file_name, "w")
+
+    for bucket in buckets:
+        if len(bucket) == 0:
+            continue
+        batch_id += 1
+        batch_job_file_name = current_job_data_dirname + "/sliced_bam_download_batch." \
+                              + str(batch_id) + ".sh"
+        batch_job_file = open(batch_job_file_name, "w")
+        for r in bucket:
+            stats_downloads_requested += 1
+            sliced_file_id = sliced_bam_filename_prefix + "-" + r.file_id
+
+            sliced_output_filename = output_dir_sliced_bams + "/" + sliced_file_id + \
+                                     ".num_regions." + str(len(genomic_ranges)) + ".bam"
+            batch_file_names.append(sliced_output_filename)
+            batch_file_name_to_response[ sliced_output_filename] = r
+            regions_list_file = open(sliced_output_filename + ".regions.txt", "w")
+            regions_list_file.write("\n".join(genomic_ranges) + "\n")
+            regions_list_file.close()
+
+            batch_job_file.write("curl --header \"X-Auth-Token: " + token_str + \
+                        "\" 'https://gdc-api.nci.nih.gov/slicing/view/" \
+                        + r.file_id + "?" + query_string + "' --output " + \
+                        sliced_output_filename + " \n")
+
+        master_batch_job_file.write("bash " + batch_job_file_name + " &\n")
+        master_batch_job_file.write("sleep 1\n")
+        batch_job_file.close()
+
+    master_batch_job_file.write("wait\n")
+    master_batch_job_file.close()
+
+    try:
+        bsub_slice_cmd = "bsub -n 10 -K -R \"select[internet]\" -We 0:59 " \
+                         "bash " + master_batch_job_file_name + " > " + \
+                         master_batch_job_file_name + ".bsub.log 2> " + \
+                         master_batch_job_file_name + ".bsub.err "
+        os.system(bsub_slice_cmd)
+    except:
+        print >> sys.stderr, "\tError occurred while download a batch of sliced bams."
+        print >> sys.stderr, "\tSee HTTP requests made in: " + master_batch_job_file_name
+        print >> sys.stderr, "\tProcessing whatever bams that were downloaded..."
+
+    for fn in batch_file_names:
+        sys.stdout.write("Processing sliced bam: " + fn + " ...  ")
+        try:
+            r = batch_file_name_to_response[fn]
+            if not os.path.exists(fn):
+                print >> sys.stderr, "\n\tdownload failed. \n"
+                output_file.write(r.print_to_str(False) + "\t" + query_string
+                                  + "\t" + "Failed\n")
+                output_manifest_file.write(r.print_to_manifest_line(False) + "\n")
+                stats_downloads_failed += 1
+                continue
+
+            # Check if the bam file download is complete -- do a simple samtools stats.
+            # Raise exception if 'EOF' not found error is detected.  Else, collect and report statistics
+            flagstat_success = True
+            try:
+                os.system("samtools flagstat " + fn + " > " + fn + ".samtools.flagstat")
+                ss = open(fn + ".samtools.flagstat", "r")
+                lines = " ".join(ss.readlines())
+            except:
+                flagstat_success = False
+
+            if not flagstat_success or \
+                            lines.find("EOF marker is absent") >= 0 or \
+                            lines.find("runcated") >= 0 or \
+                            lines.startswith("["):
+                print >> sys.stderr, "\n\tBAM sanity check failed: \n" + "See BAM: " + fn
+                output_file.write(r.print_to_str(False) + "\t" + query_string
+                                  + "\t" + "Failed\n")
+                output_manifest_file.write(r.print_to_manifest_line(False) + "\n")
+                stats_downloads_failed += 1
+            else:
+                stats_downloads_completed += 1
+                match = re.search(r'(^\d+)', lines)
+                readcount = match.group(0)
+                sys.stdout.write(" Success -- " + str(readcount) + " reads \n")
+
+        except:
+            # Should not come to this;
+            print >> sys.stderr, "\n\tBAM sanity check failed."
+            print >> sys.stderr, "\t" + str(sys.exc_info()[0])
+            print >> sys.stderr, "\tSee HTTP requests made in: " + batch_job_file_name
+            print >> sys.stderr, "\tContinuing..."
+
+    for line in rt_lines:
+        line = line.strip()
+        if len(line) < 10:  # handle situation where empty rows are returned in the response
+            continue
+        r = ResponseLine(header_line, line)
+        if r.data_format != "BAM" or \
+                (args.genomic_range is None and args.slicing_genes is None):
+            stats_downloads_requested += 1
+
+            if is_file_already_downloaded(r) == 1:
+                print "Skipped " + r.file_id + "/" + r.file_name + \
+                      "...  already exists!"
+                r.cmo_path_to_file = final_files_dirname + "/" + r.file_id + "/" + r.file_name
+                output_file.write(r.print_to_str(False) + "\t-\t" + "AlreadyDownloaded\n")
+                stats_downloads_skipped += 1
+                continue
+
+            if is_file_download_InProgress(r.file_id, force_download) == 1:
+                print "Skipped " + r.file_id + "/" + r.file_name + \
+                      "...  download in progress!"
+                r.cmo_path_to_file = final_files_dirname + "/" + r.file_id + "/" + r.file_name
+                output_file.write(r.print_to_str(False) + "\t-\t" + "AnotherDownloadDetected\n")
+                stats_downloads_skipped += 1
+                continue
+
+            add_to_InProgress(r.file_id, job_id)
+            download_success = False
+            log_pfx = current_job_data_dirname + "/" + r.file_id + "/download."
+            bsub_cmd = ""
+            try:
+                mkdir_p(current_job_data_dirname + r.file_id)
+                counter = 1
+                walltime = "0:59"  # for faster node access
+                if r.file_size > 50e9:
+                    walltime = "10:00"
+                bsub_cmd = "bsub -n 10 -K -R \"select[internet]\" -We " + walltime + \
+                           " -oo " + log_pfx + "bsub.log " + gdc_client_binary + \
+                           " download" + " -n 5 --token-file  " + token_filename + \
+                           " --log-file " + log_pfx + "gdc-client.log --dir " + \
+                           current_job_data_dirname + " " + r.file_id + " > /dev/null 2> /dev/null"
+
+                while counter < 4:
+                    start_time = datetime.datetime.now()
+                    sys.stdout.write("Downloading file_id:" + r.file_id + "/" + r.file_name +
+                                     ". Attempt - " + str(counter) + "/3 ... ")
+                    sys.stdout.flush()
+                    os.system(bsub_cmd)
+                    time.sleep(0.2)  # TODO: need to revisit this.  There appears to be some latency issue
+                    bsub_log_file = open(log_pfx + "bsub.log", "r")
+                    for line in bsub_log_file.readlines():
+                        # Trying to match 'Successfully downloaded' in log file but there appear to be some
+                        # ANSI character codes that are hard to regex; should be a proper way of doing this.
+                        if len(line) > 4:
+                            line = line[5:len(line)]
+                        if re.match(r'Successfully downloaded', line):
+                            download_success = True
+
+                    end_time = datetime.datetime.now()
+                    time_str = str(round(((end_time - start_time).total_seconds()) / 60, 2)) + " mins"
+                    if download_success:
+                        counter = 4
+                        sys.stdout.write(" - Success (" + time_str + ")\n")
+
+                        sys.stdout.flush()
+                    else:
+                        sys.stdout.write(" - Failed (" + time_str + ")\n")
+                        sys.stdout.flush()
+                        counter += 1
+                        time.sleep(counter * 3)
+
+                if not download_success:
+                    raise Exception()
+
+            except:
+                print >> sys.stderr, "\tError occurred during 'gdc-client download' with the following command:"
+                print >> sys.stderr, "\t" + bsub_cmd
+                output_file.write(r.print_to_str(False) + "\t" + ",".join(genomic_ranges)
+                                  + "\t" + "Failed\n")
+                output_manifest_file.write(r.print_to_manifest_line(False) + "\n")
+                update_file_download_status(r.file_id, "Failed")
+                gdc_err = ""
+                if os.path.exists(log_pfx + "gdc-client.log"):
+                    gdc_err = "\n".join(open(log_pfx + "gdc-client.log", "r").readlines())
+                print >> sys.stderr, "\t" + gdc_err
+                print >> sys.stderr, "\tException caught: " + str(sys.exc_info()[0]) + \
+                                     ", line number: " + str(sys.exc_info()[2].tb_lineno)
+                print >> sys.stderr, "\t" + "Check logs in: " + current_job_data_dirname + r.file_id
+                print >> sys.stderr, "\t" + "Continuing ..."
+                stats_downloads_failed += 1
+
+            if not download_success:
+                continue
+
+            inprog_file_dir = current_job_data_dirname + "/" + r.file_id + "/"
+            inprog_file_name = inprog_file_dir + "/" + r.file_name
+            done_file_dir = final_files_dirname + "/" + r.file_id + "/"
+            done_file_name = done_file_dir + "/" + r.file_name
+            mkdir_p(done_file_dir)
+            os.system("mv " + inprog_file_name + " " + done_file_dir)
+
+            for supp_file in os.listdir(inprog_file_dir):
+                if supp_file.endswith(".bai") or supp_file.find("annotation") >= 0:
+                    print "\tNote: Also retaining: " + r.file_id + "/" + supp_file
+                    os.system("mv " + inprog_file_dir + "/" + supp_file + " " + done_file_dir)
+
+            out, err = subprocess.Popen(['md5sum', done_file_name],
+                                        stdout=subprocess.PIPE,
+                                        stderr=subprocess.PIPE).communicate()
+
+            if out.split(" ")[0] == r.md5sum:
+                r.cmo_path_to_file = done_file_name
+                add_to_manifest(r)
+                update_file_download_status(r.file_id, "Completed")
+                output_file.write(r.print_to_str(False) + "\t-\t" + "Success\n")
+                stats_downloads_completed += 1
+
+                # delete the temporary directory;
+                if re.match(r'[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89aAbB][a-f0-9]{3}-[a-f0-9]{12}', r.file_id):
+                    os.system("rm -rf " + current_job_data_dirname + "/" + r.file_id + " &> /dev/null")
+            else:
+                update_file_download_status(r.file_id, "Failed")
+                output_file.write(r.print_to_str(False) + "\t-\t" + "Failed\n")
+                stats_downloads_failed += 1
+
+    print "\ncmo_gdc execution completed!!!"
+    print "######### SUMMARY ##########"
+    print "Downloads requested   : " + str(stats_downloads_requested)
+    print "Downloads skipped     : " + str(stats_downloads_skipped) + \
+          " (already in CMO-GDC repo or another download detected)"
+    print "Downloads completed   : " + str(stats_downloads_completed)
+    print "Downloads failed      : " + str(
+        stats_downloads_failed) + " (use manifest_file: " + output_filename \
+          + ".failed_downloads.manifest to attempt re-downloading the failed files)"
+    print "############################\n"
+
+    output_manifest_file.close()
+    output_file.close()
+
+
+def mkdir_p(path):
+    try:
+        os.makedirs(path)
+    except OSError as exc:  # Python >2.5
+        if exc.errno == errno.EEXIST and os.path.isdir(path):
+            pass
+        else:
+            raise
+
+
+class ResponseLine(object):
+    analysis_created_datetime = ""
+    analysis_workflow_version = ""
+    updated_datetime = ""
+    file_name = ""
+    submitter_id = ""
+    file_id = ""
+    analysis_state = ""
+    file_size = ""
+    analysis_workflow_type = ""
+    data_type = ""
+    md5sum = ""
+    data_format = ""
+    analysis_analysis_id = ""
+    analysis_submitter_id = ""
+    analysis_workflow_link = ""
+    type = ""
+    file_state = ""
+    experimental_strategy = ""
+    cmo_path_to_file = ""
+    project_id = ""  # BRCA, STAD, etc
+
+    # The class "constructor" - It's actually an initializer
+    def __init__(self, header_line, value_line):
+        header_line = header_line.strip()
+        value_line = value_line.strip()
+        if len(header_line) == 0 or len(value_line) == 0:
+            return
+        self.analysis_created_datetime = self.get_value(header_line, value_line, 'analysis_created_datetime')
+        self.analysis_workflow_version = self.get_value(header_line, value_line, 'analysis_workflow_version')
+        self.updated_datetime = self.get_value(header_line, value_line, 'updated_datetime')
+        self.file_name = self.get_value(header_line, value_line, 'file_name')
+        self.submitter_id = self.get_value(header_line, value_line, 'cases_0_submitter_id')
+        self.file_id = self.get_value(header_line, value_line, 'file_id')
+        self.analysis_state = self.get_value(header_line, value_line, 'analysis_state')
+        self.file_size = self.get_value(header_line, value_line, 'file_size')
+        self.analysis_workflow_type = self.get_value(header_line, value_line, 'analysis_workflow_type')
+        self.data_type = self.get_value(header_line, value_line, 'data_type')
+        self.md5sum = self.get_value(header_line, value_line, 'md5sum')
+        self.data_format = self.get_value(header_line, value_line, 'data_format')
+        self.analysis_analysis_id = self.get_value(header_line, value_line, 'analysis_analysis_id')
+        self.analysis_submitter_id = self.get_value(header_line, value_line, 'analysis_submitter_id')
+        self.analysis_workflow_link = self.get_value(header_line, value_line, 'analysis_workflow_link')
+        self.type = self.get_value(header_line, value_line, 'type')
+        self.file_state = self.get_value(header_line, value_line, 'file_state')
+        self.experimental_strategy = self.get_value(header_line, value_line, 'experimental_strategy')
+        self.project_id = self.get_value(header_line, value_line, 'cases_0_project_project_id')
+
+    def get_value(self, header_line, value_line, variable):
+        idx = header_line.split("\t").index(variable)
+        return value_line.split("\t")[idx]
+
+    def print_to_str(self, headerOnly):
+        str_list = []
+        str_list.append("submitter_id")
+        str_list.append("project_id")
+        str_list.append("file_id")
+        str_list.append("file_name")
+        str_list.append("file_size")
+        str_list.append("experimental_strategy")
+        str_list.append("data_format")
+        str_list.append("data_type")
+        str_list.append("analysis_workflow_type")
+        str_list.append("analysis_workflow_link")
+        str_list.append("analysis_state")
+        str_list.append("updated_datetime")
+        str_list.append("md5sum")
+        str_list.append("cmo_path_to_file")
+
+        if headerOnly:
+            return "\t".join(str_list)
+        else:
+            val_list = []
+            for a in str_list:
+                val_list.append(eval("self." + str(a)))
+            return "\t".join(val_list)
+
+    def print_to_manifest_line(self, headerOnly):
+        s = ""
+        if headerOnly:
+            s = "id\tfilename\tmd5\tsize\tstate"
+        else:
+            s = self.file_id + "\t" + self.file_name + "\t" + self.md5sum + \
+                "\t" + self.file_size + "\t" + self.file_state
+        return s
+
+def print_gdc_manifest_file_line(file_id):
+    file_cursor = gdc_db.gdc_file_manifest.find(
+        {
+            "file_id": file_id
+        }
+    )
+    if file_cursor.count() == 0:
+        return ""
+    fc = file_cursor[0]
+    str_list = []
+    str_list.append(fc["analysis_submitter_id"])
+    str_list.append(fc["project_id"])
+    str_list.append(fc["file_id"])
+    str_list.append(fc["file_name"])
+    str_list.append(fc["file_size"])
+    str_list.append(fc["experimental_strategy"])
+    str_list.append(fc["data_format"])
+    str_list.append(fc["data_type"])
+    str_list.append(fc["analysis_workflow_type"])
+    str_list.append(fc["analysis_workflow_link"])
+    str_list.append(fc["analysis_state"])
+    str_list.append(fc["updated_datetime"])
+    str_list.append(fc["md5sum"])
+    str_list.append(fc["cmo_path_to_file"])
+    return "\t".join(str_list)
+
+def is_file_already_downloaded(r):
+    file_cursor = gdc_db.gdc_file_manifest.find(
+        {
+            "file_id": r.file_id
+        }
+    )
+    if file_cursor.count() > 0:
+        # check if the file passed md5sum; otherwise, delete it in the file system and 
+        # delete it from gdc_file_manifest
+        result_file = file_cursor[0]
+        check_sum(result_file['cmo_path_to_file'], result_file['md5sum'], True)
+        if check_sum(result_file['cmo_path_to_file'], result_file['md5sum'], True):
+            return 1
+        else:
+            gdc_db.gdc_file_manifest.delete_many(  # usually only one deleted;
+                {
+                    "file_id": r.file_id
+                }
+            )
+            gdc_db.gdc_downloads_log.delete_many(  # usually only one deleted;
+                {
+                    "file_id": r.file_id
+                }
+            )
+
+    # now check if file already downloaded into cmo repo but just not in the database
+    file_name = final_files_dirname + "/" + r.file_id + "/" + r.file_name
+    if os.path.exists(file_name):
+        if check_sum(file_name, r.md5sum, True):
+            r.cmo_path_to_file = file_name
+            add_to_manifest(r)
+            return 1
+        else:
+            os.system("rm -f " + file_name)
+
+    return 0
+
+
+def add_to_manifest(rl):
+    gdc_db.gdc_file_manifest.insert(
+        {
+            "_id": rl.file_id,
+            "analysis_created_date": rl.analysis_created_datetime,
+            "analysis_workflow_version": rl.analysis_workflow_version,
+            "updated_datetime": rl.updated_datetime,
+            "file_name": rl.file_name,
+            "project_id": rl.project_id,
+            "submitter_id": rl.submitter_id,
+            "file_id": rl.file_id,
+            "analysis_state": rl.analysis_state,
+            "file_size": rl.file_size,
+            "analysis_workflow_type": rl.analysis_workflow_type,
+            "data_type": rl.data_type,
+            "md5sum": rl.md5sum,
+            "data_format": rl.data_format,
+            "analysis_analysis_id": rl.analysis_analysis_id,
+            "analysis_submitter_id": rl.analysis_submitter_id,
+            "analysis_workflow_link": rl.analysis_workflow_link,
+            "type": rl.type,
+            "file_state": rl.file_state,
+            "experimental_strategy": rl.experimental_strategy,
+            "cmo_path_to_file": rl.cmo_path_to_file
+        }
+    )
+
+
+def add_to_InProgress(file_id, job_id):
+    gdc_db.gdc_downloads_log.insert(
+        {
+            "_id": file_id,  # Ensure that there is only one fileId in this log -- avoids collisions
+            "file_id": file_id,
+            "job_id": job_id,
+            "download_startdate": datetime.datetime.now(),
+            "status": "InProgress",
+            "last_status_update": datetime.datetime.now()
+        }
+    )
+
+# returns 1 if download in progress; 0 otherwise
+def is_file_download_InProgress(file_id, force_download):
+    datetime.datetime.date
+    status = gdc_db.gdc_downloads_log.find(
+        {
+            "file_id": file_id,
+            "download_startdate":
+                {
+                    "$lt": datetime.datetime.today(),
+                    "$gte": datetime.datetime.today() - datetime.timedelta(days=1)
+                },
+            "status": "InProgress"
+        }
+    )
+
+    if status.count() == 0 or force_download:
+        gdc_db.gdc_downloads_log.remove({"file_id": file_id})  ## In case, any file downloads are initiated >24hrs ago.
+        return 0
+    return 1
+
+def update_file_download_status(file_id, status):
+    gdc_db.gdc_downloads_log.update(
+        {
+            "file_id": file_id
+        },
+        {
+            "$set": {"status": status},
+            "$currentDate": {"last_status_update": True}
+        }
+    )
+
+def check_sum(file_name, md5_sum, delete_if_failed):
+    out, err = subprocess.Popen(['md5sum', file_name],
+                                stdout=subprocess.PIPE,
+                                stderr=subprocess.PIPE).communicate()
+
+    if out.split(" ")[0] == md5_sum:
+        return 1
+    elif delete_if_failed:
+        os.system("rm -f " + file_name)
+        return 0
+
+
+if __name__ == '__main__':
+    main()
