@@ -105,7 +105,8 @@ setup(name='cmo',
                  'bin/cmo_split_reads',
                  'bin/cmo_samstat',
                  'bin/cmo_taskmod',
-                 'bin/cmo_rerun'
+                 'bin/cmo_rerun',
+                 'bin/cmo_gdc'
                  ],
         zip_safe=False)
 
