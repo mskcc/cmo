@@ -107,6 +107,7 @@ setup(name='cmo',
                  'bin/cmo_taskmod',
                  'bin/cmo_rerun',
                  'bin/cmo_gdc'
+                 #'bin/cmo_hotspot3d'
                  ],
         zip_safe=False)
 
