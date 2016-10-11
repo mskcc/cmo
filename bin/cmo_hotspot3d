@@ -1,0 +1,76 @@
+#!/opt/common/CentOS_6-dev/python/python-2.7.10/bin/python
+
+import argparse, os, sys, subprocess, re
+import cmo
+from fireworks.scripts.lpad_run import *
+import getpass
+from cStringIO import StringIO
+
+def parse_help_for_subcommands(cmd):
+    help = subprocess.Popen(cmd + " -h", stderr=subprocess.PIPE,shell=True).communicate()[1]
+    lines = help.split("\n")
+    subcommands = list()
+    for line in lines:
+        m = re.search("\s+(\S+)\s+--", line)
+        if m:
+            subcommands.append(m.group(1))
+    return subcommands
+
+def parse_subcommand_options(cmd, subcommand):
+    help = subprocess.Popen(" ".join([cmd, subcommand, "-h"]), stderr=subprocess.PIPE,shell=True).communicate()[1]
+    options = list()
+    for line in help.split("\n"):
+        m = re.search("(--\S+)\s+([\S ]+)", line)
+        if m:
+            parts = m.group(2).split(",")
+            default = ""
+            if len(parts) ==2:
+                default = parts[1][10:]
+            if m.group(1) != "--help":
+                options.append((m.group(1), parts[0], default))
+    return options           
+
+def run_command(hotspot3d_cmd, subcmd, args_dict):
+    cmd = [hotspot3d_cmd, subcmd]
+    for arg, value in list(args_dict.items()):
+        if isinstance(value, bool):
+            if value:
+                cmd = cmd + ["--" + arg.replace("_","-")]
+        else:
+            cmd = cmd + ["--" + arg.replace("_","-"), value]
+    print " ".join(cmd)
+    cmo.util.call_cmd(" ".join(cmd))
+
+if __name__ =='__main__':
+    hotspot_path = cmo.util.programs['hotspot3d']['default']
+    perl5lib_arg = os.path.join(hotspot_path, "lib", "")
+    hotspot3d_cmd = os.path.join(hotspot_path,'bin', 'hotspot3d')
+    oldperl5lib = None
+    if 'PERL5LIB' in os.environ:
+        oldperl5lib=os.environ['PERL5LIB']
+        os.environ['PERL5LIB']=oldperl5lib + ":" + perl5lib_arg
+    else:
+        os.environ['PERL5LIB']=perl5lib_arg
+    print hotspot3d_cmd
+    subcommands = parse_help_for_subcommands(hotspot3d_cmd)
+    parser = argparse.ArgumentParser(description="run hotspot3d", add_help=False)
+    parser.add_argument("subcommand", help="hotspot subcommand", choices=subcommands)
+    (args, other_args) = parser.parse_known_args()
+    subcommand_parser = argparse.ArgumentParser(parents=[parser], add_help=True, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    subcommand_options = parse_subcommand_options(hotspot3d_cmd, args.subcommand)
+    for (arg, description, default) in subcommand_options:
+        if default =="no":
+            subcommand_parser.add_argument(arg, help=description, action="store_true")
+        elif default != "":
+            subcommand_parser.add_argument(arg, help=description, default=default)
+        else:
+            subcommand_parser.add_argument(arg, help=description)
+    subcmd_args = subcommand_parser.parse_args()
+    args_dict = vars(subcmd_args)
+    args_dict = dict((k, v) for k, v in args_dict.iteritems() if v)
+    del args_dict['subcommand']
+    run_command(hotspot3d_cmd, args.subcommand, args_dict)
+
+        
+
+

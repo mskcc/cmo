@@ -11,12 +11,11 @@ Contents:
 .. toctree::
    :maxdepth: 2
    
-   philosophy
-   wrappers
    Facets Workflow <facets_workflow>
-   Postprocess Exome Workflow <postprocess_workflow>
-   fireworks
+   Exome Workflow <exome_workflow>
+   WGS Workflow <wgs_workflow>
    List of Wrappers <wrapperlist>
+   Writing your own workflow <fireworks>
 
 
 

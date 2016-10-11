@@ -4,21 +4,57 @@ Facets via Fireworks/LSF
 Instructions
 ###########################
 
+.. code-block:: none
+
+    usage: cmoflow_facets [-h] --normal-bam NORMAL_BAM --tumor-bam TUMOR_BAM
+    [--tag TAG] [--vcf VCF] [--output-dir OUTPUT_DIR]
+    [--normal-name NORMAL_NAME] [--tumor-name TUMOR_NAME]
+    [--workflow-mode {serial,LSF}] [--force]
+    
+    Run Facets on luna!
+    
+    optional arguments:
+    -h, --help            show this help message and exit
+    --normal-bam NORMAL_BAM
+    The normal bam file
+    --tumor-bam TUMOR_BAM
+    The Tumor bam file
+    --tag TAG             The optional tag with which to identify this pairing,
+    default TUMOR_SAMPLE__NORMAL_SAMPLE
+    --vcf VCF             override default FACETS snp positions
+    --output-dir OUTPUT_DIR
+    output dir, will default to $CWD/TAG_NAME/
+    --normal-name NORMAL_NAME
+    Override this if you don't want to use the SM: tag on
+    the @RG tags within the bam you supply-- required if
+    your bam doesn't have well formatted @RG SM: tags
+    --tumor-name TUMOR_NAME
+    Override this if you don't want to use the SM: tag on
+    the @RG tags in the tumor bam you supply-- required if
+    your bam doesnt have well formatted @RG SM: tags
+    --workflow-mode {serial,LSF}
+    select 'serial' to run all jobs on the launching box.
+    select 'LSF' to parallelize jobs as much as possible
+    on luna
+    --force               forcibly overwrite any directories you find there
+    
+    Include any FACETS args directly on this command line and they will be passed
+    
+    
+
 1. ssh to s01 (ask for help if you don't know what this means)
-2. add ~/.local/bin to your path if you haven't already done this for a previous cmo install
-3. you should have cmoflow_facets available at the command line -- if you don't, add /opt/common/CentOS_6-dev/python/python-2.7.10/bin/
-4. Minimally you need to supply \-\-tumor-bam and \-\-normal-bam
-5. CMO package will attempt to read all @RG headers and find the SM: tags, and if they all match, it will use that id
-6. If the SM: ids betweeen the two bams you supply are IDENTICAL, if they are ABSENT, or if there is MORE THAN ONE PER BAM, you will need to supply --tumor-name and normal-name as well, to manually fill in these values
-7. it will autocreate a sub of the format TUMOR_SAMPLE_NAME__NORMAL_SAMPLE_NAME in the dir you launch from if you don't specify OUTPUT DIR
-8. it will use the same string as the TAG to identify any merged files, etc.
-9. you can specify --workflow_mode=serial to avoid running on LSF 
-10. the workflow will take about 1 hr on lsf, 1.5hr serially for 5gb input bams
-11. check on your workflow at haystack.mskcc.org:5000/your_cbio_username/
-12. facets runs that start in the same output directory will shortcut on both the readcounts and the counts merged gzipped files
-13. facets runs will autocreate a subdir of the form "facets\_\[first_param_char\]\[value\]_..." 
-14. if it detects a facets run it already has performed it will refuse to do work
-15. we should add a --force to overcome some of these shortcuts sooner or later
+2. you should have cmoflow_facets available at the command line -- if you don't, add /opt/common/CentOS_6-dev/python/python-2.7.10/bin/
+3. Minimally you need to supply \-\-tumor-bam and \-\-normal-bam
+4. CMO package will attempt to read all @RG headers and find the SM: tags, and if they all match, it will use that id
+5. If the SM: ids betweeen the two bams you supply are IDENTICAL, if they are ABSENT, or if there is MORE THAN ONE PER BAM, you will need to supply --tumor-name and normal-name as well, to manually fill in these values
+6. it will autocreate a sub of the format TUMOR_SAMPLE_NAME__NORMAL_SAMPLE_NAME in the dir you launch from if you don't specify OUTPUT DIR
+7. it will use the same string as the TAG to identify any merged files, etc.
+8. you can specify --workflow_mode=serial to avoid running on LSF 
+9. the workflow will take about 1 hr on lsf, 1.5hr serially for 5gb input bams
+10. check on your workflow at haystack.mskcc.org:5000/your_cbio_username/
+11. facets runs that start in the same output directory will shortcut on both the readcounts and the counts merged gzipped files
+12. facets runs will autocreate a subdir of the form "facets\_\[first_param_char\]\[value\]_..." 
+13. if it detects a facets run it already has performed it will refuse to do work
 
 .. image:: images/ZiGyS.gif
 

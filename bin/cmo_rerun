@@ -38,6 +38,7 @@ if __name__ =='__main__':
     args.sort=None
     args.rsort=None
     args.task_level=None
+    args.password=None
     args.max=0
     rerun_fws(args)
 
