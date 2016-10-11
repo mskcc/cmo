@@ -196,7 +196,7 @@ class Workflow():
         ofh.close()
 
 class DatabaseManager():
-    def __init__(self, host="u36.cbio.private", port="27017", user=getpass.getuser()):
+    def __init__(self, host="pitchfork.cbio.private", port="27017", user=getpass.getuser()):
         self.host=host
         self.port=port
         self.client=MongoClient(host+":"+port)
