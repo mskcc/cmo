@@ -3,20 +3,21 @@
 import argparse, os, re, errno
 import time, sys, datetime
 import requests, json, subprocess
+import getpass, dateutil.parser
 from pymongo import MongoClient
 from random import randint
-import cmo
 from tabulate import tabulate
+import cmo
 
 try:
-    gdc_client_binary = cmo.util.programs['gdc-client']['default']
-    token_filename = cmo.util.config['gdc']['gdc_token']
-    final_files_dirname = cmo.util.config['gdc']['file_repository']
-    jobs_inprogress_dirname = cmo.util.config['gdc']['tmp_jobs_dir']
-    client = MongoClient(cmo.util.config['gdc']['mongodb_uri'])
-    gdc_db = client[cmo.util.config['gdc']['mongodb_db_name']]
-    cmo_gdc_url = cmo.util.config['gdc']['gdc_url']
-    gencode_gtf_file = cmo.util.genomes['GRCh38']['gencode']['25']
+    gdc_client_binary        = cmo.util.programs['gdc-client']['default']
+    token_filename           = cmo.util.config['gdc']['gdc_token']
+    final_files_dirname      = cmo.util.config['gdc']['file_repository']
+    jobs_inprogress_dirname  = cmo.util.config['gdc']['tmp_jobs_dir']
+    client                   = MongoClient(cmo.util.config['gdc']['mongodb_uri'])
+    gdc_db                   = client[cmo.util.config['gdc']['mongodb_db_name']]
+    cmo_gdc_url              = cmo.util.config['gdc']['gdc_url']
+    gencode_gtf_file         = cmo.util.genomes['GRCh38']['gencode']['25']
     num_parallel_slicing_downloads = cmo.util.config['gdc']['num_parallel_slicing_downloads']
 except KeyError, e:
     print >> sys.stderr, "Invalid Key Error in cmo_resources.json: " + str(e)
@@ -51,13 +52,14 @@ def main():
                       'GenotypingArray': 'Genotyping Array'}
 
     prog_description = (
-        "Query and download GDC data (see use cases below for correct usage). Files "
-        "already downloaded to the CMO-GDC repository are not downloaded. \n\n"
+        "Query and download GDC data (see use cases below for correct usage). Files already "
+        "downloaded to the CMO-GDC repository are not downloaded. "
         "NOTE: BAMs downloaded from GDC are hg38 aligned.  So, make sure your "
-        "slicing regions are referencing hg38 build."
+        "slicing regions are referencing hg38 build. \nGDC reference genome is "
+        "hosted at: /ifs/depot/assemblies/H.sapiens/GRCh38_GDC/GRCh38.d1.vd1.fa"
     )
     prog_epilog = (
-        "NOTES: Program is designed for two canonical use cases based on how files are chosen for download:\n"
+        "NOTES: Program is designed for several canonical use cases based on how files are chosen for download:\n"
         "   Case 1: \n"
         "       INPUT: \n"
         "       --manifest (required)\n"
@@ -135,9 +137,11 @@ def main():
                              ", ".join(data_types.keys()),
                         metavar='')
     parser.add_argument("--genomic_range", required=False,
-                        help="Genomic range for bam slicing. Multiple ranges are accepted."
-                             "Example 1: chr17:43044295-43170245. "
-                             "Example 2: chr10,chr17:43044295-43170245,chrX,chrY. "
+                        help="Genomic range for bam slicing OR a full path to file with list "
+                             "of genomic ranges. Multiple ranges are accepted. "
+                             "Example 1: chr17:43044295-43170245 "
+                             "Example 2: chr10,chr17:43044295-43170245,chrX,chrY "
+                             "Example 3: /ifs/res/username/regions_list.txt.  "
                              "Argument ignored for non-bam files. <sliced_bam_file>.regions.txt "
                              "containing a list of regions in the bam file is also generated",
                         metavar='')
@@ -145,7 +149,10 @@ def main():
                         help="comma separated list of Gencode v25 genes for which to retrieve "
                              "sliced bams. Genes can be Ensemble IDs (gene_id in GTF) or "
                              "gene names (gene_name in GTF). Mutually exclusive with "
-                             "--genomic_range.",
+                             "--genomic_range.  Alternately, a full path to file with a list of "
+                             "genes is also accepted.  "
+                             "Example 1: BRCA1,BRCA2, "
+                             "Example 2: /ifs/res/username/gene_list",
                         metavar='')
     parser.add_argument("--output_dir_sliced_bams", required=False,
                         help="Directory where sliced bams are downloaded to. Required "
@@ -185,11 +192,15 @@ def main():
     sliced_bam_filename_prefix = str(args.sliced_bam_filename_prefix)
     _tmp_resp_line = ResponseLine("", "")  # to simply print the header
     output_file = open(output_filename, "w", 0)
-    output_manifest_file = open(output_filename + ".failed_downloads.manifest", "w", 0)
     output_file.write(_tmp_resp_line.print_to_str(True) +
                       "\tlist_of_sliced_regions\tsliced_bam_readcount\tdownload_status\n")
-    output_manifest_file.write(_tmp_resp_line.print_to_manifest_line(True) + "\n")
 
+    #
+    # --retrieve_cmo_manifest: outputs a manifest_file for all the files that
+    # are within the CMO GDC repository and also in the database.
+    # TODO: Need to handle situations where a file is already downloaded but not
+    # logged in the database
+    #
     if args.retrieve_cmo_manifest is not None and args.retrieve_cmo_manifest:
         ifs_files_dict = dict()
         proc = subprocess.Popen(["find", final_files_dirname],
@@ -211,7 +222,7 @@ def main():
                     }
                 )
             else:
-                output_file.write(print_gdc_manifest_file_line(fc["file_id"]) + "\tNA\tNA\tNA\n")
+                output_file.write(print_gdc_manifest_file_line(fc["file_id"]) + "\tNA\tNA\tAlreadyDownloaded\n")
         output_file.close()
         exit(0)
 
@@ -247,6 +258,12 @@ def main():
     filters["content"] = []
     payload["filters"] = filters
 
+    #
+    # Prior to querying the GDC, construct the payload with the query.  If the
+    # manifest file is already provided, load the file_ids requested.  If no manifest
+    # file is provided, build the query based on tumor_type, participant_ids,
+    # experimental_strategy and data_type.
+    #
     if args.manifest_file is not None:
         if os.path.exists(args.manifest_file):
             manifest_file = args.manifest_file
@@ -256,15 +273,26 @@ def main():
 
         # open manifest file and read all the file ids, build payload, and retrieve annotation for these files
         manifest_file_obj = open(manifest_file, 'r')
-        line = manifest_file_obj.readline() # skip headerline
+        header_line = manifest_file_obj.readline() # skip headerline
+        file_id_idx = 0
+        columns = re.sub(r'\s+', r'\t', header_line).split("\t")
+
+        if "file_id" in columns:
+            file_id_idx = columns.index("file_id")
+        elif "id" in columns:
+            file_id_idx = columns.index("id")
+        else:
+            print "Manifest file parsing error: file_id column not found"
+            exit(0)
+
         manifest_file_ids = []
         for line in manifest_file_obj.readlines():
             line = re.sub(r'\s+', r'\t', line)
-            file_id = line.split("\t")[0]
+            file_id = line.split("\t")[file_id_idx]
             if re.match(r'[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89aAbB][a-f0-9]{3}-[a-f0-9]{12}', file_id):
                 manifest_file_ids.append(file_id)
             else:
-                print "Manifest file parsing error: file_id in not proper format: " + file_id
+                print "Manifest file parsing error: file_id not in proper format: " + file_id
                 exit(0)
         print "Loaded " + str(len(manifest_file_ids)) + " file_ids from the manifest file"
 
@@ -370,16 +398,27 @@ def main():
             exit(0)
         mkdir_p(str(args.output_dir_sliced_bams))
 
-        ranges = str(args.genomic_range).split(",")
-        for r in ranges:
-            if not r.startswith("chr"):
-                r = "chr" + r
-            if not re.search(r'chr[\d+|X|Y|MT](:\d+-\d+)?', r):
-                print >> sys.stderr, "Error: --genomic_range '" + args.genomic_range + \
-                                     "' is not in proper format. Exiting\n"
-                exit(1)
-            genomic_ranges.append(r)
+        if os.path.exists(str(args.genomic_range)):
+            i = 1
+            gr_file = open(str(args.genomic_range), "r")
+            for line in gr_file.readlines():
+                line = line.strip()
+                genomic_ranges.append(line)
+        else:
+            ranges = str(args.genomic_range).split(",")
+            for r in ranges:
+                if not r.startswith("chr"):
+                    r = "chr" + r
+                if not re.search(r'chr[\d+|X|Y|MT](:\d+-\d+)?', r):
+                    print >> sys.stderr, "Error: --genomic_range '" + args.genomic_range + \
+                                         "' is not in proper format. Exiting\n"
+                    exit(1)
+                genomic_ranges.append(r)
 
+    #
+    # If slicing by genes is requested, then pull the coordinates of the gene
+    # boundaries from Gencode 25 gtf file on luna
+    #
     gencode_gene_boundaries = dict()
     if args.slicing_genes is not None:
         if args.output_dir_sliced_bams is None:
@@ -391,9 +430,18 @@ def main():
                                  "is provided. Exiting."
             exit(0)
         mkdir_p(str(args.output_dir_sliced_bams))
-        slicing_genes = str(args.slicing_genes).split(",")
+
+        slicing_genes_list = []
+        if os.path.exists(str(args.slicing_genes)):
+            sg_file = open(str(args.slicing_genes), "r")
+            for line in sg_file.readlines():
+                line = line.strip()
+                slicing_genes_list.append(line)
+        else:
+            slicing_genes_list = str(args.slicing_genes).split(",")
+
         # Check the validity of the genes
-        for sg in slicing_genes:
+        for sg in slicing_genes_list:
             if len(gencode_gene_boundaries.keys()) == 0:
                 gencode_gtf = open(gencode_gtf_file, "r")
                 for gtf_line in gencode_gtf:
@@ -426,8 +474,16 @@ def main():
                 exit(1)
             genomic_ranges.append(gencode_gene_boundaries[sg])
 
+    if args.genomic_range is not None or args.slicing_genes is not None:
+        print "Running cmo_gdc with " + str(len(genomic_ranges)) + " genomic ranges"
     counter = 1
     rt = None
+
+    #
+    # Query GDC with the payload contructed above. The response is written to the
+    # current job directory.  For some reason, the first attempt of the query fails
+    # occasionally.  So, this will keep retrying 3 times before exiting with error.
+    #
     sys.stdout.write("Querying GDC...")
     sys.stdout.flush()
     while counter < 4:
@@ -440,26 +496,27 @@ def main():
             fw2.writelines(rt.text)
             fw2.close()
             counter = 4  # if the previous request was successful, bail out of the loop
-        except requests.exceptions.RequestException as e:  # This is the correct syntax
+        except requests.exceptions.RequestException as e:
             if counter == 3:
-                print >> sys.stderr, "ERROR occurred during https request.  \n"
-                print >> sys.stderr, e
-                print >> sys.stderr, "Check job logs in: " + current_job_dirname
+                print "\nERROR occurred during https request.  \n"
+                print e
+                print "Check job logs in: " + current_job_dirname
                 if rt is not None:
                     fw2 = open(current_job_dirname + "/requests.post.output", 'w')
                     fw2.writelines(rt.text)
                     fw2.close()
                 exit(1)
-            time.sleep(counter * 3)  # if failed, wait a short while and try again
+            time.sleep(counter * 3)  # if failed, briefly wait and retry again
             counter += 1
     sys.stdout.write(" response received!\n")
 
+    # rt_lines contains the response lines received from GDC
     rt_lines = rt.text.split("\r")
     if len(rt_lines[0].split("\t")) < 5:
+        # Checking if the header line contains sufficient number of columns
         # TODO: need to properly check for error codes.  This is just temporary
-        print >> sys.stderr, "Error occurred during https request.  Check job logs in: " + \
-                             current_job_dirname
-        print >> sys.stderr, "NOTE: It is possible that your query did not return any results."
+        print "Error occurred during https request.  Check job logs in: " + current_job_dirname
+        print "NOTE: It is possible that your query did not return any results."
         fw1 = open(current_job_dirname + "/payload.json", 'w')
         fw1.write(json.dumps(payload, indent=4, sort_keys=True))
         fw1.close()
@@ -472,21 +529,25 @@ def main():
     header_line = rt_lines[0].strip()
     del rt_lines[0]
 
+    #
+    # Parse the GDC response to generate simple statistics on data requested.
+    #
     files_by_tumortype = dict()
     filesize_by_tumortype = dict()
     for line in rt_lines:
         line = line.strip()
-        if len(line) < 10:  # handle situation where empty rows are returned in the response
+        if len(line) < 10:
             continue
         r = ResponseLine(header_line, line)
         if r.project_id not in files_by_tumortype.keys():
             files_by_tumortype[r.project_id] = 0
             filesize_by_tumortype[r.project_id] = 0
-        files_by_tumortype[r.project_id]+= 1
+        files_by_tumortype[r.project_id] += 1
         filesize_by_tumortype[r.project_id] += (int(r.file_size))/1e9
 
     # print download stats
-    print "The following data will be downloaded: "
+    print "\nThe following data will be downloaded: \n" \
+          "\t(NOTE: only a fraction of this is downloaded for a slicing request) "
     table_rows = []
     total_files = 0
     total_size = 0
@@ -502,15 +563,17 @@ def main():
     table_rows.append(["###  TOTAL  ###", total_files,
                        str(float("{0:.2f}".format(total_size))) + " GB"])
 
-    print
-    print "The following data will be downloaded: "
     tab_lines = tabulate(table_rows,
                    headers=["Tumor Type", "# files requested", "request size (in GB)"],
                    tablefmt="fancy_grid", stralign="center")
 
     for tab_line in ("".join(tab_lines)).split("\n"):
-        print "\t" + tab_line
-    print ""
+        print "\t" + tab_line.encode('utf-8')
+
+    print "####################################################### "
+    print "Temporary download dir:  "
+    print "\t" + current_job_dirname
+    print "####################################################### "
 
     query_string = ""
     for range_ in genomic_ranges:
@@ -518,7 +581,13 @@ def main():
             query_string += "&"
         query_string += "region=" + str(range_)
 
-    # Implementing parallelization for BAM slicing
+    #
+    # The following section of code implements the slicing request.  For the file
+    # is BAM and genomic_range/slicing_genes are provided, then this is queued for
+    # slicing request.  All slicing requests are split into buckets.  The number of
+    # buckets is determined by the 'num_parallel_slicing_downloads' parameter.  A bash
+    # script is constructed for each bucket and run in parallel on luna.
+    #
     buckets = []
     current_bucket = 0
     for i in range(0, num_parallel_slicing_downloads):
@@ -531,7 +600,6 @@ def main():
         r = ResponseLine(header_line, line)
         if r.data_format == "BAM" and \
                 (args.genomic_range is not None or args.slicing_genes is not None):
-
             buckets[current_bucket].append(r)
             current_bucket += 1
             if current_bucket == num_parallel_slicing_downloads:
@@ -540,99 +608,138 @@ def main():
     batch_file_names = []
     batch_file_name_to_response = dict()
     batch_id = 0
-    master_batch_job_file_name = current_job_dirname + \
-                                 "/sliced_bam_download_batch.master.sh"
-    master_batch_job_file = open(master_batch_job_file_name, "w")
+    if len(buckets[0]) > 0:
+        master_batch_job_file_name = current_job_dirname + \
+                                     "/sliced_bam_download_batch.master.sh"
+        master_batch_job_file = open(master_batch_job_file_name, "w")
 
-    for bucket in buckets:
-        if len(bucket) == 0:
-            continue
-        batch_id += 1
-        batch_job_file_name = current_job_dirname + "/sliced_bam_download_batch." \
-                              + str(batch_id) + ".sh"
-        batch_job_file = open(batch_job_file_name, "w")
-        for r in bucket:
-            stats_downloads_requested += 1
-            sliced_file_id = sliced_bam_filename_prefix + "-" + r.file_id
+        slicing_jobs_requested = 0
+        slicing_jobs_already_completed = 0
 
-            sliced_output_filename = output_dir_sliced_bams + "/" + sliced_file_id + \
-                                     ".num_regions." + str(len(genomic_ranges)) + ".bam"
-            batch_file_names.append(sliced_output_filename)
-            batch_file_name_to_response[ sliced_output_filename] = r
-            regions_list_file = open(sliced_output_filename + ".regions.txt", "w")
-            regions_list_file.write("\n".join(genomic_ranges) + "\n")
-            regions_list_file.close()
-
-            batch_job_file.write("curl --header \"X-Auth-Token: " + token_str + \
-                        "\" 'https://gdc-api.nci.nih.gov/slicing/view/" \
-                        + r.file_id + "?" + query_string + "' --output " + \
-                        sliced_output_filename + " \n")
-
-        master_batch_job_file.write("bash " + batch_job_file_name + " &\n")
-        master_batch_job_file.write("sleep 1\n")
-        batch_job_file.close()
-
-    master_batch_job_file.write("wait\n")
-    master_batch_job_file.close()
-
-    try:
-        bsub_slice_cmd = "bsub -n " + str(num_parallel_slicing_downloads) + " -K " \
-                         "-R \"select[internet]\" -We 0:59 " \
-                         "bash " + master_batch_job_file_name + " > " + \
-                         master_batch_job_file_name + ".bsub.log 2> " + \
-                         master_batch_job_file_name + ".bsub.err "
-        os.system(bsub_slice_cmd)
-    except:
-        print >> sys.stderr, "\tError occurred while download a batch of sliced bams."
-        print >> sys.stderr, "\tSee HTTP requests made in: " + master_batch_job_file_name
-        print >> sys.stderr, "\tProcessing whatever bams that were downloaded..."
-
-    for fn in batch_file_names:
-        sys.stdout.write("Processing sliced bam: " + fn + " ...  ")
-        try:
-            r = batch_file_name_to_response[fn]
-            if not os.path.exists(fn):
-                print >> sys.stderr, "\n\tdownload failed. \n"
-                output_file.write(r.print_to_str(False) + "\t" + query_string
-                                  + "\tNA\t" + "Failed\n")
-                output_manifest_file.write(r.print_to_manifest_line(False) + "\n")
-                stats_downloads_failed += 1
+        for bucket in buckets:
+            if len(bucket) == 0:
                 continue
+            batch_id += 1
+            batch_job_file_name = current_job_dirname + "/sliced_bam_download_batch." \
+                                  + str(batch_id) + ".sh"
+            batch_job_file = open(batch_job_file_name, "w")
+            for r in bucket:
+                stats_downloads_requested += 1
+                slicing_jobs_requested += 1
+                sliced_file_id = sliced_bam_filename_prefix + "-" + r.file_id
 
-            # Check if the bam file download is complete -- do a simple samtools stats.
-            # Raise exception if 'EOF' not found error is detected.  Else, collect and report statistics
-            flagstat_success = True
+                sliced_output_filename = output_dir_sliced_bams + "/" + sliced_file_id + \
+                                         ".num_regions." + str(len(genomic_ranges)) + ".bam"
+
+                if os.path.exists(sliced_output_filename + ".regions.txt") and \
+                        os.path.exists(sliced_output_filename):
+                    try:
+                        regions_file = open(sliced_output_filename + ".regions.txt", "r")
+                        regions_lines = "".join(sorted([line.rstrip('\n') for line in regions_file]))
+                        genomic_ranges_lines = "".join(sorted(genomic_ranges))
+
+                        if genomic_ranges_lines == regions_lines:
+                            out = ""
+                            err = ""
+                            out, err = subprocess.Popen(['samtools', 'flagstat',
+                                                         sliced_output_filename],
+                                                        stdout=subprocess.PIPE,
+                                                        stderr=subprocess.PIPE).communicate()
+                            if len(err) == 0:
+                                stats_downloads_completed += 1
+                                match = re.search(r'(^\d+)', out)
+                                readcount = match.group(0)
+                                if readcount > 0:
+                                    r.cmo_path_to_file = sliced_output_filename
+                                    output_file.write(r.print_to_str(False) + "\t" + query_string
+                                                      + "\t" + str(readcount) + "\t" + "Success\n")
+                                    sys.stdout.write("Sliced bam: " + sliced_output_filename
+                                                     + " already downloaded -- " + str(readcount) + " reads \n")
+                                    stats_downloads_skipped += 1
+                                    slicing_jobs_already_completed += 1
+                                    continue
+                    except:
+                        pass
+
+                batch_file_names.append(sliced_output_filename)
+                batch_file_name_to_response[ sliced_output_filename] = r
+                regions_list_file = open(sliced_output_filename + ".regions.txt", "w")
+                regions_list_file.write("\n".join(genomic_ranges) + "\n")
+                regions_list_file.close()
+
+                batch_job_file.write("curl --header \"X-Auth-Token: " + token_str + \
+                            "\" 'https://gdc-api.nci.nih.gov/slicing/view/" \
+                            + r.file_id + "?" + query_string + "' --output " + \
+                            sliced_output_filename + " \n")
+
+            master_batch_job_file.write("bash " + batch_job_file_name + " &\n")
+            master_batch_job_file.write("sleep 1\n")
+            batch_job_file.close()
+
+        master_batch_job_file.write("wait\n")
+        master_batch_job_file.close()
+
+        print "Slicing jobs currently requested: " + str(slicing_jobs_requested)
+        print "Slicing jobs previously completed: " + str(slicing_jobs_already_completed)
+
+        #
+        # The following code submits the slicing job to luna and waits for it to finish.
+        # After all requests are executed, each of the sliced bam file is checked for
+        # integrity and read counts.
+        #
+        if (slicing_jobs_requested - slicing_jobs_already_completed) > 0:
             try:
-                os.system("samtools flagstat " + fn + " > " + fn + ".samtools.flagstat")
-                ss = open(fn + ".samtools.flagstat", "r")
-                lines = " ".join(ss.readlines())
+                print "Downloading sliced bams. Check output directory for status on downloads. " \
+                      "No further status updates reported until all downloads are complete..."
+                bsub_slice_cmd = "bsub -n " + str(num_parallel_slicing_downloads) + " -K " \
+                                 "-R \"select[internet && mem=8]\" -We 24:00 " \
+                                 "bash " + master_batch_job_file_name + " > " + \
+                                 master_batch_job_file_name + ".bsub.log 2> " + \
+                                 master_batch_job_file_name + ".bsub.err "
+                os.system(bsub_slice_cmd)
             except:
-                flagstat_success = False
+                print >> sys.stdout, "\tError occurred while download a batch of sliced bams."
+                print >> sys.stdout, "\tSee HTTP requests made in: " + master_batch_job_file_name
+                print >> sys.stdout, "\tProcessing whatever bams that were downloaded..."
 
-            if not flagstat_success or \
-                            lines.find("EOF marker is absent") >= 0 or \
-                            lines.find("runcated") >= 0 or \
-                            lines.startswith("["):
-                print >> sys.stderr, "\n\tBAM sanity check failed: \n" + "See BAM: " + fn
-                output_file.write(r.print_to_str(False) + "\t" + query_string
-                                  + "\tNA\t" + "Failed\n")
-                output_manifest_file.write(r.print_to_manifest_line(False) + "\n")
-                stats_downloads_failed += 1
-            else:
-                stats_downloads_completed += 1
-                match = re.search(r'(^\d+)', lines)
-                readcount = match.group(0)
-                output_file.write(r.print_to_str(False) + "\t" + query_string
-                                  + "\t" + str(readcount) + "\t" + "Success\n")
-                sys.stdout.write(" Success -- " + str(readcount) + " reads \n")
+            for fn in batch_file_names:
+                sys.stdout.write("Processing sliced bam: " + fn + " ...  " )
+                try:
+                    r = batch_file_name_to_response[fn]
+                    if not os.path.exists(fn):
+                        sys.stdout.write( "\n\tdownload failed. Sliced BAM file does not exist.\n" )
+                        output_file.write(r.print_to_str(False) + "\t" + query_string
+                                          + "\tNA\t" + "Failed\n")
+                        stats_downloads_failed += 1
+                        continue
+                    out = ""
+                    err = ""
+                    out, err = subprocess.Popen(['samtools', 'flagstat', fn],
+                                                stdout=subprocess.PIPE,
+                                                stderr=subprocess.PIPE).communicate()
+                    if len(err) > 0:
+                        raise
+                    else:
+                        stats_downloads_completed += 1
+                        match = re.search(r'(^\d+)', out)
+                        readcount = match.group(0)
+                        r.cmo_path_to_file = fn
+                        output_file.write(r.print_to_str(False) + "\t" + query_string
+                                          + "\t" + str(readcount) + "\t" + "Success\n")
+                        sys.stdout.write(" Success -- " + str(readcount) + " reads \n")
+                except:
+                    sys.stdout.write("\n\tError occurred during 'samtools flagstat': \n" + err + "\n")
+                    output_file.write(r.print_to_str(False) + "\t" + query_string
+                                      + "\tNA\t" + "Failed\n")
+                    stats_downloads_failed += 1
 
-        except:
-            # Should not come to this;
-            print >> sys.stderr, "\n\tBAM sanity check failed."
-            print >> sys.stderr, "\t" + str(sys.exc_info()[0])
-            print >> sys.stderr, "\tSee HTTP requests made in: " + batch_job_file_name
-            print >> sys.stderr, "\tContinuing..."
-
+    #
+    # The following code downloads all files excluded the BAMs associated with slicing
+    # jobs (if any) executed above. Note that unlike slicing jobs, each file is downloaded
+    # one at a time (5 download threads per each file).  So, there could be room for further
+    # optimization here to pack more download jobs onto each internet active node.  Downloads
+    # are checksum'ed before adding to the repository.
+    #
     for line in rt_lines:
         line = line.strip()
         if len(line) < 10:  # handle situation where empty rows are returned in the response
@@ -649,10 +756,14 @@ def main():
                 output_file.write(r.print_to_str(False) + "\t-\tNA\t" + "AlreadyDownloaded\n")
                 stats_downloads_skipped += 1
                 continue
-
-            if is_file_download_InProgress(r.file_id, force_download) == 1:
+            dl = is_file_download_InProgress(r.file_id, force_download)
+            if dl.username != "":
                 print "Skipped " + r.file_id + "/" + r.file_name + \
                       "...  download in progress!"
+                print "\tPrevious download of this file initiated by '" + dl.username + "' " + \
+                      str(dl.get_time_since_download_start()) + \
+                      " mins ago.\n\tTo override this, retry with --force_download. "
+
                 r.cmo_path_to_file = final_files_dirname + "/" + r.file_id + "/" + r.file_name
                 output_file.write(r.print_to_str(False) + "\t-\tNA\t" + "AnotherDownloadDetected\n")
                 stats_downloads_skipped += 1
@@ -668,7 +779,7 @@ def main():
                 walltime = "0:59"  # for faster node access
                 if r.file_size > 50e9:
                     walltime = "10:00"
-                bsub_cmd = "bsub -n 10 -K -R \"select[internet]\" -We " + walltime + \
+                bsub_cmd = "bsub -n 10 -K -R \"select[internet && mem=8]\" -We " + walltime + \
                            " -oo " + log_pfx + "bsub.log " + gdc_client_binary + \
                            " download" + " -n 5 --token-file  " + token_filename + \
                            " --log-file " + log_pfx + "gdc-client.log --dir " + \
@@ -677,7 +788,8 @@ def main():
                 while counter < 4:
                     start_time = datetime.datetime.now()
                     sys.stdout.write("Downloading file_id:" + r.file_id + "/" + r.file_name +
-                                     ". Attempt - " + str(counter) + "/3 ... ")
+                                     " (" + str(float("{0:.2f}".format((float(r.file_size))/1e9))) +
+                                     " GB). Attempt - " + str(counter) + "/3 ... ")
                     sys.stdout.flush()
                     os.system(bsub_cmd)
                     time.sleep(0.2)  # TODO: need to revisit this.  There appears to be some latency issue
@@ -695,7 +807,6 @@ def main():
                     if download_success:
                         counter = 4
                         sys.stdout.write(" - Success (" + time_str + ")\n")
-
                         sys.stdout.flush()
                     else:
                         sys.stdout.write(" - Failed (" + time_str + ")\n")
@@ -707,20 +818,19 @@ def main():
                     raise Exception()
 
             except:
-                print >> sys.stderr, "\tError occurred during 'gdc-client download' with the following command:"
-                print >> sys.stderr, "\t" + bsub_cmd
+                print >> sys.stdout, "\tError occurred during 'gdc-client download' with the following command:"
+                print >> sys.stdout, "\t" + bsub_cmd
                 output_file.write(r.print_to_str(False) + "\t" + ",".join(genomic_ranges)
                                   + "\tNA\t" + "Failed\n")
-                output_manifest_file.write(r.print_to_manifest_line(False) + "\n")
                 update_file_download_status(r.file_id, "Failed")
                 gdc_err = ""
                 if os.path.exists(log_pfx + "gdc-client.log"):
                     gdc_err = "\n".join(open(log_pfx + "gdc-client.log", "r").readlines())
-                print >> sys.stderr, "\t" + gdc_err
-                print >> sys.stderr, "\tException caught: " + str(sys.exc_info()[0]) + \
+                print >> sys.stdout, "\t" + gdc_err
+                print >> sys.stdout, "\tException caught: " + str(sys.exc_info()[0]) + \
                                      ", line number: " + str(sys.exc_info()[2].tb_lineno)
-                print >> sys.stderr, "\t" + "Check logs in: " + current_job_dirname + r.file_id
-                print >> sys.stderr, "\t" + "Continuing ..."
+                print >> sys.stdout, "\t" + "Check logs in: " + current_job_dirname + r.file_id
+                print >> sys.stdout, "\t" + "Continuing ..."
                 stats_downloads_failed += 1
 
             if not download_success:
@@ -768,9 +878,15 @@ def main():
           + ".failed_downloads.manifest to attempt re-downloading the failed files)"
     print "############################\n"
 
-    output_manifest_file.close()
     output_file.close()
 
+    # Cleanup:
+    # - Delete all directories in the jobs dir
+    # - gzip all other files
+    for dirname in os.listdir(current_job_dirname):
+        if os.path.isdir(current_job_dirname + "/" + dirname):
+            os.system("rm -rf " + current_job_dirname + "/" + dirname)
+    os.system("gzip " + current_job_dirname + "/*")
 
 def mkdir_p(path):
     try:
@@ -779,8 +895,7 @@ def mkdir_p(path):
         if exc.errno == errno.EEXIST and os.path.isdir(path):
             pass
         else:
-            raise
-
+            raise 
 
 class ResponseLine(object):
     analysis_created_datetime = ""
@@ -833,20 +948,22 @@ class ResponseLine(object):
         self.barcode = self.get_value(header_line, value_line, 'associated_entities_0_entity_submitter_id')
 
     def get_value(self, header_line, value_line, variable):
+        if variable not in header_line.split("\t"):
+            return ""
         idx = header_line.split("\t").index(variable)
         return value_line.split("\t")[idx]
 
     def print_to_str(self, headerOnly):
         str_list = []
-        str_list.append("submitter_id")
         str_list.append("barcode")
         str_list.append("project_id")
-        str_list.append("file_id")
         str_list.append("file_name")
-        str_list.append("file_size")
         str_list.append("experimental_strategy")
-        str_list.append("data_format")
         str_list.append("data_type")
+        str_list.append("data_format")
+        str_list.append("file_size")
+        str_list.append("file_id")
+        str_list.append("submitter_id")
         str_list.append("analysis_workflow_type")
         str_list.append("analysis_workflow_link")
         str_list.append("analysis_state")
@@ -871,6 +988,23 @@ class ResponseLine(object):
                 "\t" + self.file_size + "\t" + self.file_state
         return s
 
+class DownloadLog(object):
+    file_id = ""
+    download_startdate = ""
+    status = ""
+    username = ""
+    def __init__(self, file_id, download_startdate, status, username):
+        self.file_id = file_id
+        self.download_startdate = download_startdate
+        self.status = status
+        self.username = username
+
+    def get_time_since_download_start(self):
+        cur_time = datetime.datetime.now()
+        start_time = dateutil.parser.parse(str(self.download_startdate))
+        time_str = str(round(((cur_time - start_time).total_seconds()) / 60, 2))
+        return time_str
+
 def print_gdc_manifest_file_line(file_id):
     file_cursor = gdc_db.gdc_file_manifest.find(
         {
@@ -881,22 +1015,28 @@ def print_gdc_manifest_file_line(file_id):
         return ""
     fc = file_cursor[0]
     str_list = []
-    str_list.append(fc["analysis_submitter_id"])
-    str_list.append(fc["barcode"])
-    str_list.append(fc["project_id"])
-    str_list.append(fc["file_id"])
-    str_list.append(fc["file_name"])
-    str_list.append(fc["file_size"])
-    str_list.append(fc["experimental_strategy"])
-    str_list.append(fc["data_format"])
-    str_list.append(fc["data_type"])
-    str_list.append(fc["analysis_workflow_type"])
-    str_list.append(fc["analysis_workflow_link"])
-    str_list.append(fc["analysis_state"])
-    str_list.append(fc["updated_datetime"])
-    str_list.append(fc["md5sum"])
-    str_list.append(fc["cmo_path_to_file"])
+
+    str_list.append(xstr(fc.get("barcode")))
+    str_list.append(xstr(fc.get("project_id")))
+    str_list.append(xstr(fc.get("file_name")))
+    str_list.append(xstr(fc.get("experimental_strategy")))
+    str_list.append(xstr(fc.get("data_type")))
+    str_list.append(xstr(fc.get("data_format")))
+    str_list.append(xstr(fc.get("file_size")))
+    str_list.append(xstr(fc.get("file_id")))
+    str_list.append(xstr(fc.get("analysis_submitter_id")))
+    str_list.append(xstr(fc.get("analysis_workflow_type")))
+    str_list.append(xstr(fc.get("analysis_workflow_link")))
+    str_list.append(xstr(fc.get("analysis_state")))
+    str_list.append(xstr(fc.get("updated_datetime")))
+    str_list.append(xstr(fc.get("md5sum")))
+    str_list.append(xstr(fc.get("cmo_path_to_file")))
     return "\t".join(str_list)
+
+def xstr(s):
+    if s is None:
+        return ''
+    return str(s)
 
 def is_file_already_downloaded(r):
     file_cursor = gdc_db.gdc_file_manifest.find(
@@ -973,13 +1113,11 @@ def add_to_InProgress(file_id, job_id):
             "job_id": job_id,
             "download_startdate": datetime.datetime.now(),
             "status": "InProgress",
-            "last_status_update": datetime.datetime.now()
+            "username" : str(getpass.getuser())
         }
     )
 
-# returns 1 if download in progress; 0 otherwise
 def is_file_download_InProgress(file_id, force_download):
-    datetime.datetime.date
     status = gdc_db.gdc_downloads_log.find(
         {
             "file_id": file_id,
@@ -993,9 +1131,13 @@ def is_file_download_InProgress(file_id, force_download):
     )
 
     if status.count() == 0 or force_download:
-        gdc_db.gdc_downloads_log.remove({"file_id": file_id})  ## In case, any file downloads are initiated >24hrs ago.
-        return 0
-    return 1
+        gdc_db.gdc_downloads_log.remove({"file_id": file_id})
+        return DownloadLog("", "", "", "")
+
+    return DownloadLog(status[0]["file_id"],
+                       status[0]["download_startdate"],
+                       status[0]["status"],
+                       status[0]["username"])
 
 def update_file_download_status(file_id, status):
     gdc_db.gdc_downloads_log.update(
@@ -1003,8 +1145,8 @@ def update_file_download_status(file_id, status):
             "file_id": file_id
         },
         {
-            "$set": {"status": status},
-            "$currentDate": {"last_status_update": True}
+            "$set": {"status": status, "username": getpass.getuser()},
+            "$currentDate": {"download_startdate": True},
         }
     )
 
