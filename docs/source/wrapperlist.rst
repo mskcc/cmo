@@ -15,8 +15,8 @@ List of wrappers
     cmo_bwa_mem
     cmo_getbasecounts
     cmo_samstat
+    cmo_gdc
     cmo_igv_plot
-    None
     cmo_picard
     cmo_bwa_sampe
     cmo_bwa_aln

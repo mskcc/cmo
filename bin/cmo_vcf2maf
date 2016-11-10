@@ -1,43 +1,89 @@
 #!/opt/common/CentOS_6-dev/python/python-2.7.10/bin/python
 
 import argparse, os, sys, re, subprocess, itertools, glob
+from operator import attrgetter
+import textwrap as _textwrap
 import cmo
 
+# Let's make sure that the default temporary storage is /scratch, not /tmp
+os.environ['TMPDIR'] = "/scratch"
+
+# Custom help formatter to display args in alphabetical order, and fitted line wrap for sphinx
+class SortingHelpFormatter(argparse.ArgumentDefaultsHelpFormatter):
+    def add_arguments(self, actions):
+        actions = sorted(actions, key=attrgetter('option_strings'))
+        super(SortingHelpFormatter, self).add_arguments(actions)
+    def _split_lines(self, text, width):
+        text = self._whitespace_matcher.sub(' ', text).strip()
+        return _textwrap.wrap(text, 78)
+
+# Function that runs --help on the tool we've wrapped, and extracts documentation
 def parse_script_help(script_path):
     perl = cmo.util.programs['perl']['default']
-    help_text = subprocess.Popen(" ".join([perl, script_path, "-h"]),stdout=subprocess.PIPE,shell=True).communicate()[0]
-    valid_args = re.findall(r"\s+(--[\S_]+)\s+([\S \t]+)\n?", help_text, re.M)
-    return dict(valid_args)
+    help_text = subprocess.Popen(" ".join([perl, script_path, "-h"]), stdout=subprocess.PIPE, shell=True).communicate()[0]
+    valid_args = re.findall(r"^\s*(--\S+)\s+([^\[\n]+)", help_text, re.M)
+    defaults = re.findall(r"^\s*(--\S+)\s+[\S ]+\[([\S ]+)\]$", help_text, re.M)
+    return dict(valid_args), dict(defaults)
 
 if __name__ =='__main__':
     # We'll first need to figure out which version to run with "-h" to parse the help text
-    preparser = argparse.ArgumentParser(description="run vcf2maf", add_help=False)
-    preparser.add_argument("--version", choices=cmo.util.programs['vcf2maf'].keys(), default="default")
-    preparser.add_argument("--vep-release", choices=cmo.util.programs['vep'].keys(), default="default")
+    preparser = argparse.ArgumentParser(description="Run vcf2maf", add_help=False, formatter_class=SortingHelpFormatter)
+    preparser.add_argument("--version", help="Version of tool to run", choices=cmo.util.programs['vcf2maf'].keys(), default="default")
+    preparser.add_argument("--vep-release", help="Version of VEP and its cache to use", choices=cmo.util.programs['vep'].keys(), default="default")
+    preparser.add_argument("--species", help="Species of variants in input", choices=["homo_sapiens","mus_musculus"], default="homo_sapiens")
+    preparser.add_argument("--ncbi-build", help="Genome build of variants in input", choices=["GRCh37","GRCh38","GRCm37"], default="GRCh37")
     options, _ = preparser.parse_known_args()
+
+    # Figure out the path to the actual Perl script that this Python wrapper will run
     script_path = cmo.util.programs['vcf2maf'][options.version] + "vcf2maf.pl"
-    args_dict = parse_script_help(script_path)
-    parser = argparse.ArgumentParser(parents = [preparser], add_help=True)
+    # Extract arguments and their defaults, by parsing the --help output
+    args_dict, defaults_dict = parse_script_help(script_path)
+
+    # Let's change some of the defaults based on data in the CMO JSON
+    defaults_dict['--custom-enst'] = cmo.util.programs['vcf2maf'][options.version] + "data/isoform_overrides_at_mskcc"
+    defaults_dict['--filter-vcf'] = cmo.util.genomes['GRCh37']['exac']
+    defaults_dict['--maf-center'] = 'mskcc.org'
+    defaults_dict['--vcf-tumor-id'] = defaults_dict['--tumor-id']
+    defaults_dict['--vcf-normal-id'] = defaults_dict['--normal-id']
+
+    # With arguments and defaults set, let's construct and run an argparse instance
+    parser = argparse.ArgumentParser(parents = [preparser], add_help=True, formatter_class=SortingHelpFormatter)
     for arg, description in args_dict.items():
-        if arg == "--help":
+        # Hide a few arguments from the user, because we'll determine them ourselves
+        if arg in ["--help","--man","--vep-path","--vep-data","--ref-fasta","--species","--ncbi-build","--cache-version"]:
             continue
-        parser.add_argument(arg,action="store", metavar='', help=description)
+        if arg in defaults_dict and arg not in ["--output-maf","--tmp-dir"]:
+            parser.add_argument(arg, action="store", metavar='', help=description, default=defaults_dict[arg])
+        else:
+            parser.add_argument(arg, action="store", metavar='', help=description)
     cmo.util.add_logging_options(parser)
+    # Now run the argparse instance, which will parse and execute, or print help text if requested
     args = parser.parse_args()
     args_dict = vars(args)
-    args_dict['vep_data']=cmo.util.programs['vep'][args.vep_release]
-    args_dict['vep_path']=cmo.util.programs['vep'][args.vep_release]
+
+    # Locate VEP and it's cache, the reference FASTA, and the VCF used for filtering
+    vep_dir = cmo.util.programs['vep'][args.vep_release]
+    args_dict['vep_data'] = vep_dir
+    args_dict['vep_path'] = vep_dir
+    args_dict['ref_fasta'] = cmo.util.genomes[args.ncbi_build]['fasta']
     try:
-        args_dict['ref_fasta']=cmo.util.genomes[args.ncbi_build]['fasta']
+        args_dict['filter_vcf'] = cmo.util.genomes[args.ncbi_build]['exac']
     except:
-        args_dict['ref_fasta']=cmo.util.genomes['GRCh37']['fasta']
+        del args_dict['filter_vcf']
+
+    # Remove arguments that the actual wrapped tool won't recognize
     for key in ["version", "vep_release"]:
         del args_dict[key]
+
+    # Build the command we're going to run
     cmd = [cmo.util.programs['perl']['default'], script_path]
     stderr = args.stderr
     stdout = args.stdout
+    # Trim out arguments without values, and also any args that might mess with our logging
     args_dict = dict((k, v) for k, v in args_dict.iteritems() if v)
     cmo.util.remove_logging_options_from_dict(args_dict)
+
+    # Make sure the arguments are in a format that the script will accept, and kick it off
     for arg, value in args_dict.items():
         arg = arg.replace("_","-")
         cmd = cmd + ["--"+arg, value]
