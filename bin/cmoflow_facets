@@ -2,11 +2,14 @@
 from cmo import workflow
 import argparse, os, sys
 import cmo, shutil 
+from distutils.version import StrictVersion
 #WHOA, existentially troubling, man
 PYTHON = cmo.util.programs['python']['default']
 
-def construct_workflow(tumorbam, normalbam, tag, facets_args, output_dir,snps=None, tumor_sample=None, normal_sample=None, force=False):
+def construct_workflow(tumorbam, normalbam, tag, facets_args, output_dir,snps=None, tumor_sample=None, normal_sample=None, force=False, rlib_arg=None):
     #look at @RG SM: tag for samples
+    if not rlib_arg:
+        rlib_arg="0.0.0"
     if not tumor_sample: 
         tumor_sample = cmo.util.infer_sample_from_bam(tumorbam)
     if not normal_sample:
@@ -38,32 +41,50 @@ def construct_workflow(tumorbam, normalbam, tag, facets_args, output_dir,snps=No
         print >>sys.stderr, "Tumor bam does not exist? is %s a real path to a bam? " % tumorbam
     if not os.path.exists(os.path.abspath(normalbam)):
         print >>sys.stderr, "Normal bam does not exist? is %s a real path to a bam? " % normalbam
-    
-    for (bam, base) in [(tumorbam, tumor_sample), (normalbam, normal_sample)]:
-        out_file = os.path.abspath(os.path.join(output_dir, base + ".dat"))
-        if os.path.exists(out_file + ".gz") and not force:
-            #pretend we did this shitty slow step
+    print rlib_arg
+    if(rlib_arg != None and StrictVersion(rlib_arg) < StrictVersion("0.5.2")):
+        for (bam, base) in [(tumorbam, tumor_sample), (normalbam, normal_sample)]:
+            out_file = os.path.abspath(os.path.join(output_dir, base + ".dat"))
+            if os.path.exists(out_file + ".gz") and not force:
+                #pretend we did this shitty slow step
+                tumor_normal_counts.append(out_file)
+                continue
+            #first we add tumor, then normal - the order mergeTN expects them
             tumor_normal_counts.append(out_file)
-            continue
-        #first we add tumor, then normal - the order mergeTN expects them
-        tumor_normal_counts.append(out_file)
+            basecount_cmd = ["cmo_getbasecounts", "--bam", bam, "--out", out_file] + default_basecount_options
+            if(snps):
+                basecount_cmd = basecount_cmd + ["--vcf" ,os.path.abspath(snps)]
+            #print " ".join(basecount_cmd)
+            job = workflow.Job(" ".join(basecount_cmd), resources="rusage[mem=40]", name="getBasecounts " + base)
+            count_jobs.append(job)
+    else:
+        if not snps:
+            (genome, fasta) = cmo.util.infer_fasta_from_bam(tumorbam)
+            snps = cmo.util.genomes[genome]['facets_snps']
+        merged_counts = os.path.join(output_dir, "countsMerged____" + tag + ".dat.gz")
+        if not os.path.exists(merged_counts):
+            basecount_cmd = [cmo.util.programs['snp-pileup']['default'], 
+                    "-A", "-g", 
 
-        basecount_cmd = ["cmo_getbasecounts", "--bam", bam, "--out", out_file] + default_basecount_options
-        if(snps):
-            basecount_cmd = basecount_cmd + ["--vcf" ,os.path.abspath(snps)]
-        #print " ".join(basecount_cmd)
-        job = workflow.Job(" ".join(basecount_cmd), resources="rusage[mem=40]", name="getBasecounts " + base)
-
-        count_jobs.append(job)
+                    snps,
+                    merged_counts,
+                    normalbam,
+                    tumorbam]
+            job = workflow.Job(" ".join(basecount_cmd), resources="rusage[mem=40]", name="snp-pileup " + tag)
+            count_jobs.append(job)
    
     #merge job
     merged_counts = os.path.join(output_dir, "countsMerged____" + tag + ".dat.gz")
     merge_job= None
-    if not os.path.exists(merged_counts):
-        merge_cmd = ["cmo_facets mergeTN", "-t",  tumor_normal_counts[0], "-n", tumor_normal_counts[1], "-o", merged_counts]
-        #print " ".join(merge_cmd)
-        merge_job = workflow.Job(" ".join(merge_cmd), resources="rusage[mem=60]", name="mergeTN " + tag)
-  
+
+    #don't need to merge for new facets snp-pileup, don't do dis
+    if(rlib_arg != None and StrictVersion(rlib_arg) < StrictVersion("0.5.2")):
+        if not os.path.exists(merged_counts):
+            merge_cmd = ["cmo_facets mergeTN", "-t",  tumor_normal_counts[0], "-n", tumor_normal_counts[1], "-o", merged_counts]
+            #print " ".join(merge_cmd)
+            merge_job = workflow.Job(" ".join(merge_cmd), resources="rusage[mem=60]", name="mergeTN " + tag)
+
+      
     #facets job
     #args will be [--foo, value] or [-f, value] in this list
     facets_dir = "facets_"
@@ -87,20 +108,31 @@ def construct_workflow(tumorbam, normalbam, tag, facets_args, output_dir,snps=No
         else:
             shutil.rmtree(facets_dir)
             os.makedirs(facets_dir)
-    facets_cmd = ["cmo_facets", "--lib-version=0.3.9", "doFacets", "-f", merged_counts, "-t", tag, "-D", facets_dir] + facets_args
+    if not rlib_arg:
+        facets_cmd = ["cmo_facets", "--lib-version=0.3.9", "doFacets", "-f", merged_counts, "-t", tag, "-D", facets_dir] + facets_args
+    else:
+        facets_cmd = ["cmo_facets", "--lib-version", rlib_arg, "doFacets", "-f", merged_counts, "-t", tag, "-D", facets_dir] + facets_args
     facets_job = workflow.Job(" ".join(facets_cmd), est_wait_Time="59", name="Run Facets")
     dependencies = {}
   
   #FIXME: can we have a merge exist without the counts file?
     #if so this set of ifs needs to be redone
     jobs = []
-    if len(count_jobs) > 0:
-        dependencies[count_jobs[0]]=[merge_job]
-        dependencies[count_jobs[1]]=[merge_job]
-        jobs = jobs + count_jobs
-    if(merge_job):
-        dependencies[merge_job]=[facets_job]
-        jobs.append(merge_job)
+    #connect snp-pileup directly to facets if > "0.5.2"
+    if(rlib_arg != None and StrictVersion(rlib_arg) < StrictVersion("0.5.2")):
+        if len(count_jobs) > 0:
+            dependencies[count_jobs[0]]=[merge_job]
+            dependencies[count_jobs[1]]=[merge_job]
+            jobs = jobs + count_jobs
+        if(merge_job):
+            dependencies[merge_job]=[facets_job]
+            jobs.append(merge_job)
+    else: 
+        if len(count_jobs) > 0:
+            #there should be only one count_job for > "0.5.2"
+            dependencies[count_jobs[0]]=facets_job
+            jobs.append(count_jobs[0])
+        
     #make workflow
     jobs.append(facets_job)
     return (jobs, dependencies, " ".join(["Facets", tag]), facets_job, count_jobs)
@@ -119,11 +151,14 @@ if __name__=='__main__':
     parser.add_argument("--workflow-mode", choices=["serial","LSF"], default="LSF", help="select 'serial' to run all jobs on the launching box. select 'LSF' to parallelize jobs as much as possible on luna")
     parser.add_argument("--force", action="store_true", help="forcibly overwrite any directories you find there")
     (args, facets_args) = parser.parse_known_args()
+    rlib_parse = argparse.ArgumentParser()
+    rlib_parse.add_argument("-r", "--R_lib")
+    rlib_arg, _ = rlib_parse.parse_known_args(facets_args)
     if args.output_dir:
         args.output_dir = os.path.abspath(args.output_dir)
     args.tumor_bam = os.path.abspath(args.tumor_bam)
     args.normal_bam = os.path.abspath(args.normal_bam)
-    (jobs, dependencies, name, terminal_job, count_jobs) = construct_workflow(args.tumor_bam, args.normal_bam, args.tag, facets_args, args.output_dir, snps=args.vcf, tumor_sample = args.tumor_name, normal_sample=args.normal_name, force=args.force)
+    (jobs, dependencies, name, terminal_job, count_jobs) = construct_workflow(args.tumor_bam, args.normal_bam, args.tag, facets_args, args.output_dir, snps=args.vcf, tumor_sample = args.tumor_name, normal_sample=args.normal_name, force=args.force, rlib_arg=rlib_arg.R_lib)
     facets_workflow = workflow.Workflow(jobs, dependencies, name=name)
     facets_workflow.run(args.workflow_mode)
          

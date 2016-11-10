@@ -11,7 +11,7 @@ if __name__ =='__main__':
     ### ARGUMENTS
 
     verparser = argparse.ArgumentParser(description="run FACETS analysis", add_help=False)
-    verparser.add_argument("--suite-version", default="0.9.5", choices=cmo.util.programs['facets'].keys())
+    verparser.add_argument("--suite-version", default="development", choices=cmo.util.programs['facets'].keys())
     verparser.add_argument("--lib-version", choices=cmo.util.programs['facets_lib'].keys())
     (options, pass_through_args) = verparser.parse_known_args()
     facets_suite_py = os.path.join(cmo.util.programs['facets'][options.suite_version], "facets")
