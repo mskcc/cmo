@@ -41,11 +41,14 @@ def construct_workflow(tumorbam, normalbam, tag, facets_args, output_dir,snps=No
     #count jobs
     count_jobs = []
     tumor_normal_counts = []
+
+    merge_job = None
     if not os.path.exists(os.path.abspath(tumorbam)):
         print >>sys.stderr, "Tumor bam does not exist? is %s a real path to a bam? " % tumorbam
     if not os.path.exists(os.path.abspath(normalbam)):
         print >>sys.stderr, "Normal bam does not exist? is %s a real path to a bam? " % normalbam
     print rlib_arg
+    temp_bams = list()
     if(rlib_arg != None and StrictVersion(rlib_arg) < StrictVersion("0.5.2")):
         for (bam, base) in [(tumorbam, tumor_sample), (normalbam, normal_sample)]:
             out_file = os.path.abspath(os.path.join(output_dir, base + ".dat"))
@@ -65,6 +68,7 @@ def construct_workflow(tumorbam, normalbam, tag, facets_args, output_dir,snps=No
         for (bam, base) in [(tumorbam, tumor_sample), (normalbam, normal_sample)]:
             out_file = os.path.abspath(os.path.join(output_dir, base + ".ppfixed.bam"))
             if not os.path.exists(out_file):
+                temp_bams.append(out_file)
                 ppfix_cmd = [cmo.util.programs['ppflag-fixer']['default'], bam, out_file]
                 count_jobs.append(workflow.Job(" ".join(ppfix_cmd), name="ppflag-fixer"))
         if not snps:
@@ -81,7 +85,6 @@ def construct_workflow(tumorbam, normalbam, tag, facets_args, output_dir,snps=No
                     tumorbam]
             merge_job = workflow.Job(" ".join(basecount_cmd), resources="rusage[mem=40]", name="snp-pileup " + tag)
    
-    #merge job
     merged_counts = os.path.join(output_dir, "countsMerged____" + tag + ".dat.gz")
 
     #don't need to merge for new facets snp-pileup, don't do dis
@@ -139,7 +142,11 @@ def construct_workflow(tumorbam, normalbam, tag, facets_args, output_dir,snps=No
             #there should be only one count_job for > "0.5.2"
 #            dependencies[count_jobs[0]]=facets_job
 #            jobs.append(count_jobs[0])
-        
+    if(rlib_arg != None and StrictVersion(rlib_arg) >= StrictVersion("0.5.2")):
+        rm_cmd = ["rm","-f"]  + temp_bams
+        rm_job = workflow.Job(" ".join(rm_cmd), name="Remove temp bams")
+        jobs.append(rm_job)
+        dependencies[facets_job]=rm_job
     #make workflow
     jobs.append(facets_job)
     return (jobs, dependencies, " ".join(["Facets", tag]), facets_job, count_jobs)
