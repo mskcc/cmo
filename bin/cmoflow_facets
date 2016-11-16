@@ -12,7 +12,7 @@ def construct_workflow(tumorbam, normalbam, tag, facets_args, output_dir,snps=No
     if vcf:
         snps = os.path.abspath(vcf)
     if not rlib_arg:
-        rlib_arg="0.0.0"
+        rlib_arg="0.3.9"
     #look at @RG SM: tag for samples
     if not tumor_sample: 
         tumor_sample = cmo.util.infer_sample_from_bam(tumorbam)
