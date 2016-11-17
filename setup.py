@@ -1,4 +1,4 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 import os, subprocess, re, sys
 
 VERSION_PY = """
@@ -75,7 +75,7 @@ setup(name='cmo',
         author='Chris Harris',
         author_email='harrisc2@mskcc.org',
         licence='GPLv3',
-        packages=['cmo'],
+        packages=find_packages(),
         install_requires=['argparse', 'fireworks', 'python-daemon', 'filemagic'],
         scripts=['bin/cmo_bwa_sampe',
                  'bin/cmo_getbasecounts',

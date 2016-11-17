@@ -1,4 +1,5 @@
 import fireworks
+import cmo.workflows
 from fireworks.queue import queue_launcher
 from fireworks.core import rocket_launcher
 from fireworks.utilities.fw_serializers import load_object_from_file
@@ -44,6 +45,20 @@ class Workflow():
             print >>sys.stderr, "Can't find rlaunch in $PATH. Please see readme to set $PATH correctly"
             sys.exit(1)
         self.launchpad = fireworks.LaunchPad.from_file(db.find_lpad_config())
+    def add_job(job):
+        if job not in self.jobs_list:
+            jobs_list.append(job)
+    def add_dep(job1, jobs2):
+        if not isinstance(jobs2,list):
+            jobs2=[jobs2]
+        if job1 in self.job_dependencies:
+            self.job_dependencies[job1]= self.job_dependencies[job1] + jobs2
+        else:
+            self.job_dependencies[job1]= jobs2
+            if job1 not in self.jobs_list:
+                jobs_list.append(job)
+                
+
     def run(self, processing_mode, daemon_log=None):
         if not daemon_log:
             daemon_log = os.path.join(FW_WFLOW_LAUNCH_LOC, getpass.getuser(), "daemon.log")
