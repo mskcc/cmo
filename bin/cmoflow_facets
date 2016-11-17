@@ -130,7 +130,7 @@ def construct_workflow(tumorbam, normalbam, tag, facets_args, output_dir,snps=No
     jobs = []
     #connect snp-pileup directly to facets if > "0.5.2"
 #    if(rlib_arg != None and StrictVersion(rlib_arg) < StrictVersion("0.5.2")):
-    if len(count_jobs) > 0:
+    if len(count_jobs) > 0 and merge_job:
         dependencies[count_jobs[0]]=[merge_job]
         dependencies[count_jobs[1]]=[merge_job]
         jobs = jobs + count_jobs
@@ -149,6 +149,8 @@ def construct_workflow(tumorbam, normalbam, tag, facets_args, output_dir,snps=No
         dependencies[facets_job]=rm_job
     #make workflow
     jobs.append(facets_job)
+    print jobs
+    print dependencies
     return (jobs, dependencies, " ".join(["Facets", tag]), facets_job, count_jobs)
 
 
