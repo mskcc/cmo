@@ -1,5 +1,4 @@
 import fireworks
-import cmo.workflows
 from fireworks.queue import queue_launcher
 from fireworks.core import rocket_launcher
 from fireworks.utilities.fw_serializers import load_object_from_file
