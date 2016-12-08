@@ -1,0 +1,66 @@
+#!/opt/common/CentOS_6-dev/python/python-2.7.10/bin/python
+from cmo import workflow
+import argparse, os, sys
+import cmo, shutil 
+from distutils.version import StrictVersion
+
+def concatenate_fastqs(fastq_filenames, output_filename):
+    fastq_str = " ".join(fastq_filenames)
+    cat_cmd = ["/bin/zcat", fastq_str, "| /bin/gzip -c >", output_filename]
+    return workflow.Job(" ".join(cat_cmd), name="Concatenate fastqs")
+
+def star_alignment(input_R1, input_R2, output_bam_filename):
+    outFileNamePrefix = os.path.splitext(output_bam_filename)[0] + "."
+    star_cmd = [cmo.util.programs['star']["default"],
+                "--readFilesCommand zcat",
+                "--genomeDir", cmo.util.genomes[args.reference_sequence]['star_index'],
+                "--readFilesIn", input_R1, input_R2,
+                "--outFileNamePrefix", outFileNamePrefix,
+                "--outStd SAM |",
+                cmo.util.programs['samtools']["0.1.2"], "view -bS - |",
+                cmo.util.programs['samtools']["0.1.2"], "sort - -o",
+                output_bam_file]
+    return workflow.Job(" ".join(star_cmd), name="Run STAR alignment")
+
+def run_QoRT(bam_file, outputdir):
+    """'Quality of RNA' metrics and counts"""
+    QoRT_cmd = [cmo.util.programs['java']["default"], 
+                "-jar", cmo.util.programs['QoRT']["default"], 
+                "QC",
+                bam_file,
+                cmo.util.genomes[args.reference_sequence]['gtf'],
+                outputdir]
+    return workflow.Job(" ".join(QoRT_cmd), name="Run QoRT")
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Run RNASeq on luna!")
+    parser.add_argument("-R", "--reference_sequence", required=True, 
+                        choices=cmo.util.genomes.keys(),
+                        help="name of reference")
+    parser.add_argument("-o", "--outputdir", default = ".",
+                        help="output dir, will default to '.'")
+    parser.add_argument('fastqs', nargs='+', 
+                        help='fastq files for processing')
+    args = parser.parse_args()
+    print(args)
+
+    bam_file = "".join([args.outputdir, "/Aligned.sorted.bam"])
+    jobs_list = list()
+    if(len(args.fastqs) > 2):
+        input_R1 = "".join([args.outputdir, "/R1.fastq.gz"])
+        cat1 = concatenate_fastqs(args.fastqs[::2], input_R1)
+        input_R2 = "".join([args.outputdir, "/R2.fastq.gz"])
+        cat2 = concatenate_fastqs(args.fastqs[1::2], input_R2)
+        star = star_alignment(input_R1, input_R2, bam_file)
+        QoRT = run_QoRT(bam_file, args.outputdir)
+        jobs_list = [cat1, cat2, star, QoRT]
+        jobs_dict = {cat1: [star], cat2: [star], star: [QoRT]}
+    elif(len(args.fastqs) == 2):
+        star = star_alignment(args.fastqs[1], args.fastqs[2], bam_file)
+        QoRT = run_QoRT(bam_file, args.outputdir)
+        jobs_list = [star, QoRT]
+        jobs_dict = {star: [QoRT]}
+        
+    new_workflow = workflow.Workflow(jobs_list, jobs_dict, name="RNASeq Workflow")
+    new_workflow.run('LSF', daemon_log="RNASeq")
+            
