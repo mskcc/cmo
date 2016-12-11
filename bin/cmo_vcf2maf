@@ -1,12 +1,9 @@
 #!/opt/common/CentOS_6-dev/python/python-2.7.10/bin/python
 
-import argparse, os, sys, re, subprocess, itertools, glob
+import argparse, os, sys, re, subprocess, itertools, glob, tempfile, shutil
 from operator import attrgetter
 import textwrap as _textwrap
 import cmo
-
-# Let's make sure that the default temporary storage is /scratch, not /tmp
-os.environ['TMPDIR'] = "/scratch"
 
 # Custom help formatter to display args in alphabetical order, and fitted line wrap for sphinx
 class SortingHelpFormatter(argparse.ArgumentDefaultsHelpFormatter):
@@ -31,7 +28,7 @@ if __name__ =='__main__':
     preparser.add_argument("--version", help="Version of tool to run", choices=cmo.util.programs['vcf2maf'].keys(), default="default")
     preparser.add_argument("--vep-release", help="Version of VEP and its cache to use", choices=cmo.util.programs['vep'].keys(), default="default")
     preparser.add_argument("--species", help="Species of variants in input", choices=["homo_sapiens","mus_musculus"], default="homo_sapiens")
-    preparser.add_argument("--ncbi-build", help="Genome build of variants in input", choices=["GRCh37","GRCh38","GRCm37"], default="GRCh37")
+    preparser.add_argument("--ncbi-build", help="Genome build of variants in input", choices=["GRCh37","GRCh38","GRCm38"], default="GRCh37")
     options, _ = preparser.parse_known_args()
 
     # Figure out the path to the actual Perl script that this Python wrapper will run
@@ -45,18 +42,21 @@ if __name__ =='__main__':
     defaults_dict['--maf-center'] = 'mskcc.org'
     defaults_dict['--vcf-tumor-id'] = defaults_dict['--tumor-id']
     defaults_dict['--vcf-normal-id'] = defaults_dict['--normal-id']
+    tmp_dir = tempfile.mkdtemp(dir='/scratch') if os.path.exists('/scratch') else tempfile.mkdtemp(dir='/tmp');
+    defaults_dict['--tmp-dir'] = tmp_dir
 
-    # With arguments and defaults set, let's construct and run an argparse instance
+    # With arguments and defaults set, let's construct an argparse instance
     parser = argparse.ArgumentParser(parents = [preparser], add_help=True, formatter_class=SortingHelpFormatter)
     for arg, description in args_dict.items():
         # Hide a few arguments from the user, because we'll determine them ourselves
         if arg in ["--help","--man","--vep-path","--vep-data","--ref-fasta","--species","--ncbi-build","--cache-version"]:
             continue
-        if arg in defaults_dict and arg not in ["--output-maf","--tmp-dir"]:
+        if arg in defaults_dict and arg not in ["--output-maf"]:
             parser.add_argument(arg, action="store", metavar='', help=description, default=defaults_dict[arg])
         else:
             parser.add_argument(arg, action="store", metavar='', help=description)
     cmo.util.add_logging_options(parser)
+
     # Now run the argparse instance, which will parse and execute, or print help text if requested
     args = parser.parse_args()
     args_dict = vars(args)
@@ -87,4 +87,6 @@ if __name__ =='__main__':
     for arg, value in args_dict.items():
         arg = arg.replace("_","-")
         cmd = cmd + ["--"+arg, value]
-    cmo.util.call_cmd(" ".join(cmd), stdout=stdout, stderr=stderr)
+    sys.stderr.write( "Running: " + " ".join( cmd ) + "\n" )
+    cmo.util.call_cmd( " ".join( cmd ), stdout=stdout, stderr=stderr )
+    shutil.rmtree(tmp_dir)

@@ -51,7 +51,7 @@ if __name__ =='__main__':
         print >>sys.stderr, error_msg
         sys.exit(1)
     #ok it was a valid subcommand, add the options we found and the genome option
-    parser = argparse.ArgumentParser(parents= [ preparser ] , add_help= True, formatter_class=argparse.ArgumentDefaultsHelpFormatter, allow_abbrev=False)
+    parser = argparse.ArgumentParser(parents=[ preparser ], add_help=True, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument("--java_args", default=gatk_helper.java_args, help="args to pass to java")
     parser.add_argument("--java-temp", help="java.io.temp_dir, if you want to set it")
     for group in sub_command_options:
