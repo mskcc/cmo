@@ -49,6 +49,7 @@ def construct_workflow(tumorbam, normalbam, tag, facets_args, output_dir,snps=No
         print >>sys.stderr, "Normal bam does not exist? is %s a real path to a bam? " % normalbam
     print rlib_arg
     temp_bams = list()
+    (genome, fasta) = cmo.util.infer_fasta_from_bam(tumorbam)
     if(rlib_arg != None and StrictVersion(rlib_arg) < StrictVersion("0.5.2")):
         for (bam, base) in [(tumorbam, tumor_sample), (normalbam, normal_sample)]:
             out_file = os.path.abspath(os.path.join(output_dir, base + ".dat"))
@@ -72,7 +73,6 @@ def construct_workflow(tumorbam, normalbam, tag, facets_args, output_dir,snps=No
                 ppfix_cmd = [cmo.util.programs['ppflag-fixer']['default'], bam, out_file]
                 count_jobs.append(workflow.Job(" ".join(ppfix_cmd), name="ppflag-fixer"))
         if not snps:
-            (genome, fasta) = cmo.util.infer_fasta_from_bam(tumorbam)
             snps = cmo.util.genomes[genome]['facets_snps']
         merged_counts = os.path.join(output_dir, "countsMerged____" + tag + ".dat.gz")
         if not os.path.exists(merged_counts):
@@ -118,11 +118,14 @@ def construct_workflow(tumorbam, normalbam, tag, facets_args, output_dir,snps=No
         else:
             shutil.rmtree(facets_dir)
             os.makedirs(facets_dir)
+    #facets expects hg38 but we don't call it that internally
+    if genome=="GRCh38":
+        genome="hg38"
     if not rlib_arg:
-        facets_cmd = ["cmo_facets", "--lib-version=0.3.9", "doFacets", "-f", merged_counts, "-t", tag, "-D", facets_dir] + facets_args
+        facets_cmd = ["cmo_facets", "--lib-version=0.3.9", "doFacets", "-g", genome, "-f", merged_counts, "-t", tag, "-D", facets_dir] + facets_args
     else:
-        facets_cmd = ["cmo_facets", "--lib-version", rlib_arg, "doFacets", "-f", merged_counts, "-t", tag, "-D", facets_dir] + facets_args
-    facets_job = workflow.Job(" ".join(facets_cmd), est_wait_Time="59", name="Run Facets")
+        facets_cmd = ["cmo_facets", "--lib-version", rlib_arg, "doFacets", "-g", genome, "-f", merged_counts, "-t", tag, "-D", facets_dir] + facets_args
+    facets_job = workflow.Job(" ".join(facets_cmd), est_wait_Time="59", resource="rusage[mem=16]", name="Run Facets")
     dependencies = {}
   
   #FIXME: can we have a merge exist without the counts file?
