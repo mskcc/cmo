@@ -118,6 +118,9 @@ def construct_workflow(tumorbam, normalbam, tag, facets_args, output_dir,snps=No
         else:
             shutil.rmtree(facets_dir)
             os.makedirs(facets_dir)
+    #facets expects hg38 but we don't call it that internally
+    if genome=="GRCh38":
+        genome="hg38"
     if not rlib_arg:
         facets_cmd = ["cmo_facets", "--lib-version=0.3.9", "doFacets", "-g", genome, "-f", merged_counts, "-t", tag, "-D", facets_dir] + facets_args
     else:
