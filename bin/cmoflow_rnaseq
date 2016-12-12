@@ -28,7 +28,7 @@ def star_alignment(input_R1, input_R2, outputdir, processors = 10):
                 "--outSAMtype BAM SortedByCoordinate",
                 "&&",
                 cmo.util.programs['samtools']["1.3.1"], "index",
-                outFileNamePrefix, "/Aligned.sortedByCoord.out.bam"]
+                outFileNamePrefix + "Aligned.sortedByCoord.out.bam"]
     return workflow.Job(" ".join(star_cmd), 
                         resources="rusage[mem=40]", 
                         name="Run STAR alignment",
