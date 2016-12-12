@@ -14,6 +14,22 @@ def concatenate_fastqs(fastq_filenames, output_filename):
     cat_cmd = ["/bin/zcat", fastq_str, "| /bin/gzip -c >", output_filename]
     return workflow.Job(" ".join(cat_cmd), name="Concatenate fastqs")
 
+def run_kallisto(fastq_filenames, outputdir, 
+                 processors = 10, bootstraps = 40):
+    fastq_filenames = [os.path.abspath(file) for file in fastq_filenames]
+    outputdir = os.path.abspath(outputdir)
+
+    kallisto_cmd = [cmo.util.programs['kallisto']["default"], "quant",
+                    "-i", cmo.util.genomes[args.reference_sequence]['kallisto_index'],
+                    "-o", outputdir,
+                    "--bias",
+                    "-b", str(bootstraps),
+                    "-t", str(processors)] + fastq_filenames
+    return workflow.Job(" ".join(kallisto_cmd),
+                        resources="rusage[mem=10]",
+                        name="Run kallisto",
+                        processors = processors)
+
 def star_alignment(input_R1, input_R2, outputdir, processors = 10):
     input_R1 = os.path.abspath(input_R1)
     input_R2 = os.path.abspath(input_R2)
@@ -28,7 +44,10 @@ def star_alignment(input_R1, input_R2, outputdir, processors = 10):
                 "--outSAMtype BAM SortedByCoordinate",
                 "&&",
                 cmo.util.programs['samtools']["1.3.1"], "index",
-                outFileNamePrefix + "Aligned.sortedByCoord.out.bam"]
+                outFileNamePrefix + "Aligned.sortedByCoord.out.bam",
+                "&&",
+                "rm -rf",
+                outFileNamePrefix + "_STARtmp"]
     return workflow.Job(" ".join(star_cmd), 
                         resources="rusage[mem=40]", 
                         name="Run STAR alignment",
@@ -64,6 +83,8 @@ if __name__ == "__main__":
 
     bam_file = "".join([args.outputdir, "/Aligned.sortedByCoord.out.bam"])
 
+    kallisto = run_kallisto(args.fastqs, args.outputdir)
+
     jobs_list = list()
     if(len(args.fastqs) % 2 == 1):
         sys.exit("must fastqs in pairs")        
@@ -74,12 +95,12 @@ if __name__ == "__main__":
         cat2 = concatenate_fastqs(args.fastqs[1::2], input_R2)
         star = star_alignment(input_R1, input_R2, args.outputdir)
         QoRT = run_QoRT(bam_file, args.outputdir)
-        jobs_list = [cat1, cat2, star, QoRT]
+        jobs_list = [kallisto, cat1, cat2, star, QoRT]
         jobs_dict = {cat1: [star], cat2: [star], star: [QoRT]}
     elif(len(args.fastqs) == 2):
         star = star_alignment(args.fastqs[0], args.fastqs[1], args.outputdir)
         QoRT = run_QoRT(bam_file, args.outputdir)
-        jobs_list = [star, QoRT]
+        jobs_list = [kallisto, star, QoRT]
         jobs_dict = {star: [QoRT]}
 
     new_workflow = workflow.Workflow(jobs_list, jobs_dict, name="RNASeq Workflow")
