@@ -12,7 +12,7 @@ def find_command_options(getbasecounts_command):
     valid_args = []
     for line in lines:
         #m = re.match(r"^[\t ]+(--\w+)[\t ]+(?:[<[]\S+[>\]])[\t ]+(.*)$", line)
-        m = re.match(r"^[\t ]+(-\S), (--\S+)(?:=\w+)?[\t ]+(.*)$", line)
+        m = re.match(r"^[\t ]+(-\S), (--[\w-]+)(?:=\S+)?[\t ]+(.*)$", line)
         if m:
             if last_option != '':
                 valid_args.append((last_short_option, last_option, last_option_help))
@@ -29,7 +29,7 @@ def find_command_options(getbasecounts_command):
 if __name__ =='__main__':
     #partially parse options to get versin/subcommand and add more options
     #ok it was a valid subcommand, add the options we found and the genome option
-    parser = argparse.ArgumentParser(description="run snp-pileup", add_help=True)
+    parser = argparse.ArgumentParser(description="run snp-pileup", add_help=True, usage="cmo_snp-pileup [option] <vcf file> <output file> <normal bam> <tumor bam>")
     command = cmo.util.programs['snp-pileup']['default']
     command_options = find_command_options(command)
     print command_options
@@ -38,14 +38,14 @@ if __name__ =='__main__':
         if(long_arg =="--help"):
             continue
         elif long_arg in ['--verbose', '--gzip', '--progress', '--count-orphans', '--ignore-overlaps']:
-            parser.add_argument(arg, long_arg, action="store_true", help=help)
+            parser.add_argument(arg, long_arg, action="store_true", default=False, help=help)
         elif long_arg =="--min-read-counts":
             parser.add_argument(arg, long_arg, action="store", default="10,0", help=help) 
         else:
             parser.add_argument(arg, long_arg, action="store", help=help) 
 #    parser.add_argument("--genome", required=True, choices=cmo.util.genomes.keys())
     cmo.util.add_logging_options(parser)
-    args = parser.parse_args()
+    (args, other_stupid_shit) = parser.parse_known_args()
     command_specific_args = vars(args)
     stderr=args.stderr
     stdout=args.stdout
@@ -57,11 +57,14 @@ if __name__ =='__main__':
     stdin=None
     for option, value in command_specific_args.items():
             if value ==True:
-                cmd = cmd + ["--"+option]
+                cmd = cmd + ["--"+option.replace("_", "-")]
             elif value!=False:
-                cmd = cmd + ["--"+option, value]
+                cmd = cmd + ["--"+option.replace("_","-"), value]
                 if value == "stdin":
                     stdin=sys.stdin
+            else:
+                pass
+    cmd = cmd + other_stupid_shit
     print >>sys.stderr, " ".join(cmd)
     cmo.util.call_cmd(" ".join(cmd), stderr=stderr, stdout=stdout, stdin=stdin)
 
