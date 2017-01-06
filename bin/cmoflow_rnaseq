@@ -4,23 +4,21 @@ import argparse, os, sys
 import cmo, shutil 
 from distutils.version import StrictVersion
 
-def concatenate_fastqs(fastq_filenames, output_filename):
-    fastq_filenames = [os.path.abspath(file) for file in fastq_filenames]
-    output_filename = os.path.abspath(output_filename)
-    if(output_filename in fastq_filenames): 
-        fastq_filenames.remove(output_filename)
-
-    fastq_str = " ".join(fastq_filenames)
-    cat_cmd = ["/bin/zcat", fastq_str, "| /bin/gzip -c >", output_filename]
-    return workflow.Job(" ".join(cat_cmd), name="Concatenate fastqs")
+import json
+json_config = json.load(open("/ifs/work/taylorlab/pensona/checkout/cmo/cmo/data/cmo_resources.json"))
+programs = json_config['programs']
+genomes = json_config['genomes']
+### use installed json:
+# programs = cmo.util.programs
+# genomes = cmo.util.genomes
 
 def run_kallisto(fastq_filenames, outputdir, 
                  processors = 10, bootstraps = 40):
     fastq_filenames = [os.path.abspath(file) for file in fastq_filenames]
     outputdir = os.path.abspath(outputdir)
 
-    kallisto_cmd = [cmo.util.programs['kallisto']["default"], "quant",
-                    "-i", cmo.util.genomes[args.reference_sequence]['kallisto_index'],
+    kallisto_cmd = [programs['kallisto']["default"], "quant",
+                    "-i", genomes[args.reference_sequence]['kallisto_index'],
                     "-o", outputdir,
                     "--bias",
                     "-b", str(bootstraps),
@@ -30,20 +28,21 @@ def run_kallisto(fastq_filenames, outputdir,
                         name="Run kallisto",
                         processors = processors)
 
-def star_alignment(input_R1, input_R2, outputdir, processors = 10):
-    input_R1 = os.path.abspath(input_R1)
-    input_R2 = os.path.abspath(input_R2)
+def star_alignment(fastq_filenames, outputdir, processors = 10):
+    fastq_filenames = [os.path.abspath(file) for file in fastq_filenames]
+    input_R1 = ",".join(fastq_filenames[::2]) ## comma delimited, alternate files
+    input_R2 = ",".join(fastq_filenames[1::2])
     outFileNamePrefix = os.path.abspath(outputdir) + "/"
 
-    star_cmd = [cmo.util.programs['star']["default"],
+    star_cmd = [programs['star']["default"],
                 "--readFilesCommand zcat",
-                "--genomeDir", cmo.util.genomes[args.reference_sequence]['star_index'],
+                "--genomeDir", genomes[args.reference_sequence]['star_index'],
                 "--readFilesIn", input_R1, input_R2,
                 "--outFileNamePrefix", outFileNamePrefix,
                 "--runThreadN", str(processors),
                 "--outSAMtype BAM SortedByCoordinate",
                 "&&",
-                cmo.util.programs['samtools']["1.3.1"], "index",
+                programs['samtools']["1.3.1"], "index",
                 outFileNamePrefix + "Aligned.sortedByCoord.out.bam",
                 "&&",
                 "rm -rf",
@@ -59,11 +58,11 @@ def run_QoRT(bam_file, outputdir):
     bam_file = os.path.abspath(bam_file)
     outputdir = os.path.abspath(outputdir)
 
-    QoRT_cmd = [cmo.util.programs['java']["default"], 
-                "-jar", cmo.util.programs['QoRT']["default"], 
+    QoRT_cmd = [programs['java']["default"], 
+                "-jar", programs['QoRT']["default"], 
                 "QC",
                 bam_file,
-                cmo.util.genomes[args.reference_sequence]['gencode']['default'],
+                genomes[args.reference_sequence]['gencode']['default'],
                 outputdir]
     return workflow.Job(" ".join(QoRT_cmd), 
                         resources="rusage[mem=30]", 
@@ -72,7 +71,7 @@ def run_QoRT(bam_file, outputdir):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run RNASeq on luna!")
     parser.add_argument("-R", "--reference_sequence", required=True, 
-                        choices=cmo.util.genomes.keys(),
+                        choices=genomes.keys(),
                         help="name of reference")
     parser.add_argument("-o", "--outputdir", default = ".",
                         help="output dir, will default to '.'")
@@ -88,16 +87,7 @@ if __name__ == "__main__":
     jobs_list = list()
     if(len(args.fastqs) % 2 == 1):
         sys.exit("must fastqs in pairs")        
-    elif(len(args.fastqs) > 2):
-        input_R1 = "".join([args.outputdir, "/R1.fastq.gz"])
-        cat1 = concatenate_fastqs(args.fastqs[::2], input_R1)
-        input_R2 = "".join([args.outputdir, "/R2.fastq.gz"])
-        cat2 = concatenate_fastqs(args.fastqs[1::2], input_R2)
-        star = star_alignment(input_R1, input_R2, args.outputdir)
-        QoRT = run_QoRT(bam_file, args.outputdir)
-        jobs_list = [kallisto, cat1, cat2, star, QoRT]
-        jobs_dict = {cat1: [star], cat2: [star], star: [QoRT]}
-    elif(len(args.fastqs) == 2):
+    else:
         star = star_alignment(args.fastqs[0], args.fastqs[1], args.outputdir)
         QoRT = run_QoRT(bam_file, args.outputdir)
         jobs_list = [kallisto, star, QoRT]
@@ -105,4 +95,4 @@ if __name__ == "__main__":
 
     new_workflow = workflow.Workflow(jobs_list, jobs_dict, name="RNASeq Workflow")
     new_workflow.run('LSF')
-            
+    
