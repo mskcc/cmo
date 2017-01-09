@@ -12,20 +12,22 @@ genomes = json_config['genomes']
 # programs = cmo.util.programs
 # genomes = cmo.util.genomes
 
-def run_kallisto(fastq_filenames, outputdir, 
+def run_kallisto(fastq_filenames, outputdir, transcripts = "pc_transcripts",
                  processors = 10, bootstraps = 40):
     fastq_filenames = [os.path.abspath(file) for file in fastq_filenames]
     outputdir = os.path.abspath(outputdir)
+    outputdir = outputdir + "/kallisto" + "." + transcripts
+    if not os.path.exists(outputdir): os.makedirs(outputdir)
 
     kallisto_cmd = [programs['kallisto']["default"], "quant",
-                    "-i", genomes[args.reference_sequence]['default']['kallisto_index'],
+                    "-i", genomes[args.reference_sequence]['default']['kallisto_index'] + "." + transcripts,
                     "-o", outputdir,
                     "--bias",
                     "-b", str(bootstraps),
                     "-t", str(processors)] + fastq_filenames
     return workflow.Job(" ".join(kallisto_cmd),
                         resources="rusage[mem=5]",
-                        name="Run kallisto",
+                        name="Run kallisto " + transcripts,
                         processors = processors)
 
 def star_alignment(fastq_filenames, outputdir, processors = 10):
@@ -136,23 +138,32 @@ if __name__ == "__main__":
 
     bam_file = "".join([args.outputdir, "/Aligned.sortedByCoord.out.bam"])
 
-    kallisto = run_kallisto(args.fastqs, args.outputdir)
-
     jobs_list = list()
     jobs_dict = dict()
+
+    kallisto_pc = run_kallisto(args.fastqs, args.outputdir, transcripts = "pc_transcripts")
+    jobs_list.append(kallisto_pc)
+
+    kallisto_all = run_kallisto(args.fastqs, args.outputdir, transcripts = "transcripts")
+    jobs_list.append(kallisto_all)
+
     if(len(args.fastqs) % 2 == 1):
         sys.exit("must fastqs in pairs")        
     else:
         star = star_alignment(args.fastqs, args.outputdir)
-        QoRT = run_QoRT(bam_file, args.outputdir)
-        insert_length = compute_insert_length(bam_file, args.outputdir)
+        jobs_list.append(star)
 
-        jobs_list = [kallisto, star, QoRT, insert_length]
+        QoRT = run_QoRT(bam_file, args.outputdir)
+        jobs_list.append(QoRT)
+
+        insert_length = compute_insert_length(bam_file, args.outputdir)
+        jobs_list.append(insert_length)
+
         jobs_dict[star] = [QoRT, insert_length]
-        jobs_dict[insert_length] = list()
 
         pack = pack_miso(args.outputdir)
 
+        jobs_dict[insert_length] = list()
         for AS_type in ["SE", "A3SS", "A5SS", "MXE", "RI"]:
             miso = run_miso(bam_file, AS_type, args.outputdir + "/MISO/" + AS_type)
             jobs_list.append(miso)
