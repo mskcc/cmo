@@ -18,25 +18,30 @@ def run_kallisto(fastq_filenames, outputdir,
     outputdir = os.path.abspath(outputdir)
 
     kallisto_cmd = [programs['kallisto']["default"], "quant",
-                    "-i", genomes[args.reference_sequence]['kallisto_index'],
+                    "-i", genomes[args.reference_sequence]['default']['kallisto_index'],
                     "-o", outputdir,
                     "--bias",
                     "-b", str(bootstraps),
                     "-t", str(processors)] + fastq_filenames
     return workflow.Job(" ".join(kallisto_cmd),
-                        resources="rusage[mem=10]",
+                        resources="rusage[mem=5]",
                         name="Run kallisto",
                         processors = processors)
 
 def star_alignment(fastq_filenames, outputdir, processors = 10):
     fastq_filenames = [os.path.abspath(file) for file in fastq_filenames]
-    input_R1 = ",".join(fastq_filenames[::2]) ## comma delimited, alternate files
-    input_R2 = ",".join(fastq_filenames[1::2])
+    if len(fastq_filenames) > 2:
+        input_R1 = ",".join(fastq_filenames[::2]) ## comma delimited, alternate files
+        input_R2 = ",".join(fastq_filenames[1::2])
+    else:
+        input_R1 = fastq_filenames[0]
+        input_R2 = fastq_filenames[1]
+
     outFileNamePrefix = os.path.abspath(outputdir) + "/"
 
     star_cmd = [programs['star']["default"],
                 "--readFilesCommand zcat",
-                "--genomeDir", genomes[args.reference_sequence]['star_index'],
+                "--genomeDir", genomes[args.reference_sequence]['default']['star_index'],
                 "--readFilesIn", input_R1, input_R2,
                 "--outFileNamePrefix", outFileNamePrefix,
                 "--runThreadN", str(processors),
@@ -62,12 +67,61 @@ def run_QoRT(bam_file, outputdir):
                 "-jar", programs['QoRT']["default"], 
                 "QC",
                 bam_file,
-                genomes[args.reference_sequence]['gencode']['default'],
+                genomes[args.reference_sequence]['default']['gtf'],
                 outputdir]
     return workflow.Job(" ".join(QoRT_cmd), 
                         resources="rusage[mem=30]", 
                         name="Run QoRT")
 
+def compute_insert_length(bam_file, outputdir):
+    """use MISO to compute insert length distribution"""
+
+    bam_file = os.path.abspath(bam_file)
+    outputdir = os.path.abspath(outputdir)
+
+    insert_length_cmd = ["pe_utils", "--compute-insert-len", 
+                         bam_file, genomes[args.reference_sequence]['default']['const_exons'], 
+                         "--output-dir", outputdir]
+    return workflow.Job(" ".join(insert_length_cmd), 
+                        resources="rusage[mem=10]", 
+                        name="Compute Insert Length")
+    
+def run_miso(bam_file, AS_type, outputdir):
+    """Run MISO differential splicing"""
+    bam_file = os.path.abspath(bam_file)
+    outputdir = os.path.abspath(outputdir)
+
+    if AS_type == "SE": 
+        processors = 30
+    else:
+        processors = 10
+
+    miso_cmd = ["mkdir", "-p", outputdir, 
+                "&&",
+                "miso", "--run",
+                genomes[args.reference_sequence]['default']['miso_index'] + "/indexed_" + AS_type + "_events",
+                bam_file,
+                "--output-dir", outputdir, 
+                "--paired-end", "$(head -1 " + bam_file + ".insert_len | awk -F '=|,' '{print($2, $4)}')", ### insert length & stdev (paired end)
+                "--read-len", "$(", programs['samtools']["1.3.1"], "view", bam_file, "| head -1 | awk '{print length($10)}')", ### read length from bam file (single end)
+                "-p", str(processors),
+                "&&",
+                "summarize_miso", "--summarize-samples",
+                outputdir, outputdir
+                ]
+    return workflow.Job(" ".join(miso_cmd), 
+                        resources="rusage[mem=10]", 
+                        processors = processors,
+                        name="Run MISO " + AS_type)
+
+def pack_miso(outputdir):
+    outputdir = os.path.abspath(outputdir)
+    pack_cmd = ["miso_pack", "--pack", outputdir]
+    return workflow.Job(" ".join(pack_cmd),
+                        resources="rusage[mem=2]",
+                        name="Pack MISO")
+
+    
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run RNASeq on luna!")
     parser.add_argument("-R", "--reference_sequence", required=True, 
@@ -85,14 +139,27 @@ if __name__ == "__main__":
     kallisto = run_kallisto(args.fastqs, args.outputdir)
 
     jobs_list = list()
+    jobs_dict = dict()
     if(len(args.fastqs) % 2 == 1):
         sys.exit("must fastqs in pairs")        
     else:
-        star = star_alignment(args.fastqs[0], args.fastqs[1], args.outputdir)
+        star = star_alignment(args.fastqs, args.outputdir)
         QoRT = run_QoRT(bam_file, args.outputdir)
-        jobs_list = [kallisto, star, QoRT]
-        jobs_dict = {star: [QoRT]}
+        insert_length = compute_insert_length(bam_file, args.outputdir)
 
+        jobs_list = [kallisto, star, QoRT, insert_length]
+        jobs_dict[star] = [QoRT, insert_length]
+        jobs_dict[insert_length] = list()
+
+        pack = pack_miso(args.outputdir)
+
+        for AS_type in ["SE", "A3SS", "A5SS", "MXE", "RI"]:
+            miso = run_miso(bam_file, AS_type, args.outputdir + "/MISO/" + AS_type)
+            jobs_list.append(miso)
+            jobs_dict[insert_length].append(miso)
+            jobs_dict[miso] = pack
+        
+        jobs_list.append(pack)
     new_workflow = workflow.Workflow(jobs_list, jobs_dict, name="RNASeq Workflow")
     new_workflow.run('LSF')
     
