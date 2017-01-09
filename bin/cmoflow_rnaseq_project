@@ -6,9 +6,14 @@ from distutils.version import StrictVersion
 
 def run_sleuth(samplefile):
     samplefile = os.path.abspath(samplefile)
-    sleuth_cmd = ["cat", samplefile]
+
+    ## options(mc.cores = 4L)
+    sleuth_cmd = [programs["R"]["3.2.2-dev"] + "Rscript",
+                  "-e", "rnaseq.scripts::run_sleuth()",
+                  "-d", inputdir,
+                  "--gene.names", genomes[args.reference_sequence]['default']['gene_names']]
     return workflow.Job(" ".join(sleuth_cmd), 
-                        resources="rusage[mem=1]",
+                        resources="rusage[mem=4]",
                         name="Run Sleuth")
 
 def QoRT_merge_all_junctions(inputdir, samplenames, outputdir, minCount = 6):
