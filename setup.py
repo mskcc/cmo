@@ -108,7 +108,8 @@ setup(name='cmo',
                  'bin/cmo_rerun',
                  'bin/cmo_gdc',
                  'bin/cmoflow_rnaseq',
-                 'bin/cmo_snp-pileup'
+                 'bin/cmo_snp-pileup',
+                 'bin/cmo_trimgalore'
                  #'bin/cmo_hotspot3d'
                  ],
         zip_safe=False)
