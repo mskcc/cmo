@@ -3,16 +3,6 @@
 import argparse, os, sys, re, subprocess,itertools
 import cmo
 
-def find_sub_command_options(picard_helper, sub_command):
-    cmd = picard_helper.picard_cmd_help(sub_command) 
-    picard_help = subprocess.Popen(cmd,stderr=subprocess.PIPE,shell=True).communicate()[1]
-    #look for "is not a valid command, and return the picard help instead of a parsed dict of args
-    if re.search("is not a valid command", picard_help):
-        return (None, picard_help)
-    #look for 1 or 2 occurrences of WORD_THINGY=THINGY and the following help and return them as a dictified
-    #list of tuples
-    valid_args = re.findall(r"(?:^([\S_]+)=\S+\n?){1,2}\s+([\S\s]+?(?=^[\S_]+=\S+))", picard_help, re.M)
-    return (dict(valid_args), None)
 
 if __name__ =='__main__':
     #partially parse options to get versin/subcommand and add more options
@@ -22,8 +12,8 @@ if __name__ =='__main__':
     preparser.add_argument("--cmd", required=True)
     options, _ = preparser.parse_known_args()
     #time for monkey business
-    picard_helper = cmo.picard.Picard(java_version=options.version, version=options.version)
-    (sub_command_options, error_msg) = find_sub_command_options(picard_helper, options.cmd)
+    picard_helper = cmo.picard.Picard(java_version=options.java_version, version=options.version)
+    (sub_command_options, error_msg) = picard_helper.find_sub_command_options(options.cmd)
     if sub_command_options == None:
         print >>sys.stderr, error_msg
         sys.exit(1)

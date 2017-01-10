@@ -32,7 +32,7 @@ if __name__ =='__main__':
     parser = argparse.ArgumentParser(description="run snp-pileup", add_help=True, usage="cmo_snp-pileup [option] <vcf file> <output file> <normal bam> <tumor bam>")
     command = cmo.util.programs['snp-pileup']['default']
     command_options = find_command_options(command)
-    print command_options
+#    print command_options
     for arg, long_arg, help in command_options:
 #        help = help.replace("%","%%")
         if(long_arg =="--help"):
@@ -43,9 +43,13 @@ if __name__ =='__main__':
             parser.add_argument(arg, long_arg, action="store", default="10,0", help=help) 
         else:
             parser.add_argument(arg, long_arg, action="store", help=help) 
+    parser.add_argument("vcf", help="vcf file")
+    parser.add_argument("output_file", help="output file")
+    parser.add_argument("normal_bam", help="normal bam")
+    parser.add_argument("tumor_bam", help="tumor bam")
 #    parser.add_argument("--genome", required=True, choices=cmo.util.genomes.keys())
     cmo.util.add_logging_options(parser)
-    (args, other_stupid_shit) = parser.parse_known_args()
+    (args) = parser.parse_args()
     command_specific_args = vars(args)
     stderr=args.stderr
     stdout=args.stdout
@@ -56,6 +60,8 @@ if __name__ =='__main__':
     cmd = [command]
     stdin=None
     for option, value in command_specific_args.items():
+            if option in ["vcf", "output_file", "normal_bam", "tumor_bam"]:
+                pass
             if value ==True:
                 cmd = cmd + ["--"+option.replace("_", "-")]
             elif value!=False:
@@ -64,7 +70,7 @@ if __name__ =='__main__':
                     stdin=sys.stdin
             else:
                 pass
-    cmd = cmd + other_stupid_shit
+    cmd = cmd + [command_specific_args['vcf'], command_specific_args['output_file'], command_specific_args['normal_bam'], command_sepcific_args['tumor_bam']]
     print >>sys.stderr, " ".join(cmd)
     cmo.util.call_cmd(" ".join(cmd), stderr=stderr, stdout=stdout, stdin=stdin)
 
