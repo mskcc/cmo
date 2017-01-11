@@ -4,14 +4,6 @@ import argparse, os, sys
 import cmo, shutil 
 from distutils.version import StrictVersion
 
-import json
-json_config = json.load(open("/ifs/work/taylorlab/pensona/checkout/cmo/cmo/data/cmo_resources.json"))
-programs = json_config['programs']
-genomes = json_config['genomes']
-### use installed json:
-# programs = cmo.util.programs
-# genomes = cmo.util.genomes
-
 def run_kallisto(fastq_filenames, outputdir, transcripts = "pc_transcripts",
                  processors = 10, bootstraps = 40):
     fastq_filenames = [os.path.abspath(file) for file in fastq_filenames]
