@@ -1,5 +1,5 @@
 from collections import defaultdict
-import json, subprocess, sys, re, magic, csv
+import json, subprocess, sys, re, magic, csv, os
 #STRAWMAN FIXME
 #THIS WOULD BE A PROGRAMMATICALLY INGESTED JSON ON MODULE LOAD IN REAL LIFE
 #DONT HATE THIS PART
@@ -12,7 +12,8 @@ import json, subprocess, sys, re, magic, csv
 #                      "0.1.19":"/opt/common/CentOS_6/samtools/samtools-0.1.19/samtools"}
 #genomes = defaultdict(dict)
 #genomes['hg19']={"fasta":"/ifs/depot/assemblies/H.sapiens/hg19/hg19.fasta"}
-json_config = json.load(open("/opt/common/CentOS_6-dev/cmo/cmo_resources.json"))
+resource_file = os.getenv('CMO_RESOURCE_CONFIG', "/opt/common/CentOS_6-dev/cmo/cmo_resources.json")
+json_config = json.load(open(resource_file))
 programs = json_config['programs']
 genomes = json_config['genomes']
 chr1_fingerprints = json_config['chr1_fingerprints']
