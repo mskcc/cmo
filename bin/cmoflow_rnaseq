@@ -94,7 +94,7 @@ def run_miso(bam_file, AS_type, outputdir):
     outputdir = os.path.abspath(outputdir)
 
     if AS_type == "SE": 
-        processors = 30
+        processors = 20
     else:
         processors = 10
 
