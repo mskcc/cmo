@@ -77,7 +77,7 @@ def compute_insert_length(bam_file, outputdir):
                          bam_file, cmo.util.genomes[args.reference_sequence]['default']['const_exons'], 
                          "--output-dir", outputdir]
     return workflow.Job(" ".join(insert_length_cmd), 
-                        resources="rusage[mem=20]", 
+                        resources="rusage[mem=35]", 
                         name="Compute Insert Length")
     
 def run_miso(bam_file, AS_type, outputdir):
@@ -104,7 +104,7 @@ def run_miso(bam_file, AS_type, outputdir):
                 outputdir, outputdir
                 ]
     return workflow.Job(" ".join(miso_cmd), 
-                        resources="rusage[mem=20]", 
+                        resources="rusage[mem=40]", 
                         processors = processors,
                         name="Run MISO " + AS_type)
 
@@ -112,7 +112,7 @@ def pack_miso(outputdir):
     outputdir = os.path.abspath(outputdir)
     pack_cmd = ["miso_pack", "--pack", outputdir]
     return workflow.Job(" ".join(pack_cmd),
-                        resources="rusage[mem=2]",
+                        resources="rusage[mem=10]",
                         name="Pack MISO")
 
     
