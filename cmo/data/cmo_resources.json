@@ -304,7 +304,7 @@
 	    "default":
 	      {
 	      "gtf":"/ifs/res/pwg/data/gencode/gencode.v25.annotation.gtf",
-	      "star_index":"/ifs/work/taylorlab/pensona/STAR_index_hg38_gencode.v25",
+	      "star_index":"/ifs/work/taylorlab/pensona/MISO_indexes/gencode.v25/STAR_gencode.v25",
               "kallisto_index":"/ifs/work/taylorlab/pensona/MISO_indexes/gencode.v25/gencode.v25",
 	      "miso_index":"/ifs/work/taylorlab/pensona/MISO_indexes/gencode.v25/commonshortest",
 	      "const_exons":"/ifs/work/taylorlab/pensona/MISO_indexes/gencode.v25/gencode.v25.annotation.min_1000.const_exons.gff",
@@ -313,7 +313,7 @@
 	    "gencode.v25":
 	      {
 	      "gtf":"/ifs/res/pwg/data/gencode/gencode.v25.annotation.gtf",
-	      "star_index":"/ifs/work/taylorlab/pensona/STAR_index_hg38_gencode.v25",
+	      "star_index":"/ifs/work/taylorlab/pensona/MISO_indexes/gencode.v25/STAR_gencode.v25",
               "kallisto_index":"/ifs/work/taylorlab/pensona/MISO_indexes/gencode.v25/gencode.v25",
 	      "miso_index":"/ifs/work/taylorlab/pensona/MISO_indexes/gencode.v25/commonshortest",
 	      "const_exons":"/ifs/work/taylorlab/pensona/MISO_indexes/gencode.v25/gencode.v25.annotation.min_1000.const_exons.gff",
