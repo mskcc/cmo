@@ -54,7 +54,7 @@ if __name__ =='__main__':
     parser.add_argument("fastq2", nargs="?")
 #    parser.add_argument("--genome", required=True, choices=cmo.util.genomes.keys())
     cmo.util.add_logging_options(parser)
-    args, _ = parser.parse_known_args()
+    args= parser.parse_args()
     command_specific_args = vars(args)
     stderr=args.stderr
     stdout=args.stdout
@@ -72,14 +72,15 @@ if __name__ =='__main__':
             #bedtools edge case read from stdin
         else:
             if value ==True:
-                cmd = cmd + ["-"+option]
+                cmd = cmd + ["--"+option]
             elif value!=False:
-                cmd = cmd + ["-"+option, value]
+                cmd = cmd + ["--"+option, value]
                 if value == "stdin":
                     stdin=sys.stdin
     cmd = cmd + [fastq1]
     if fastq2 != None:
         cmd = cmd + [fastq2]
+    print >>sys.stderr, (" ".join(cmd))
     cmo.util.call_cmd(" ".join(cmd), stderr=stderr, stdout=stdout, stdin=stdin)
 
      
