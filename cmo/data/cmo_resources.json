@@ -20,6 +20,11 @@
             "3.3-0":"/opt/common/CentOS_6/gatk/GenomeAnalysisTK-3.3-0/GenomeAnalysisTK.jar",
             "3.4-0":"/opt/common/CentOS_6/gatk/GenomeAnalysisTK-3.4-0-g7e26428/GenomeAnalysisTK.jar"
         },
+        "samstat":
+        {
+            "default":"/opt/common/CentOS_6-dev/samstat/1.5.1/samstat",
+            "1.5.1":"/opt/common/CentOS_6-dev/samstat/1.5.1/samstat"
+        },
         "cutadapt":
         { 
             "default":"/opt/common/CentOS_6-dev/python/python-2.7.10/bin/cutadapt",
@@ -32,9 +37,19 @@
         },
         "samtools":
         {
-            "default":"/opt/common/CentOS_6/samtools/samtools-1.2/samtools",
-            "0.1.19":"/opt/common/CentOS_6/samtools/samtools-0.1.19/samtools",
-            "0.1.2":"/opt/common/CentOS_6/samtools/samtools-1.2/samtools"
+            "default":"/opt/common/CentOS_6-dev/samtools/samtools-1.3.1/samtools",
+            "0.1.19":"/opt/common/CentOS_6-dev/samtools/samtools-0.1.19/samtools",
+            "1.2":"/opt/common/CentOS_6-dev/samtools/samtools-1.2/samtools",
+            "1.3":"/opt/common/CentOS_6-dev/samtools/samtools-1.3/samtools",
+            "1.3.1":"/opt/common/CentOS_6-dev/samtools/samtools-1.3.1/samtools"
+        },
+        "ppflag-fixer":
+        {
+            "default":"/opt/common/CentOS_6-dev/snp-pileup/ppflag-fixer"
+        },
+        "snp-pileup":
+        {
+            "default":"/opt/common/CentOS_6-dev/snp-pileup/snp-pileup"
         },
         "picard":
         {
@@ -52,12 +67,13 @@
         },
         "vcf2maf":
         {
-            "default":"/opt/common/CentOS_6-dev/vcf2maf/develop/",
-            "1.6.1":"/opt/common/CentOS_6-dev/vcf2maf/v1.6.1/",
-            "1.6.2":"/opt/common/CentOS_6-dev/vcf2maf/v1.6.2/",
-            "1.6.3":"/opt/common/CentOS_6-dev/vcf2maf/v1.6.3/",
-            "1.6.4":"/opt/common/CentOS_6-dev/vcf2maf/v1.6.4/",
-            "1.6.5":"/opt/common/CentOS_6-dev/vcf2maf/v1.6.5/",
+            "default":"/opt/common/CentOS_6-dev/vcf2maf/v1.6.12/",
+            "1.6.7":"/opt/common/CentOS_6-dev/vcf2maf/v1.6.7/",
+            "1.6.8":"/opt/common/CentOS_6-dev/vcf2maf/v1.6.8/",
+            "1.6.9":"/opt/common/CentOS_6-dev/vcf2maf/v1.6.9/",
+            "1.6.10":"/opt/common/CentOS_6-dev/vcf2maf/v1.6.10/",
+            "1.6.11":"/opt/common/CentOS_6-dev/vcf2maf/v1.6.11/",
+            "1.6.12":"/opt/common/CentOS_6-dev/vcf2maf/v1.6.12/",
             "develop":"/opt/common/CentOS_6-dev/vcf2maf/develop/"
         },
         "mutect":
@@ -84,8 +100,9 @@
         },
         "facets":
         {
-            "default":"/opt/common/CentOS_6-dev/FACETS/0.9.5/",
+            "default":"/opt/common/CentOS_6-dev/FACETS/development/",
             "0.9.5":"/opt/common/CentOS_6-dev/FACETS/0.9.5/",
+            "1.0.1":"/opt/common/CentOS_6-dev/FACETS/1.0.1/",
             "development":"/opt/common/CentOS_6-dev/FACETS/development/"
         },
         "facets_lib":
@@ -94,6 +111,10 @@
             "0.3.7":"/opt/common/CentOS_6-dev/facets_lib/0.3.7/",
             "0.3.8-hg18":"/opt/common/CentOS_6-dev/facets_lib/0.3.8-hg18/",
             "0.3.9":"/opt/common/CentOS_6-dev/facets_lib/0.3.9/",
+            "0.3.22":"/opt/common/CentOS_6-dev/facets_lib/0.3.22/",
+            "0.3.30":"/opt/common/CentOS_6-dev/facets_lib/0.3.30/",
+            "0.5.2":"/opt/common/CentOS_6-dev/facets_lib/0.5.2/",
+            "0.5.6":"/opt/common/CentOS_6-dev/facets_lib/0.5.6/",
             "current":""
         },
         "getbasecounts":
@@ -112,7 +133,8 @@
         "R":
         {
             "default":"/opt/common/CentOS_6-dev/R/R-3.2.2/bin/",
-            "3.1.2":"/opt/common/CentOS_6/R/R-3.1.2/bin/"
+            "3.1.2":"/opt/common/CentOS_6/R/R-3.1.2/bin/",
+	    "3.2.2-dev":"/opt/common/CentOS_6-dev/R/R-3.2.2/bin/"
         },
         "qc":
         {
@@ -145,15 +167,22 @@
         },
         "vt":
         {
-            "default":"/opt/common/CentOS_6-dev/vt/master/vt",
-            "0.5.7":"/opt/common/CentOS_6-dev/vt/0.5.7/vt"
+            "default":"/opt/common/CentOS_6-dev/vt/vt-0.5772/vt",
+            "master":"/opt/common/CentOS_6-dev/vt/master/vt",
+            "0.57":"/opt/common/CentOS_6-dev/vt/vt-0.57/vt",
+            "0.5772":"/opt/common/CentOS_6-dev/vt/vt-0.5772/vt"
         },
         "vep":
         {
-            "default":"/opt/common/CentOS_6-dev/vep/v83/",
-            "81":"/opt/common/CentOS_6-dev/vep/v81/",
-            "82":"/opt/common/CentOS_6-dev/vep/v82/",
-            "83":"/opt/common/CentOS_6-dev/vep/v83/"
+            "default":"/opt/common/CentOS_6-dev/vep/v86/",
+            "84":"/opt/common/CentOS_6-dev/vep/v84/",
+            "85":"/opt/common/CentOS_6-dev/vep/v85/",
+            "86":"/opt/common/CentOS_6-dev/vep/v86/"
+        },
+        "hotspot3d":
+        {
+            "default":"/opt/common/CentOS_6-dev/hotspot3d/0.4/",
+            "0.4":"/opt/common/CentOS_6-dev/hotspot3d/0.4/"
         },
         "varscan":
         {
@@ -166,10 +195,12 @@
             "default":"/opt/common/CentOS_6-dev/vardict/v1.4.2/build/install/VarDict/bin/VarDict",
             "1.4.2":"/opt/common/CentOS_6-dev/vardict/v1.4.2/build/install/VarDict/bin/VarDict"
         },
-        "bcf":
+        "bcftools":
         {
-            "default":"/opt/common/CentOS_6-dev/bcftools/bcftools-1.2/bin/bcftools",
-            "1.2":"/opt/common/CentOS_6-dev/bcftools/bcftools-1.2/bin/bcftools"
+            "default":"/opt/common/CentOS_6-dev/bcftools/bcftools-1.3.1/bcftools",
+            "1.2":"/opt/common/CentOS_6-dev/bcftools/bcftools-1.2/bcftools",
+            "1.3":"/opt/common/CentOS_6-dev/bcftools/bcftools-1.3/bcftools",
+            "1.3.1":"/opt/common/CentOS_6-dev/bcftools/bcftools-1.3.1/bcftools"
         },
         "matlab":
         {
@@ -181,24 +212,34 @@
             "default":"/opt/common/CentOS_6-dev/mutsig/cv-1.4",
             "1.4":"/opt/common/CentOS_6-dev/mutsig/cv-1.4"
         },
+        "hotspots":
+        {
+            "default":"/opt/common/CentOS_6-dev/hotspots/0.6.1/",
+            "0.6.1":"/opt/common/CentOS_6-dev/hotspots/0.6.1/"
+        },
+        "gdc-client":
+        {
+            "default":"/opt/common/CentOS_6-dev/python/python-2.7.10/bin/gdc-client",
+            "1.1.0":"/opt/common/CentOS_6-dev/python/python-2.7.10/bin/gdc-client"
+        },
         "star":
         {
-          "default": "/opt/common/CentOS_6/star/STAR-STAR_2.4.1d/bin/Linux_x86_64/STAR",
-          "2.4.1d": "/opt/common/CentOS_6/star/STAR-STAR_2.4.1d/bin/Linux_x86_64/STAR"
+            "default": "/opt/common/CentOS_6/star/STAR-STAR_2.4.1d/bin/Linux_x86_64/STAR",
+            "2.4.1d": "/opt/common/CentOS_6/star/STAR-STAR_2.4.1d/bin/Linux_x86_64/STAR"
         },
         "kallisto":
         {
-          "default": "/opt/common/CentOS_6/kallisto/kallisto_linux-v0.42.1/kallisto",
-          "0.42.1": "/opt/common/CentOS_6/kallisto/kallisto_linux-v0.42.1/kallisto",
+            "default": "/opt/common/CentOS_6/kallisto/kallisto_linux-v0.42.1/kallisto",
+            "0.42.1": "/opt/common/CentOS_6/kallisto/kallisto_linux-v0.42.1/kallisto"
         },
         "QoRT":
         {
-          "default": "/opt/common/CentOS_6-dev/QoRT/1.1.8/QoRTs.jar",
-          "1.1.8": "/opt/common/CentOS_6-dev/QoRT/1.1.8/QoRTs.jar"
+            "default": "/opt/common/CentOS_6-dev/QoRT/1.1.8/QoRTs.jar",
+            "1.1.8": "/opt/common/CentOS_6-dev/QoRT/1.1.8/QoRTs.jar"
         }
     },
 
- "genomes":
+    "genomes":
     {
         "hg19":
         {
@@ -207,12 +248,12 @@
             "bedtools_genome":"/opt/common/CentOS_6-dev/bedtools_genomes/human.hg19.genome",
             "impact410_targets":"/opt/common/CentOS_6-dev/postprocess/1.3.1/db/IMPACT_410_hg19_targets_plus3bp.bed",
             "bwa_fasta":"/ifs/depot/assemblies/H.sapiens/hg19/index/bwa/0.7.4-r385/hg19.fasta",
-            "cosmic":"/ifs/work/socci/Pipelines/CBE/variants_pipeline/data/hg19/CosmicCodingMuts_v67_20131024.vcf",
-            "dbsnp":"/ifs/depot/annotation/H.sapiens/dbSNP/v135/dbsnp_135.hg19__ReTag.vcf",
+            "cosmic":{"67":"/ifs/work/socci/Pipelines/CBE/variants_pipeline/data/hg19/CosmicCodingMuts_v67_20131024.vcf"},
+            "dbsnp":{"135":"/ifs/depot/annotation/H.sapiens/dbSNP/v135/dbsnp_135.hg19__ReTag.vcf"},
             "snps_1000g":"/ifs/work/socci/Pipelines/CBE/variants_pipeline/data/hg19/1000G_phase1.snps.high_confidence.hg19.vcf",
             "omni":"/ifs/work/socci/Pipelines/CBE/variants_pipeline/data/hg19/1000G_omni2.5.hg19.vcf",
             "hapmap33":"/ifs/work/socci/Pipelines/CBE/variants_pipeline/data/hg19/hapmap_3.3.hg19.vcf",
-            "indels_1000g":"/ifs/work/socci/Pipelines/CBE/variants_pipeline/data/hg19/Mills_and_1000G_gold     _standard.indels.hg19.vcf"
+            "indels_1000g":"/ifs/work/socci/Pipelines/CBE/variants_pipeline/data/hg19/Mills_and_1000G_gold_standard.indels.hg19.vcf"
 
         },
         "hg18":
@@ -228,30 +269,78 @@
         },
         "GRCh37":
         {
+            "impact410_targets":"/opt/common/CentOS_6-dev/cmo/targets/IMPACT410_b37/IMPACT410_b37_targets.bed",
             "fasta":"/ifs/depot/assemblies/H.sapiens/b37/b37.fasta",
             "facets_snps":"/ifs/work/socci/Depot/Pipelines/FACETS/v3/lib/dbsnp_137.b37__RmDupsClean__plusPseudo50__DROP_SORT.vcf.gz",
             "bwa_fasta":"/ifs/depot/assemblies/H.sapiens/b37/index/bwa/0.7.12/b37.fasta",
             "bedtools_genome":"/opt/common/CentOS_6-dev/bedtools_genomes/human.b37.genome",
-            "dbsnp":"/ifs/work/socci/Pipelines/CBE/variants_pipeline/data/b37/dbsnp_138.b37.vcf",
+            "dbsnp":
+            {
+                "138":"/ifs/work/socci/Pipelines/CBE/variants_pipeline/data/b37/dbsnp_138.b37.vcf",
+                "129":"/ifs/work/socci/Pipelines/CBE/variants_pipeline/data/b37/dbsnp_138.b37.excluding_sites_after_129.vcf"
+            },
             "snps_1000g":"/ifs/work/socci/Pipelines/CBE/variants_pipeline/data/b37/1000G_phase1.snps.high_confidence.b37.vcf",
             "omni":"/ifs/work/socci/Pipelines/CBE/variants_pipeline/data/b37/1000G_omni2.5.b37.vcf",
             "hapmap33":"/ifs/work/socci/Pipelines/CBE/variants_pipeline/data/b37/hapmap_3.3.b37.vcf",
             "indels_1000g":"/ifs/work/socci/Pipelines/CBE/variants_pipeline/data/b37/Mills_and_1000G_gold_standard.indels.b37.vcf",
-            "cosmic":"/ifs/work/socci/Pipelines/CBE/variants_pipeline/data/b37/CosmicCodingMuts_v74_b37_20151120.vcf",
+            "cosmic":
+            {
+                "74":"/ifs/work/socci/Pipelines/CBE/variants_pipeline/data/b37/CosmicCodingMuts_v74_b37_20151120.vcf",
+                "67":"/ifs/work/socci/Pipelines/CBE/variants_pipeline/data/b37/CosmicCodingMuts_v67_b37_20131024__NDS.vcf"
+            },
+            "exac":"/opt/common/CentOS_6-dev/vep/v86/ExAC_nonTCGA.r0.3.1.sites.vep.vcf.gz",
             "star_index": "/ifs/depot/assemblies/H.sapiens/hg19/index/star/2.4.1d/withoutJunctions",
-            "gtf": "/ifs/depot/annotation/H.sapiens/gencode/v19/gencode.v19.annotation.gtf",
+            "gencode":
+            {
+                "default":"/ifs/depot/annotation/H.sapiens/gencode/v19/gencode.v19.annotation.gtf",
+                "19":"/ifs/depot/annotation/H.sapiens/gencode/v19/gencode.v19.annotation.gtf"
+            },
             "kallisto_index": "/ifs/res/pwg/data/assemblies/homo_sapiens/gencode.v19/gencode.v19"
         },
-        "GRCh38":
+        "GRCh38": 
         {
-            "fasta":"/opt/common/CentOS_6-dev/vep/v82/homo_sapiens/82_GRCh38/Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz",
-            "star_index": "/ifs/work/taylorlab/pensona/STAR_index_hg38_gencode.v25",
-            "gtf": "/ifs/depot/annotation/H.sapiens/gencode/v25/gencode.v25.annotation.gtf",
-            "kallisto_index": "/ifs/res/pwg/data/assemblies/homo_sapiens/gencode.v25/gencode.v25.pc_transcripts"
+            "fasta":"/opt/common/CentOS_6-dev/vep/v86/homo_sapiens/86_GRCh38/Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz",
+            "facets_snps":"/opt/common/CentOS_6-dev/facets_lib/Homo_sapiens_assembly38.dbsnp138.vcf.gz",
+	    "default":
+	      {
+	      "gtf":"/ifs/res/pwg/data/gencode/gencode.v25.annotation.gtf",
+	      "star_index":"/ifs/work/taylorlab/pensona/STAR_index_hg38_gencode.v25",
+              "kallisto_index":"/ifs/work/taylorlab/pensona/MISO_indexes/gencode.v25/gencode.v25",
+	      "miso_index":"/ifs/work/taylorlab/pensona/MISO_indexes/gencode.v25/commonshortest",
+	      "const_exons":"/ifs/work/taylorlab/pensona/MISO_indexes/gencode.v25/gencode.v25.annotation.min_1000.const_exons.gff",
+	      "gene_names":"/ifs/work/taylorlab/pensona/MISO_indexes/gencode.v25/gencode.v25.metadata.HGNC"
+            },
+	    "gencode.v25":
+	      {
+	      "gtf":"/ifs/res/pwg/data/gencode/gencode.v25.annotation.gtf",
+	      "star_index":"/ifs/work/taylorlab/pensona/STAR_index_hg38_gencode.v25",
+              "kallisto_index":"/ifs/work/taylorlab/pensona/MISO_indexes/gencode.v25/gencode.v25",
+	      "miso_index":"/ifs/work/taylorlab/pensona/MISO_indexes/gencode.v25/commonshortest",
+	      "const_exons":"/ifs/work/taylorlab/pensona/MISO_indexes/gencode.v25/gencode.v25.annotation.min_1000.const_exons.gff",
+	      "gene_names":"/ifs/work/taylorlab/pensona/MISO_indexes/gencode.v25/gencode.v25.metadata.HGNC"
+            }
         },
         "GRCm38":
         {
-            "fasta":"/opt/common/CentOS_6-dev/vep/v82/mus_musculus/82_GRCm38/Mus_musculus.GRCm38.dna.primary_assembly.fa.gz"
+            "fasta":"/opt/common/CentOS_6-dev/vep/v86/mus_musculus/86_GRCm38/Mus_musculus.GRCm38.dna.primary_assembly.fa.gz",
+	    "default":
+	      {
+	      "gtf":"/ifs/work/taylorlab/pensona/MISO_indexes/gencode.vM12/gencode.vM12.annotation.gtf",
+	      "star_index":"/ifs/work/taylorlab/pensona/MISO_indexes/gencode.vM12/STAR_gencode.vM12",
+              "kallisto_index":"/ifs/work/taylorlab/pensona/MISO_indexes/gencode.vM12/gencode.vM12",
+	      "miso_index":"/ifs/work/taylorlab/pensona/MISO_indexes/gencode.vM12/commonshortest",
+	      "const_exons":"/ifs/work/taylorlab/pensona/MISO_indexes/gencode.vM12/gencode.vM12.annotation.min_1000.const_exons.gff",
+	      "gene_names":"/ifs/work/taylorlab/pensona/MISO_indexes/gencode.vM12/gencode.vM12.metadata.MGI"
+            },
+	    "gencode.vM12":
+	      {
+	      "gtf":"/ifs/work/taylorlab/pensona/MISO_indexes/gencode.vM12/gencode.vM12.annotation.gtf",
+	      "star_index":"/ifs/work/taylorlab/pensona/MISO_indexes/gencode.vM12/STAR_gencode.vM12",
+              "kallisto_index":"/ifs/work/taylorlab/pensona/MISO_indexes/gencode.vM12/gencode.vM12",
+	      "miso_index":"/ifs/work/taylorlab/pensona/MISO_indexes/gencode.vM12/commonshortest",
+	      "const_exons":"/ifs/work/taylorlab/pensona/MISO_indexes/gencode.vM12/gencode.vM12.annotation.min_1000.const_exons.gff",
+	      "gene_names":"/ifs/work/taylorlab/pensona/MISO_indexes/gencode.vM12/gencode.vM12.metadata.MGI"
+            }
         },
         "mm9":
         {
@@ -260,14 +349,24 @@
         "mm10":
         {
             "fasta":"/ifs/depot/assemblies/M.musculus/mm10/mm10.fasta",
+            "facets_snps":"/opt/common/CentOS_6-dev/facets_lib/mouse_MM10_dbSNP_NCBI_20150625___noChrM__plusPseudo50__DROP_SORT.vcf.gz",
             "star_index": "/ifs/depot/assemblies/M.musculus/mm10/index/star/2.4.1d/gencode/vM8/overhang74",
-            "gtf": "/ifs/depot/annotation/M.musculus/gencode/vM8/gencode.vM8.annotation.dedup.gtf",
+            "gencode":
+            {
+            "default": "/ifs/depot/annotation/M.musculus/gencode/vM8/gencode.vM8.annotation.dedup.gtf",
+            "M8": "/ifs/depot/annotation/M.musculus/gencode/vM8/gencode.vM8.annotation.dedup.gtf"
+            },
             "kallisto_index": "/ifs/depot/assemblies/M.musculus/mm10/index/kallisto/v0.42.1/gencode/vM8/gencode.vM8.annotation.gtf.fasta.idx"
         }
     },
 
- "chr1_fingerprints":
+    "chr1_fingerprints":
     {
+        "mm10":
+        {
+            "name":"chr1",
+            "length":195471971
+        },
         "mm9":
         {
             "name":"chr1",
@@ -292,29 +391,62 @@
         {
             "name":"1",
             "length":249250621
+        },
+        "GRCh38":
+        {
+            "name":"chr1",
+            "length":248956422
         }
     },
- "keys":
+
+    "keys":
     {
         "gatk":"/opt/common/CentOS_6-dev/cmo/keys/mskcc_gatk.key",
         "cghub":"/opt/common/CentOS_6-dev/cmo/keys/schultzn_cghub.key"
     },
- "targets":
- {
-     "abra":"",
-         "AgilentExon_51MB_hg19_mm10_v3":"",
-         "AgilentExon_51MB_hg19_v3":
-         {
-             "baits_ilist":"/opt/common/CentOS_6-dev/cmo/targets/AgilentExon_51MB_hg19_v3/AgilentExon_51MB_hg19_v3_baits.ilist",
-             "targets_ilist":"/opt/common/CentOS_6-dev/cmo/targets/AgilentExon_51MB_hg19_v3/AgilentExon_51MB_hg19_v3_targets.ilist",
-             "targets_plus5bp_ilist":"/opt/common/CentOS_6-dev/cmo/targets/AgilentExon_51MB_hg19_v3/AgilentExon_51MB_hg19_v3_targets.ilist",
-             "FP_tiling_genotypes":"/opt/common/CentOS_6-dev/cmo/targets/AgilentExon_51MB_hg19_v3/Agilent51MBExome__hg19__FP_tiling_genotypes.txt",
-             "FP_intervals":"/opt/common/CentOS_6-dev/cmo/targets/AgilentExon_51MB_hg19_v3/Agilent51MBExome__hg19__FP_intervals.list"
-         },
-         "Agilent_MouseAllExonV1_mm10_v1":"",
-         "Genomic_mm10":"",
-         "IMPACT_341_hg19":"",
-         "IMPACT410_hg19":"",
-         "wgs_hg19":""
- }
+
+    "targets":
+    {
+        "abra": 
+        {
+            "GRCh37":"/opt/common/CentOS_6-dev/cmo/targets/abra/abra_target_regions_b37.bed",
+            "hg19":"/opt/common/CentOS_6-dev/cmo/targets/abra/abra_target_regions_hg19.bed"
+        },
+        "AgilentExon_51MB_b37_v3":
+        {
+            "baits_ilist":"/ifs/work/socci/Pipelines/CBE/variants_pipeline/targets/AgilentExon_51MB_b37_v3/AgilentExon_51MB_b37_v3_baits.ilist",
+            "targets_ilist":"/ifs/work/socci/Pipelines/CBE/variants_pipeline/targets/AgilentExon_51MB_b37_v3/AgilentExon_51MB_b37_v3_targets.ilist",
+            "targets_plus5bp_ilist":"/ifs/work/socci/Pipelines/CBE/variants_pipeline/targets/AgilentExon_51MB_b37_v3/AgilentExon_51MB_b37_v3_targets_plus5bp.ilist",
+            "FP_tiling_genotypes":"/opt/common/CentOS_6-dev/cmo/targets/AgilentExon_51mb_b37_v3/Agilent51MBExome__b37__FP_tiling_genotypes.txt",
+            "FP_intervals":"/opt/common/CentOS_6-dev/cmo/targets/AgilentExon_51mb_b37_v3/Agilent51MBExome__b37__FP_intervals.list"
+        },
+        "AgilentExon_51MB_hg19_mm10_v3":"",
+        "AgilentExon_51MB_hg19_v3":
+        {
+            "baits_ilist":"/opt/common/CentOS_6-dev/cmo/targets/AgilentExon_51MB_hg19_v3/AgilentExon_51MB_hg19_v3_baits.ilist",
+            "targets_ilist":"/opt/common/CentOS_6-dev/cmo/targets/AgilentExon_51MB_hg19_v3/AgilentExon_51MB_hg19_v3_targets.ilist",
+            "targets_plus5bp_ilist":"/opt/common/CentOS_6-dev/cmo/targets/AgilentExon_51MB_hg19_v3/AgilentExon_51MB_hg19_v3_targets.ilist",
+            "FP_tiling_genotypes":"/opt/common/CentOS_6-dev/cmo/targets/AgilentExon_51MB_hg19_v3/Agilent51MBExome__hg19__FP_tiling_genotypes.txt",
+            "FP_intervals":"/opt/common/CentOS_6-dev/cmo/targets/AgilentExon_51MB_hg19_v3/Agilent51MBExome__hg19__FP_intervals.list"
+        },
+        "Agilent_MouseAllExonV1_mm10_v1":"",
+        "Genomic_mm10":"",
+        "IMPACT_341_hg19":"",
+        "IMPACT410_hg19":"",
+        "wgs_hg19":""
+    },
+
+    "config":
+    {
+        "gdc":
+        {
+            "file_repository": "/ifs/res/pwg/gdc/files/",
+            "tmp_jobs_dir": "/ifs/res/pwg/gdc/jobs/",
+            "gdc_token": "/ifs/res/pwg/gdc/token/gdc-user-token.latest.txt",
+            "gdc_url": "https://gdc-api.nci.nih.gov/files/",
+            "num_parallel_slicing_downloads": 10,
+            "mongodb_uri": "mongodb://pitchfork.cbio.private:27017",
+            "mongodb_db_name": "cmo_gdc"
+        }
+    }
 }
