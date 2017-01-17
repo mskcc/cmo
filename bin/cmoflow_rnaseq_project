@@ -8,45 +8,34 @@ def run_sleuth(samplefile):
     samplefile = os.path.abspath(samplefile)
 
     ## options(mc.cores = 4L)
-    sleuth_cmd = [programs["R"]["3.2.2-dev"] + "Rscript",
+    sleuth_cmd = [cmo.util.programs["R"]["3.2.2-dev"] + "Rscript",
                   "-e", "rnaseq.scripts::run_sleuth()",
                   "-d", inputdir,
-                  "--gene.names", genomes[args.reference_sequence]['default']['gene_names']]
+                  "--gene.names", cmo.util.genomes[args.reference_sequence]['default']['gene_names']]
     return workflow.Job(" ".join(sleuth_cmd), 
                         resources="rusage[mem=4]",
                         name="Run Sleuth")
 
-def QoRT_merge_all_junctions(inputdir, samplenames, outputdir, minCount = 6):
-    inputdir = os.path.abspath(inputdir)
+def QoRT_merge_all_junctions(samplefile, conditionname, minCount = 6):
+    samplefile = os.path.abspath(samplefile)
 
-    ### samplenames must be directories in the inputdir
-    for s in samplenames:
-        if not os.path.exists(inputdir + "/" + s):
-            exit("samplenames must be directories in the inputdir")
-
-    ### inputdirs = [os.path.abspath(d) for d in inputdirs]
-    ### inputdirs_base = [os.path.basename(d) for d in inputdirs]
-
-    outputdir = os.path.abspath(outputdir)
-    if not os.path.exists(outputdir): os.makedirs(outputdir)
-
-    ### list input directories in file for JunctionSeq
-    decoder_filename = outputdir + "/decoder.txt"
-    decoder = open(decoder_filename, 'w')
-    decoder.write("sample.ID\n")
-    for d in samplenames: decoder.write(d + "\n")
-    decoder.close()
-
-    merge_all_cmd = [cmo.util.programs['java']["default"], 
+    workdir = samplefile + "_" + conditionname + "/JunctionSeq_gff"
+    decoder_filename = workdir + "/decoder.txt"
+    merge_all_cmd = [cmo.util.programs["R"]["3.2.2-dev"] + "Rscript",
+                     " -e", "'rnaseq.scripts::write.decoder()'", 
+                     "-s", samplefile,
+                     "-c", conditionname,
+                     "&&",
+                     cmo.util.programs['java']["default"], 
                      "-jar", cmo.util.programs['QoRT']["default"], 
                      "mergeNovelSplices",
                      "--minCount", str(minCount),
-                     inputdir,                
+                     os.path.dirname(samplefile),
                      decoder_filename,
                      cmo.util.genomes[args.reference_sequence]['default']['gtf'],
-                     outputdir]
+                     workdir]
     return workflow.Job(" ".join(merge_all_cmd), 
-                        resources="rusage[mem=15]",
+                        resources="rusage[mem=35]",
                         name="Merge all QoRT junction and exon counts")
 
 def QoRT_merge_excl_novel_junctions(inputdir):
@@ -56,14 +45,15 @@ def QoRT_merge_excl_novel_junctions(inputdir):
     #                annoFiles/JunctionSeq.flat.gff.gz
     pass
 
-def run_JuntionSeq(inputdir):
-    JuntionSeq_cmd = [programs["R"]["3.2.2-dev"] + "Rscript",
-                      "-e", "rnaseq.scripts::JunctionSeq()",
-                      "-d", inputdir,
-                      "--gene.names", genomes[args.reference_sequence]['default']['gene_names']
+def run_JunctionSeq(samplefile, conditionname):
+    JunctionSeq_cmd = [cmo.util.programs["R"]["3.2.2-dev"] + "Rscript",
+                      "-e", "'rnaseq.scripts::run_JunctionSeq()'",
+                      "-s", samplefile,
+                       "-c", conditionname,
+                      "--gene.names", cmo.util.genomes[args.reference_sequence]['default']['gene_names']
                       ]
     return workflow.Job(" ".join(JunctionSeq_cmd),
-                        resources="rusage[mem=15]",
+                        resources="rusage[mem=50]",
                         name="Run JunctionSeq")
 
 if __name__ == "__main__":
@@ -73,23 +63,30 @@ if __name__ == "__main__":
                         help="name of reference")
     parser.add_argument("-s", "--samplefile", required=True,
                         help="text file listing samples and condition")
-    parser.add_argument("-o", "--outputdir", default = ".",
-                        help="output directory, will default to '.'")
+    parser.add_argument("-c", "--conditionname", required=True,
+                        help="condition within samplefile")
+    # parser.add_argument("-o", "--outputdir", default = ".",
+    #                     help="output directory, will default to '.'")
     # parser.add_argument("-i", "--inputdir", default = ".",
     #                     help="input directory, will default to '.'")
-    parser.add_argument("-c", "--minCounts", default = "6",
+    parser.add_argument("-n", "--minCounts", default = "6",
                         help="minCounts for JunctionSeq")
     # parser.add_argument("-s", '--samplenames', nargs='+', required=True,
     #                     help='directories within inputdir containing cmoflow_rnaseq output')
     args = parser.parse_args()
     print(args)
 
-    sleuth = run_sleuth(args.samplefile)
-    jobs_list = [sleuth]
-#    QoRT_merge = QoRT_merge_all_junctions(args.inputdir, args.samplenames, args.outputdir)
-#    jobs_list = [sleuth, QoRT_merge]
-    jobs_dict = {}
+    jobs_list = list()
+    jobs_dict = dict()
+    # sleuth = run_sleuth(args.samplefile)
+    # jobs_list.append(sleuth)
+    QoRT_merge = QoRT_merge_all_junctions(args.samplefile, args.conditionname)
+    jobs_list.append(QoRT_merge)
+    JunctionSeq = run_JunctionSeq(args.samplefile, args.conditionname)
+    jobs_list.append(JunctionSeq)
+    jobs_dict[QoRT_merge] = JunctionSeq
 
-    new_workflow = workflow.Workflow(jobs_list, jobs_dict, name="RNASeq Project Workflow")
+    new_workflow = workflow.Workflow(jobs_list, jobs_dict,
+                                     name="RNASeq Project Workflow")
     new_workflow.run('LSF')
             

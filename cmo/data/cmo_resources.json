@@ -308,7 +308,7 @@
               "kallisto_index":"/ifs/work/taylorlab/pensona/MISO_indexes/gencode.v25/gencode.v25",
 	      "miso_index":"/ifs/work/taylorlab/pensona/MISO_indexes/gencode.v25/commonshortest",
 	      "const_exons":"/ifs/work/taylorlab/pensona/MISO_indexes/gencode.v25/gencode.v25.annotation.min_1000.const_exons.gff",
-	      "gene_names":"/ifs/work/taylorlab/pensona/MISO_indexes/gencode.v25/gencode.v25.metadata.HGNC"
+	      "gene_names":"/ifs/work/taylorlab/pensona/MISO_indexes/gencode.v25/gencode.v25.metadata.HGNC.gene_id"
             },
 	    "gencode.v25":
 	      {
@@ -317,7 +317,7 @@
               "kallisto_index":"/ifs/work/taylorlab/pensona/MISO_indexes/gencode.v25/gencode.v25",
 	      "miso_index":"/ifs/work/taylorlab/pensona/MISO_indexes/gencode.v25/commonshortest",
 	      "const_exons":"/ifs/work/taylorlab/pensona/MISO_indexes/gencode.v25/gencode.v25.annotation.min_1000.const_exons.gff",
-	      "gene_names":"/ifs/work/taylorlab/pensona/MISO_indexes/gencode.v25/gencode.v25.metadata.HGNC"
+	      "gene_names":"/ifs/work/taylorlab/pensona/MISO_indexes/gencode.v25/gencode.v25.metadata.HGNC.gene_id"
             }
         },
         "GRCm38":
@@ -330,7 +330,7 @@
               "kallisto_index":"/ifs/work/taylorlab/pensona/MISO_indexes/gencode.vM12/gencode.vM12",
 	      "miso_index":"/ifs/work/taylorlab/pensona/MISO_indexes/gencode.vM12/commonshortest",
 	      "const_exons":"/ifs/work/taylorlab/pensona/MISO_indexes/gencode.vM12/gencode.vM12.annotation.min_1000.const_exons.gff",
-	      "gene_names":"/ifs/work/taylorlab/pensona/MISO_indexes/gencode.vM12/gencode.vM12.metadata.MGI"
+	      "gene_names":"/ifs/work/taylorlab/pensona/MISO_indexes/gencode.vM12/gencode.vM12.metadata.MGI.gene_id"
             },
 	    "gencode.vM12":
 	      {
@@ -339,7 +339,7 @@
               "kallisto_index":"/ifs/work/taylorlab/pensona/MISO_indexes/gencode.vM12/gencode.vM12",
 	      "miso_index":"/ifs/work/taylorlab/pensona/MISO_indexes/gencode.vM12/commonshortest",
 	      "const_exons":"/ifs/work/taylorlab/pensona/MISO_indexes/gencode.vM12/gencode.vM12.annotation.min_1000.const_exons.gff",
-	      "gene_names":"/ifs/work/taylorlab/pensona/MISO_indexes/gencode.vM12/gencode.vM12.metadata.MGI"
+	      "gene_names":"/ifs/work/taylorlab/pensona/MISO_indexes/gencode.vM12/gencode.vM12.metadata.MGI.gene_id"
             }
         },
         "mm9":
