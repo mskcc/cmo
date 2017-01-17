@@ -58,6 +58,7 @@ def run_QoRT(bam_file, outputdir):
     outputdir = os.path.abspath(outputdir)
 
     QoRT_cmd = [cmo.util.programs['java']["default"], 
+                "-Xmx40G",
                 "-jar", cmo.util.programs['QoRT']["default"], 
                 "QC",
                 bam_file,
