@@ -41,10 +41,8 @@ class Picard:
             cmd = [self.java_cmd, self.java_args, "-jar", self.picard_jar, command]
         
         for arg, value in self.default_args.items():
-            if arg not in default_args_override:
+            if arg not in command_specific_args:
                 cmd = cmd + [arg + "=" + value]
-            else:
-                cmd = cmd + [arg + "=" + default_args_override[arg]]
         for arg, value in command_specific_args.items():
             if(isinstance(value, list)):
                 for arg_value in value:
