@@ -124,7 +124,8 @@
         },
         "python":
         {
-            "default":"/opt/common/CentOS_6-dev/python/python-2.7.10/bin/python"
+            "default":"/opt/common/CentOS_6-dev/python/python-2.7.10/bin/python",
+            "3.5.1":"/opt/common/CentOS_6-dev/python/python-3.5.1/bin/python3"
         },
         "perl":
         {
@@ -236,7 +237,11 @@
         {
             "default": "/opt/common/CentOS_6-dev/QoRT/1.1.8/QoRTs.jar",
             "1.1.8": "/opt/common/CentOS_6-dev/QoRT/1.1.8/QoRTs.jar"
-        }
+        },
+	"suppa":
+	{
+	    "default":"/ifs/work/taylorlab/pensona/checkout/suppa/suppa.py"
+	}
     },
 
     "genomes":
@@ -308,7 +313,8 @@
               "kallisto_index":"/ifs/work/taylorlab/pensona/MISO_indexes/gencode.v25/gencode.v25",
 	      "miso_index":"/ifs/work/taylorlab/pensona/MISO_indexes/gencode.v25/commonshortest",
 	      "const_exons":"/ifs/work/taylorlab/pensona/MISO_indexes/gencode.v25/gencode.v25.annotation.min_1000.const_exons.gff",
-	      "gene_names":"/ifs/work/taylorlab/pensona/MISO_indexes/gencode.v25/gencode.v25.metadata.HGNC.gene_id"
+	      "gene_names":"/ifs/work/taylorlab/pensona/MISO_indexes/gencode.v25/gencode.v25.metadata.HGNC.gene_id",
+	      "suppa_index":"/ifs/work/taylorlab/pensona/MISO_indexes/gencode.v25/suppa"
             },
 	    "gencode.v25":
 	      {
@@ -317,7 +323,8 @@
               "kallisto_index":"/ifs/work/taylorlab/pensona/MISO_indexes/gencode.v25/gencode.v25",
 	      "miso_index":"/ifs/work/taylorlab/pensona/MISO_indexes/gencode.v25/commonshortest",
 	      "const_exons":"/ifs/work/taylorlab/pensona/MISO_indexes/gencode.v25/gencode.v25.annotation.min_1000.const_exons.gff",
-	      "gene_names":"/ifs/work/taylorlab/pensona/MISO_indexes/gencode.v25/gencode.v25.metadata.HGNC.gene_id"
+	      "gene_names":"/ifs/work/taylorlab/pensona/MISO_indexes/gencode.v25/gencode.v25.metadata.HGNC.gene_id",
+	      "suppa_index":"/ifs/work/taylorlab/pensona/MISO_indexes/gencode.v25/suppa"
             }
         },
         "GRCm38":
@@ -330,7 +337,8 @@
               "kallisto_index":"/ifs/work/taylorlab/pensona/MISO_indexes/gencode.vM12/gencode.vM12",
 	      "miso_index":"/ifs/work/taylorlab/pensona/MISO_indexes/gencode.vM12/commonshortest",
 	      "const_exons":"/ifs/work/taylorlab/pensona/MISO_indexes/gencode.vM12/gencode.vM12.annotation.min_1000.const_exons.gff",
-	      "gene_names":"/ifs/work/taylorlab/pensona/MISO_indexes/gencode.vM12/gencode.vM12.metadata.MGI.gene_id"
+	      "gene_names":"/ifs/work/taylorlab/pensona/MISO_indexes/gencode.vM12/gencode.vM12.metadata.MGI.gene_id",
+	      "suppa_index":"/ifs/work/taylorlab/pensona/MISO_indexes/gencode.vM12/suppa"
             },
 	    "gencode.vM12":
 	      {
@@ -339,7 +347,8 @@
               "kallisto_index":"/ifs/work/taylorlab/pensona/MISO_indexes/gencode.vM12/gencode.vM12",
 	      "miso_index":"/ifs/work/taylorlab/pensona/MISO_indexes/gencode.vM12/commonshortest",
 	      "const_exons":"/ifs/work/taylorlab/pensona/MISO_indexes/gencode.vM12/gencode.vM12.annotation.min_1000.const_exons.gff",
-	      "gene_names":"/ifs/work/taylorlab/pensona/MISO_indexes/gencode.vM12/gencode.vM12.metadata.MGI.gene_id"
+	      "gene_names":"/ifs/work/taylorlab/pensona/MISO_indexes/gencode.vM12/gencode.vM12.metadata.MGI.gene_id",
+	      "suppa_index":"/ifs/work/taylorlab/pensona/MISO_indexes/gencode.vM12/suppa"
             }
         },
         "mm9":
