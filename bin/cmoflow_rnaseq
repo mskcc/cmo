@@ -1,6 +1,6 @@
 #!/opt/common/CentOS_6-dev/python/python-2.7.10/bin/python
 from cmo import workflow
-import argparse, os, sys
+import argparse, os, sys, re
 import cmo, shutil 
 from distutils.version import StrictVersion
 
@@ -30,22 +30,24 @@ def star_alignment(fastq_filenames, outputdir, processors = 10):
         input_R1 = fastq_filenames[0]
         input_R2 = fastq_filenames[1]
 
+    gzipped = re.match(r'.*\.gz$', fastq_filenames[0])
     outFileNamePrefix = os.path.abspath(outputdir) + "/"
 
-    star_cmd = [cmo.util.programs['star']["default"],
-                "--readFilesCommand zcat",
-                "--genomeDir", cmo.util.genomes[args.reference_sequence]['default']['star_index'],
-                "--readFilesIn", input_R1, input_R2,
-                "--outFileNamePrefix", outFileNamePrefix,
-                "--runThreadN", str(processors),
-                "--outSAMtype BAM SortedByCoordinate",
-                "--limitBAMsortRAM", str(90000000000), ### looks like large bams need as much as this?
-                "&&",
-                cmo.util.programs['samtools']["1.3.1"], "index",
-                outFileNamePrefix + "Aligned.sortedByCoord.out.bam",
-                "&&",
-                "rm -rf",
-                outFileNamePrefix + "_STARtmp"]
+    star_cmd = [cmo.util.programs['star']["default"]]
+    if gzipped: 
+        star_cmd += ["--readFilesCommand zcat"]
+    star_cmd += ["--genomeDir", cmo.util.genomes[args.reference_sequence]['default']['star_index'],
+                 "--readFilesIn", input_R1, input_R2,
+                 "--outFileNamePrefix", outFileNamePrefix,
+                 "--runThreadN", str(processors),
+                 "--outSAMtype BAM SortedByCoordinate",
+                 "--limitBAMsortRAM", str(90000000000), ### looks like large bams need as much as this?
+                 "&&",
+                 cmo.util.programs['samtools']["1.3.1"], "index",
+                 outFileNamePrefix + "Aligned.sortedByCoord.out.bam",
+                 "&&",
+                 "rm -rf",
+                 outFileNamePrefix + "_STARtmp"]
     return workflow.Job(" ".join(star_cmd), 
                         resources="rusage[mem=100]", 
                         name="Run STAR alignment",
@@ -57,13 +59,26 @@ def run_QoRT(bam_file, outputdir):
     bam_file = os.path.abspath(bam_file)
     outputdir = os.path.abspath(outputdir)
 
-    QoRT_cmd = [cmo.util.programs['java']["default"], 
+    QoRT_cmd = [cmo.util.programs['samtools']["1.3.1"],
+                "view -b -F 4 -F 8", 
+                bam_file,
+                "|",
+                cmo.util.programs['java']["default"], 
                 "-Xmx40G",
                 "-jar", cmo.util.programs['QoRT']["default"], 
                 "QC",
-                bam_file,
+                # "--runFunctions", "writeKnownSplices,writeNovelSplices,writeSpliceExon,writeDESeq" ### run functions required for JunctionSeq & DESeq only
+                "-",
                 cmo.util.genomes[args.reference_sequence]['default']['gtf'],
                 outputdir]
+    # QoRT_cmd = [cmo.util.programs['java']["default"], 
+    #             "-Xmx40G",
+    #             "-jar", cmo.util.programs['QoRT']["default"], 
+    #             "QC",
+    #             # "--runFunctions", "writeKnownSplices,writeNovelSplices,writeSpliceExon,writeDESeq" ### run functions required for JunctionSeq & DESeq only
+    #             bam_file,
+    #             cmo.util.genomes[args.reference_sequence]['default']['gtf'],
+    #             outputdir]
     return workflow.Job(" ".join(QoRT_cmd), 
                         resources="rusage[mem=50]", 
                         name="Run QoRT")
@@ -163,16 +178,16 @@ if __name__ == "__main__":
     if args.bam == False:
         jobs_dict[star] = [QoRT, insert_length]
 
-    pack = pack_miso(args.outputdir)
+    # pack = pack_miso(args.outputdir)
 
     jobs_dict[insert_length] = list()
     for AS_type in ["SE", "A3SS", "A5SS", "MXE", "RI"]:
         miso = run_miso(bam_file, AS_type, args.outputdir + "/MISO/" + AS_type)
         jobs_list.append(miso)
         jobs_dict[insert_length].append(miso)
-        jobs_dict[miso] = pack
+        # jobs_dict[miso] = pack
         
-    jobs_list.append(pack)
+    # jobs_list.append(pack)
 
     name = "RNASeq Workflow"
     if not args.bam == False: name = name + " (from BAM)"
