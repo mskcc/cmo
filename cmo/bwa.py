@@ -39,8 +39,9 @@ class Bwa:
         cmd = [self.bwa_cmd, "mem"]
         if args_dict != None:
             for arg, value in args_dict.items():
+
                 #hax for \t string interpolation
-                if arg == "R":
+                if value != None and arg == "R":
                     value = '"'+value+'"'
                 if value == True:
                     cmd.append("-" + arg)

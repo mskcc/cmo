@@ -41,17 +41,19 @@ class Picard:
             cmd = [self.java_cmd, self.java_args, "-jar", self.picard_jar, command]
         
         for arg, value in self.default_args.items():
-            if arg not in default_args_override:
-                cmd = cmd + [arg + "=" + value]
-            else:
-                cmd = cmd + [arg + "=" + default_args_override[arg]]
+            if arg not in command_specific_args:
+                if value==True:
+                    cmd = cmd + [arg + "="+ str(value)]
+                elif value != None and value !=False:
+                    cmd = cmd + [arg + "=" + value]
         for arg, value in command_specific_args.items():
             if(isinstance(value, list)):
                 for arg_value in value:
                     cmd = cmd + [arg + "=" + arg_value]
-            else:
-                if value != None:
-                    cmd = cmd + [arg + "=" + value]
+            elif value==True:
+                cmd = cmd + [arg + "=" + str(value)]
+            elif value != None and value!=False:
+                cmd = cmd + [arg + "=" + value]
         print >>sys.stderr, " ".join(cmd)
         return " ".join(cmd)
     def picard_cmd_help(self, command):

@@ -15,9 +15,7 @@ def parse_options(trimgalore_command):
     last_option_help = ' ' 
     valid_args = []
     for line in lines:
-        print line
         m = re.match(r"^(-\S[^/]?)?/?(--\w+)[\t ]+(<\w+>)?[\t ]+(.*)$", line)
-        print m
         if m:
             if last_option != '':
                 valid_args.append((last_option, last_short_option, option_type, last_option_help))
@@ -42,23 +40,28 @@ if __name__ =='__main__':
     parser = argparse.ArgumentParser(parents= [ preparser ], add_help=True, 
             formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     for (arg, short_arg, arg_type, help) in command_options:
-        print arg, arg_type
         if(short_arg == "-h" or short_arg =="-v"):
             #skip help and version
             continue
 #       help = help.replace("%","%%")
-        if arg_type and re.search("(INT|STRING|ERROR|ARGS)", arg_type):
+        if arg=="--output_dir":
+            parser.add_argument(arg, action="store", metavar='', help=help)
+        elif arg_type and re.search("(INT|STRING|ERROR|ARGS)", arg_type):
             parser.add_argument(arg, action="store", metavar='', help=help)
         else:
             parser.add_argument(arg, action="store_true", help=help) 
+    parser.add_argument("fastq1")
+    parser.add_argument("fastq2", nargs="?")
 #    parser.add_argument("--genome", required=True, choices=cmo.util.genomes.keys())
     cmo.util.add_logging_options(parser)
-    args = parser.parse_args()
+    args= parser.parse_args()
     command_specific_args = vars(args)
     stderr=args.stderr
     stdout=args.stdout
     cmo.util.remove_logging_options_from_dict(command_specific_args)
-    for key in  ["version", "cmd"]:
+    fastq1 = args.fastq1
+    fastq2 = args.fastq2
+    for key in  ["version", "fastq1", "fastq2"]:
         del command_specific_args[key]
     command_specific_args = dict((k, v) for k, v in command_specific_args.iteritems() if v)
     cmd = [trimgalore_command]
@@ -69,11 +72,15 @@ if __name__ =='__main__':
             #bedtools edge case read from stdin
         else:
             if value ==True:
-                cmd = cmd + ["-"+option]
+                cmd = cmd + ["--"+option]
             elif value!=False:
-                cmd = cmd + ["-"+option, value]
+                cmd = cmd + ["--"+option, value]
                 if value == "stdin":
                     stdin=sys.stdin
+    cmd = cmd + [fastq1]
+    if fastq2 != None:
+        cmd = cmd + [fastq2]
+    print >>sys.stderr, (" ".join(cmd))
     cmo.util.call_cmd(" ".join(cmd), stderr=stderr, stdout=stdout, stdin=stdin)
 
      
