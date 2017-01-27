@@ -74,6 +74,7 @@ def QoRT_merge_excl_novel_junctions(inputdir):
     pass
 
 def run_JunctionSeq(samplefile, conditionname):
+    samplefile = os.path.abspath(samplefile)
     JunctionSeq_cmd = [cmo.util.programs["R"]["3.2.2-dev"] + "Rscript",
                       "-e", "'rnaseq.scripts::run_JunctionSeq()'",
                       "-s", samplefile,
