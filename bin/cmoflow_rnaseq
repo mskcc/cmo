@@ -131,7 +131,48 @@ def pack_miso(outputdir):
                         resources="rusage[mem=10]",
                         name="Pack MISO")
 
-    
+def run_bento_seq(bam_file, outputdir):
+    """http://biorxiv.org/content/early/2016/04/02/046474"""
+    bam_file = os.path.abspath(bam_file)
+    outputdir = os.path.abspath(outputdir)
+    bento_seq_cmd = ["bento-seq", 
+                     cmo.util.genomes[args.reference_sequence]['default']['bento_seq_index'],
+                     "--bam_files", 
+                     bam_file,
+                     "--output_file",
+                     outputdir + "/bento-seq.out"]
+    return workflow.Job(" ".join(bento_seq_cmd),
+                        resources="rusage[mem=10]",
+                        name="Run BENTO-Seq")
+
+def run_check(samplefile = "samples.txt"):
+    """
+    give a list of expected output files for each algorithm
+    it must be a list() even if there's just one file
+    """
+    import os, sys, pandas
+    outputfiles = dict()
+    outputfiles["STAR"] = ["Aligned.sortedByCoord.out.bam"]
+    outputfiles["QoRT"] = ["QC.QORTS_COMPLETED_OK"]
+    outputfiles["MISO"] = ["MISO/A3SS/summary/A3SS.miso_summary", "MISO/A5SS/summary/A5SS.miso_summary", "MISO/MXE/summary/MXE.miso_summary", "MISO/RI/summary/RI.miso_summary", "MISO/SE/summary/SE.miso_summary"]
+    outputfiles["BENTO-Seq"] = ["bento-seq.out"]
+    outputfiles["kallisto"] = ["kallisto.pc_transcripts/abundance.txt", "kallisto.transcripts/abundance.txt"]
+    samplefile = os.path.abspath(samplefile)
+    table = pandas.read_table(open(samplefile), sep='\t', lineterminator='\n')
+    paths = list(set(table["path"]))
+    missing_file_list = list()
+    for path in paths:
+        for algo in outputfiles.keys(): 
+            if not all([os.path.isfile(os.path.join(path, outputfile)) for outputfile in outputfiles[algo]]):
+                missing_file_list.append(path + " " + algo)
+    if len(missing_file_list):
+        missing_file_file = open("missing_files.txt", 'w')
+        for m in missing_file_list: 
+            missing_file_file.write(m)
+            missing_file_file.write('\n')
+        missing_file_file.close()
+        sys.exit(1)
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run RNASeq on luna!")
     parser.add_argument("-R", "--reference_sequence", required=True, 
@@ -171,12 +212,15 @@ if __name__ == "__main__":
 
     QoRT = run_QoRT(bam_file, args.outputdir)
     jobs_list.append(QoRT)
+
+    bento_seq = run_bento_seq(bam_file, args.outputdir)
+    jobs_list.append(bento_seq)
     
     insert_length = compute_insert_length(bam_file, args.outputdir)
     jobs_list.append(insert_length)
     
     if args.bam == False:
-        jobs_dict[star] = [QoRT, insert_length]
+        jobs_dict[star] = [QoRT, bento_seq, insert_length]
 
     # pack = pack_miso(args.outputdir)
 
