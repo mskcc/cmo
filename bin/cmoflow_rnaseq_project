@@ -4,22 +4,50 @@ import argparse, os, sys
 import cmo, shutil, pandas
 from distutils.version import StrictVersion
 
-def run_sleuth(samplefile):
+def run_DESeq2(samplefile, conditionname):
     samplefile = os.path.abspath(samplefile)
 
-    ## options(mc.cores = 4L)
+    DESeq2_cmd = [cmo.util.programs["R"]["3.2.2-dev"] + "Rscript",
+                  "-e", "'rnaseq.scripts::run_DESeq2()'",
+                  "-s", samplefile, ## --samplefile doesn't work??
+                  "--conditionname", conditionname,
+                  "--gene.names", cmo.util.genomes[args.reference_sequence]['default']['gene_names']]
+    return workflow.Job(" ".join(DESeq2_cmd), 
+                        resources="rusage[mem=15]",
+                        name="Run DESeq2")
+
+def run_sleuth(samplefile, conditionname, subdir, processors = 4):
+    samplefile = os.path.abspath(samplefile)
+
     sleuth_cmd = [cmo.util.programs["R"]["3.2.2-dev"] + "Rscript",
-                  "-e", "rnaseq.scripts::run_sleuth()",
-                  "-d", inputdir,
+                  "--default-packages=ggplot2,methods,stats,utils", ## DESCRIPTION file Depends doens't work...
+                  "-e", "'options(mc.cores = " + str(processors) + "L); rnaseq.scripts::run_sleuth()'",
+                  "-s", samplefile, ## --samplefile doesn't work??
+                  "--conditionname", conditionname,
+                  "--subdir", subdir,
                   "--gene.names", cmo.util.genomes[args.reference_sequence]['default']['gene_names']]
     return workflow.Job(" ".join(sleuth_cmd), 
-                        resources="rusage[mem=4]",
+                        resources="rusage[mem=25]",
+                        processors = processors,
                         name="Run Sleuth")
+
+def run_miso_combine(samplefile, conditionname):
+    samplefile = os.path.abspath(samplefile)
+    
+    miso_combine_cmd = [cmo.util.programs["R"]["3.2.2-dev"] + "Rscript",
+                        "--default-packages=ggplot2,methods,stats,utils", ## DESCRIPTION file Depends doens't work...
+                        "-e", "'rnaseq.scripts::miso_combine()'",
+                        "-s", samplefile, ## --samplefile doesn't work??
+                        "--conditionname", conditionname,
+                        "-m", cmo.util.genomes[args.reference_sequence]['default']['miso_index']]
+    return workflow.Job(" ".join(miso_combine_cmd), 
+                        resources="rusage[mem=10]",
+                        name="Combine MISO")
 
 def QoRT_merge_all_junctions(samplefile, conditionname, minCount = 6):
     samplefile = os.path.abspath(samplefile)
 
-    workdir = samplefile + "_" + conditionname + "/JunctionSeq_gff"
+    workdir = samplefile + "_" + conditionname + "/JunctionSeq"
     decoder_filename = workdir + "/decoder.txt"
     merge_all_cmd = [cmo.util.programs["R"]["3.2.2-dev"] + "Rscript",
                      " -e", "'rnaseq.scripts::write.decoder()'", 
@@ -120,6 +148,7 @@ def run_filter_suppa_results(samplefile, conditionname):
     samplefile = os.path.abspath(samplefile)
     filter_suppa_results_cmd = [
         cmo.util.programs["R"]["3.2.2-dev"] + "Rscript",
+        "--default-packages=ggplot2,methods,stats,utils", ## DESCRIPTION file Depends doens't work...
         "-e", "'rnaseq.scripts::filter_suppa_results()'",
         "-s", samplefile,
         "-c", conditionname,
@@ -136,7 +165,8 @@ if __name__ == "__main__":
                         choices=cmo.util.genomes.keys(),
                         help="name of reference")
     parser.add_argument("-a", "--algorithms", nargs='*',
-                        choices=["sleuth", "DESeq2", "JunctionSeq", "QC", "SUPPA"],
+                        default=["QC", "DESeq2", "sleuth", "MISO", "BENTO-Seq", "SUPPA", "JunctionSeq"],
+                        choices=["QC", "DESeq2", "sleuth", "MISO", "BENTO-Seq", "SUPPA", "JunctionSeq"],
                         help="algorithm(s) to run")
     parser.add_argument("-s", "--samplefile", default="samples.txt",
                         help="text file listing samples and condition")
@@ -145,37 +175,42 @@ if __name__ == "__main__":
     # parser.add_argument("-n", "--minCounts", default = "6",
     #                     help="minCounts for JunctionSeq")
     args = parser.parse_args()
-    print(args)
+    # print(args)
 
     jobs_list = list()
     jobs_dict = dict()
-    if "sleuth" in args.algorithms:
-        sleuth = run_sleuth(args.samplefile)
-        jobs_list.append(sleuth)
-    if "DESeq2" in args.algorithms:
+    if "QC" in args.algorithms:
         pass
+    if "DESeq2" in args.algorithms:
+        DESeq2 = run_DESeq2(args.samplefile, args.conditionname)
+        jobs_list.append(DESeq2)
+    if "sleuth" in args.algorithms:
+        sleuth_pc = run_sleuth(args.samplefile, args.conditionname, "kallisto.pc_transcripts")
+        jobs_list.append(sleuth_pc)
+        sleuth_all = run_sleuth(args.samplefile, args.conditionname, "kallisto.transcripts")
+        jobs_list.append(sleuth_all)
+    if "MISO" in args.algorithms:
+        miso_combine = run_miso_combine(args.samplefile, args.conditionname)
+        jobs_list.append(miso_combine)
+    if "BENTO-Seq" in args.algorithms:
+        pass
+    if "SUPPA" in args.algorithms:
+        make_suppa_files = run_make_suppa_files(args.samplefile, args.conditionname)
+        jobs_list.append(make_suppa_files)
+        jobs_dict[make_suppa_files] = []
+        filter_suppa_results = run_filter_suppa_results(args.samplefile, args.conditionname)
+        jobs_list.append(filter_suppa_results)
+        for AS_type in ["SE", "RI", "A3", "A5", "MX", "AL", "AF"]:
+            suppa = run_suppa(args.samplefile, args.conditionname, AS_type)
+            jobs_list.append(suppa)
+            jobs_dict[make_suppa_files].append(suppa)
+            jobs_dict[suppa] = [filter_suppa_results]
     if "JunctionSeq" in args.algorithms:
         QoRT_merge = QoRT_merge_all_junctions(args.samplefile, args.conditionname)
         jobs_list.append(QoRT_merge)
         JunctionSeq = run_JunctionSeq(args.samplefile, args.conditionname)
         jobs_list.append(JunctionSeq)
         jobs_dict[QoRT_merge] = JunctionSeq
-    if "QC" in args.algorithms:
-        pass
-    if "SUPPA" in args.algorithms:
-        make_suppa_files = run_make_suppa_files(args.samplefile, args.conditionname)
-        jobs_list.append(make_suppa_files)
-        jobs_dict[make_suppa_files] = []
-
-        filter_suppa_results = run_filter_suppa_results(args.samplefile, args.conditionname)
-        jobs_list.append(filter_suppa_results)
-
-        for AS_type in ["SE", "RI", "A3", "A5", "MX", "AL", "AF"]:
-            suppa = run_suppa(args.samplefile, args.conditionname, AS_type)
-            jobs_list.append(suppa)
-            jobs_dict[make_suppa_files].append(suppa)
-            jobs_dict[suppa] = [filter_suppa_results]
-
 
     new_workflow = workflow.Workflow(jobs_list, jobs_dict,
                                      name="RNASeq Project Workflow " + ",".join(args.algorithms))
