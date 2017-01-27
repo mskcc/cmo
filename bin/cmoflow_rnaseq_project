@@ -27,7 +27,7 @@ def run_sleuth(samplefile, conditionname, subdir, processors = 4):
                   "--subdir", subdir,
                   "--gene.names", cmo.util.genomes[args.reference_sequence]['default']['gene_names']]
     return workflow.Job(" ".join(sleuth_cmd), 
-                        resources="rusage[mem=25]",
+                        resources="rusage[mem=100]",
                         processors = processors,
                         name="Run Sleuth")
 
