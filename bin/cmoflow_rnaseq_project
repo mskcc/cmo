@@ -27,7 +27,7 @@ def run_sleuth(samplefile, conditionname, subdir, processors = 4):
                   "--subdir", subdir,
                   "--gene.names", cmo.util.genomes[args.reference_sequence]['default']['gene_names']]
     return workflow.Job(" ".join(sleuth_cmd), 
-                        resources="rusage[mem=100]",
+                        resources="rusage[mem=200]",
                         processors = processors,
                         name="Run Sleuth")
 
@@ -73,17 +73,20 @@ def QoRT_merge_excl_novel_junctions(inputdir):
     #                annoFiles/JunctionSeq.flat.gff.gz
     pass
 
-def run_JunctionSeq(samplefile, conditionname):
+def run_JunctionSeq(samplefile, conditionname, processors = 10):
     samplefile = os.path.abspath(samplefile)
     JunctionSeq_cmd = [cmo.util.programs["R"]["3.2.2-dev"] + "Rscript",
-                      "-e", "'rnaseq.scripts::run_JunctionSeq()'",
-                      "-s", samplefile,
+                       "-e", "'rnaseq.scripts::run_JunctionSeq()'",
+                       "-s", samplefile,
                        "-c", conditionname,
-                      "--gene.names", cmo.util.genomes[args.reference_sequence]['default']['gene_names']
-                      ]
+                       "--nCores", str(processors),
+                       "--gene.names", cmo.util.genomes[args.reference_sequence]['default']['gene_names']
+                       ]
     return workflow.Job(" ".join(JunctionSeq_cmd),
-                        resources="rusage[mem=50]",
+                        resources="rusage[mem=150]",
+                        processors = processors,
                         name="Run JunctionSeq")
+
 def run_make_suppa_files(samplefile, conditionname):
     samplefile = os.path.abspath(samplefile)
     make_suppa_files_cmd = [
@@ -160,14 +163,52 @@ def run_filter_suppa_results(samplefile, conditionname):
                         resources="rusage[mem=5]",
                         name="Filter SUPPA results")
 
+def run_check(samplefile, conditionname, algorithms):
+    """
+    give a list of expected output files for each algorithm
+    it must be a list() even if there's just one file
+    """
+    import os, sys, pandas
+    outputfiles = dict()
+    outputfiles["DESeq2"] = ["DESeq2/DESeq2_results.FDR10.txt"]
+    outputfiles["sleuth"] = ["sleuth/kallisto.pc_transcripts/gene.results_table.FDR10.txt",
+                             "sleuth/kallisto.pc_transcripts/transcript.results_table.FDR10.txt",
+                             "sleuth/kallisto.transcripts/gene.results_table.FDR10.txt",
+                             "sleuth/kallisto.transcripts/transcript.results_table.FDR10.txt"]
+    outputfiles["MISO"] = ["MISO/miso_summary.psi_difference10.txt"]
+    outputfiles["BENTO-Seq"] = []
+    outputfiles["SUPPA"] = ["suppa/suppa.FDR10.txt"]
+    outputfiles["JunctionSeq"] = ["JunctionSeq/testForDU.html"]
+
+    condition_directory = samplefile + "_" + conditionname
+    missing_file_list = list()
+    for algo in outputfiles.keys(): 
+        for outputfile in outputfiles[algo]:
+            if not os.path.isfile(os.path.join(condition_directory, outputfile)): 
+                missing_file_list.append(algo + "\t" + outputfile)
+    if len(missing_file_list):
+        for m in missing_file_list:
+            print m
+        # missing_file_file = open(os.path.join(condition_directory, "missing_files.txt"), 'w')
+        # for m in missing_file_list: 
+        #     missing_file_file.write(m)
+        #     missing_file_file.write('\n')
+        # missing_file_file.close()
+        sys.exit(1)
+    else:
+        print condition_directory + ": All files present"
+        sys.exit(0)
+    
 if __name__ == "__main__":
+    algorithm_list = ["QC", "DESeq2", "sleuth", "MISO", "BENTO-Seq", "SUPPA", "JunctionSeq"]
+
     parser = argparse.ArgumentParser(description="Run RNASeq on luna!")
     parser.add_argument("-R", "--reference_sequence", required=True, 
                         choices=cmo.util.genomes.keys(),
                         help="name of reference")
     parser.add_argument("-a", "--algorithms", nargs='*',
-                        default=["QC", "DESeq2", "sleuth", "MISO", "BENTO-Seq", "SUPPA", "JunctionSeq"],
-                        choices=["QC", "DESeq2", "sleuth", "MISO", "BENTO-Seq", "SUPPA", "JunctionSeq"],
+                        default=algorithm_list,
+                        choices=algorithm_list + ["check"],
                         help="algorithm(s) to run")
     parser.add_argument("-s", "--samplefile", default="samples.txt",
                         help="text file listing samples and condition")
@@ -212,7 +253,9 @@ if __name__ == "__main__":
         JunctionSeq = run_JunctionSeq(args.samplefile, args.conditionname)
         jobs_list.append(JunctionSeq)
         jobs_dict[QoRT_merge] = JunctionSeq
-
+    if "check" in args.algorithms:
+        run_check(args.samplefile, args.conditionname, algorithm_list)
+            
     new_workflow = workflow.Workflow(jobs_list, jobs_dict,
                                      name="RNASeq Project Workflow " + ",".join(args.algorithms))
     new_workflow.run('LSF')
