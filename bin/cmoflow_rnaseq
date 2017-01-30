@@ -5,12 +5,12 @@ import cmo, shutil
 from distutils.version import StrictVersion
 
 def run_kallisto(fastq_filenames, outputdir, transcripts = "pc_transcripts",
-                 processors = 10, bootstraps = 40):
+                 processors = 10, bootstraps = 100):
     fastq_filenames = [os.path.abspath(file) for file in fastq_filenames]
     outputdir = os.path.abspath(outputdir)
     outputdir = outputdir + "/kallisto" + "." + transcripts
     if not os.path.exists(outputdir): os.makedirs(outputdir)
-    kallisto_cmd = [cmo.util.programs['kallisto']["default"], "quant",
+    kallisto_cmd = [cmo.util.programs['kallisto']["0.43.0"], "quant",
                     "-i", cmo.util.genomes[args.reference_sequence]['default']['kallisto_index'] + "." + transcripts,
                     "-o", outputdir,
                     "--bias",
