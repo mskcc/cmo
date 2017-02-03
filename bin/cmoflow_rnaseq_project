@@ -101,17 +101,28 @@ def run_make_suppa_files(samplefile, conditionname):
                         name="Make SUPPA files")
 
 def run_suppa(samplefile, conditionname, AS_type, area = 1000, lower_bound = 0.05):
+def extract_conds(samplefile, conditionname):
     samplefile = os.path.abspath(samplefile)
     table = pandas.read_table(
         open(samplefile), 
         sep='\t', lineterminator='\n')
-    conditions = list(set(table[conditionname]))
+    colname_list = list(table.columns.values)
+    if conditionname in colname_list:
+        conditions = list(set(table[conditionname]))
+    else:
+        colname_list_split = [x.split(":") for x in list(table.columns.values)]
+        for i,colnames in enumerate(colname_list_split):
+            if colnames[0] == conditionname: 
+                icol = i
+        conditions = list(set(table[colname_list[icol]]))
     ### allow the condition column to be blank
-    conditions = [str(i) for i in conditions]
-    while 'nan' in conditions: 
-        conditions.remove('nan') 
-    # print(conditions)
-
+        conditions = [str(i) for i in conditions]
+        while 'nan' in conditions: 
+            conditions.remove('nan') 
+    ### reorder conditions (first one is the control, ie dPSI = 2 - 1)
+        base_level = colname_list_split[icol][1]
+        conditions = [base_level] + list(set(conditions) - set([base_level]))
+        
     workdir = samplefile + "_" + conditionname + "/suppa"
 
     cmd_list = list()
