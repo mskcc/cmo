@@ -101,7 +101,6 @@ def run_make_suppa_files(samplefile, conditionname):
                         name="Make SUPPA files")
 
 def run_suppa(samplefile, conditionname, AS_type, area = 1000, lower_bound = 0.05):
-def extract_conds(samplefile, conditionname):
     samplefile = os.path.abspath(samplefile)
     table = pandas.read_table(
         open(samplefile), 
