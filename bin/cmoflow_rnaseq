@@ -5,7 +5,7 @@ import cmo, shutil
 from distutils.version import StrictVersion
 
 def run_kallisto(fastq_filenames, outputdir, transcripts = "pc_transcripts",
-                 processors = 10, bootstraps = 100):
+                 processors = 5, bootstraps = 100):
     fastq_filenames = [os.path.abspath(file) for file in fastq_filenames]
     outputdir = os.path.abspath(outputdir)
     outputdir = outputdir + "/kallisto" + "." + transcripts
@@ -17,7 +17,7 @@ def run_kallisto(fastq_filenames, outputdir, transcripts = "pc_transcripts",
                     "-b", str(bootstraps),
                     "-t", str(processors)] + fastq_filenames
     return workflow.Job(" ".join(kallisto_cmd),
-                        resources="rusage[mem=5]",
+                        resources="rusage[mem=15]",
                         name="Run kallisto " + transcripts,
                         processors = processors)
 

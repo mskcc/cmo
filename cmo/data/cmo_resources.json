@@ -231,7 +231,7 @@
         "kallisto":
         {
             "default": "/opt/common/CentOS_6/kallisto/kallisto_linux-v0.42.1/kallisto",
-            "0.42.1": "/opt/common/CentOS_6/kallisto/kallisto_linux-v0.42.1/kallisto"
+            "0.42.1": "/opt/common/CentOS_6/kallisto/kallisto_linux-v0.42.1/kallisto",
 	    "0.43.0":"/opt/common/CentOS_6-dev/kallisto/kallisto_linux-v0.43.0/kallisto"
         },
         "QoRT":
