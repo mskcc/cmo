@@ -11,7 +11,6 @@ import cmo
 
 try:
     gdc_client_binary        = cmo.util.programs['gdc-client']['default']
-    token_filename           = cmo.util.config['gdc']['gdc_token']
     final_files_dirname      = cmo.util.config['gdc']['file_repository']
     jobs_inprogress_dirname  = cmo.util.config['gdc']['tmp_jobs_dir']
     client                   = MongoClient(cmo.util.config['gdc']['mongodb_uri'])
@@ -64,6 +63,7 @@ def main():
         "       INPUT: \n"
         "       --manifest (required)\n"
         "       --output_file (required)\n"
+        "       --token_file (required for protected GDC data)\n"
         "       --genomic_range (optional)\n"
         "       DESCRIPTION: \n"
         "       Query for the data on the GDC web-portal (https://gdc-portal.nci.nih.gov). \n"
@@ -75,6 +75,7 @@ def main():
         "       --experimental_strategy (required)\n"
         "       --data_type (required)\n"
         "       --output_file (required)\n"
+        "       --token_file (required for protected GDC data)\n"
         "       --tumor_type (optional)\n"
         "       --participant_id or --participant_id_file (optional)\n"
         "       DESCRIPTION: \n"
@@ -87,6 +88,7 @@ def main():
         "       INPUT: \n"
         "       --retrieve_cmo_manifest (required)\n"
         "       --output_file (required)\n"
+        "       --token_file (required for protected GDC data)\n"
         "       DESCRIPTION: \n"
         "       Download the latest manifest of all files within CMO-GDC repository. \n"
 
@@ -174,6 +176,12 @@ def main():
                              " may or may not be currently being downloaded. Useful when download(s) terminate "
                              "without changing state from 'InProgress' to 'Failed' in the database",
                         action='store_true')
+    parser.add_argument("--token_file", required=False,
+                        help="Full path to a GDC token file, which is required if you're trying to "
+                             "download protected GDC data. On MSK's Luna cluster, your PI's token "
+                             "is likely under /ifs/res/pwg/gdc/token. For downloading protected GDC "
+                             "data, you'll also need to be in the CMO unix group named \"tcga\"",
+                        metavar='')
     parser.add_argument("--output_file", required=True,
                         help="Full path to an output file. A manifest of downloaded "
                              "files along with the full path to the file in the "
@@ -230,8 +238,16 @@ def main():
     if args.force_download is not None and args.force_download:
         force_download = True
 
-    token_file = open(token_filename, 'r')
-    token_str = token_file.readline()
+    # If a token file was specified, check if user can read it
+    token_file = token_str = ""
+    if args.token_file is not None:
+        if os.access(args.token_file, os.R_OK):
+            token_file = args.token_file
+            token_fh = open(args.token_file, 'r')
+            token_str = token_fh.readline()
+        else:
+            print >> sys.stderr, "Error: Cannot read --token_file '" + args.token_file + "'. Exiting."
+            exit(1)
 
     timestamp = time.strftime("%Y%m%d-%H%M%S")  # + "-" + str(datetime.datetime.now().microsecond)
     current_job_dirname = jobs_inprogress_dirname + "job." + str(job_id) + "." + timestamp + "/"
@@ -250,7 +266,7 @@ def main():
                     "analysis.workflow_start_datetime,analysis.workflow_type," \
                     "analysis.workflow_version,data_format,data_type,experimental_strategy," \
                     "file_id,file_name,file_size,file_state,md5sum,platform,submitter_id,tags," \
-                    "type,updated_datetime,cases.project.project_id,cases.submitter_id," \
+                    "access,type,updated_datetime,cases.project.project_id,cases.submitter_id," \
                     "associated_entities.entity_submitter_id"
 
     filters = dict()
@@ -534,11 +550,14 @@ def main():
     #
     files_by_tumortype = dict()
     filesize_by_tumortype = dict()
+    need_token = False
     for line in rt_lines:
         line = line.strip()
         if len(line) < 10:
             continue
         r = ResponseLine(header_line, line)
+        if r.access == 'controlled':
+            need_token = True
         if r.project_id not in files_by_tumortype.keys():
             files_by_tumortype[r.project_id] = 0
             filesize_by_tumortype[r.project_id] = 0
@@ -574,6 +593,10 @@ def main():
     print "Temporary download dir:  "
     print "\t" + current_job_dirname
     print "####################################################### "
+
+    if need_token and not token_file:
+        print "Cannot download protected GDC data unless you specify a --token_file"
+        exit(0)
 
     query_string = ""
     for range_ in genomic_ranges:
@@ -779,10 +802,10 @@ def main():
                 walltime = "0:59"  # for faster node access
                 if r.file_size > 50e9:
                     walltime = "10:00"
-                bsub_cmd = "bsub -n 10 -K -R \"select[internet && mem=8]\" -We " + walltime + \
-                           " -oo " + log_pfx + "bsub.log " + gdc_client_binary + \
-                           " download" + " -n 5 --token-file  " + token_filename + \
-                           " --log-file " + log_pfx + "gdc-client.log --dir " + \
+                bsub_cmd = "bsub -n 5 -K -R \"select[internet && mem=8]\" -We " + walltime + \
+                           " -oo " + log_pfx + "bsub.log " + gdc_client_binary + " download " + \
+                           (( "--token-file " + token_file ) if token_file else "" ) + \
+                           " -n 5 --log-file " + log_pfx + "gdc-client.log --dir " + \
                            current_job_dirname + " " + r.file_id + " > /dev/null 2> /dev/null"
 
                 while counter < 4:
@@ -913,6 +936,7 @@ class ResponseLine(object):
     analysis_analysis_id = ""
     analysis_submitter_id = ""
     analysis_workflow_link = ""
+    access = ""
     type = ""
     file_state = ""
     experimental_strategy = ""
@@ -941,6 +965,7 @@ class ResponseLine(object):
         self.analysis_analysis_id = self.get_value(header_line, value_line, 'analysis_analysis_id')
         self.analysis_submitter_id = self.get_value(header_line, value_line, 'analysis_submitter_id')
         self.analysis_workflow_link = self.get_value(header_line, value_line, 'analysis_workflow_link')
+        self.access = self.get_value(header_line, value_line, 'access')
         self.type = self.get_value(header_line, value_line, 'type')
         self.file_state = self.get_value(header_line, value_line, 'file_state')
         self.experimental_strategy = self.get_value(header_line, value_line, 'experimental_strategy')
