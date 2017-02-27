@@ -254,7 +254,8 @@ def main():
 
     mkdir_p(final_files_dirname)
     mkdir_p(jobs_inprogress_dirname)
-    os.mkdir(current_job_dirname)
+    os.umask(002)
+    os.mkdir(current_job_dirname, 0770)
 
     manifest_file = ""
     payload = dict()
@@ -913,7 +914,7 @@ def main():
 
 def mkdir_p(path):
     try:
-        os.makedirs(path)
+        os.makedirs(path,0770)
     except OSError as exc:  # Python >2.5
         if exc.errno == errno.EEXIST and os.path.isdir(path):
             pass

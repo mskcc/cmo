@@ -6,6 +6,7 @@ List of wrappers
     :titlesonly:
 
     cmo_bedtools
+    cmo_trimgalore
     cmo_filter_haplotype
     cmo_vcf2maf
     cmo_gatk
@@ -17,6 +18,9 @@ List of wrappers
     cmo_samstat
     cmo_gdc
     cmo_igv_plot
+    cmo_snp_pileup
+    cmoflow_rnaseq_project
+    workflow_launcher
     cmo_picard
     cmo_bwa_sampe
     cmo_bwa_aln
@@ -26,6 +30,7 @@ List of wrappers
     cmo_facets
     cmo_mutect
     cmo_maf2maf
+    cmoflow_rnaseq
     cmo_abra
     cmo_maf2vcf
     cmoflow_postprocess
@@ -36,3 +41,4 @@ List of wrappers
     cmo_rerun
     cmoflow_reference_alignment
     cmo_trinuc_and_impact
+    cmo_hotspot3d

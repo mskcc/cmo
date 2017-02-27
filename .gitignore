@@ -4,5 +4,5 @@ build/
 dist/
 cmo.egg-info/
 **.swp
-doc/build/
+docs/build/
 cmo/_version.py
