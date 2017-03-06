@@ -23,7 +23,7 @@ def update_version_py():
     if p.returncode != 0:
         print "unable to run git, leaving cmo/_version.py alone"
         return
-    ver = stdout.strip()
+    ver = "1.0+"+stdout.strip()
     if ver.find("-dirty") > -1:
         print >>sys.stderr,  "REFUSING TO INSTALL DIRTY TREE! COMMIT TO TRUNK OR BRANCH!"
         #sys.exit(1)
