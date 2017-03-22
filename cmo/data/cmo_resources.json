@@ -11,7 +11,8 @@
         {
             "default":"/opt/common/CentOS_6/bwa/bwa-0.7.12/bwa",
             "0.7.12":"/opt/common/CentOS_6/bwa/bwa-0.7.12/bwa",
-            "0.7.10":"/opt/common/CentOS_6/bwa/bwa-0.7.10/bwa"
+            "0.7.10":"/opt/common/CentOS_6/bwa/bwa-0.7.10/bwa",
+            "0.7.5a":"/opt/common/CentOS_6/bwa/bwa-0.7.5a/bwa"
         },
         "gatk":
         {
@@ -25,9 +26,15 @@
             "default":"/opt/common/CentOS_6-dev/samstat/1.5.1/samstat",
             "1.5.1":"/opt/common/CentOS_6-dev/samstat/1.5.1/samstat"
         },
+        "trimgalore":
+        {
+            "default":"/opt/common/CentOS_6/trim_galore/Trim_Galore_v0.2.5/trim_galore",
+            "0.2.5":"/opt/common/CentOS_6/trim_galore/Trim_Galore_v0.2.5/trim_galore"
+        },
         "cutadapt":
         { 
             "default":"/opt/common/CentOS_6-dev/python/python-2.7.10/bin/cutadapt",
+            "1.1":"/opt/common/CentOS_6/cutadapt/cutadapt-1.1/bin/cutadapt",
             "1.9.1":"/opt/common/CentOS_6-dev/python/python-2.7.10/bin/cutadapt"
         },
         "convertqualityscore":
@@ -55,7 +62,8 @@
         {
             "default":"/opt/common/CentOS_6/picard/picard-tools-1.129/picard.jar",
             "1.124":"/opt/common/CentOS_6/picard/picard-tools-1.124/picard.jar",
-            "1.129":"/opt/common/CentOS_6/picard/picard-tools-1.129/picard.jar"
+            "1.129":"/opt/common/CentOS_6/picard/picard-tools-1.129/picard.jar",
+            "1.96":"/opt/common/CentOS_6/picard/picard-tools-1.96/"
         },
         "java":
         {
