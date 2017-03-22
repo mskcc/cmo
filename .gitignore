@@ -6,3 +6,4 @@ cmo.egg-info/
 **.swp
 docs/build/
 cmo/_version.py
+venv
