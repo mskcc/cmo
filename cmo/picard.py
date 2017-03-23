@@ -71,7 +71,22 @@ class Picard:
             return (None, picard_help)
         #look for 1 or 2 occurrences of WORD_THINGY=THINGY and the following help and return them as a dictified
         #list of tuples
-        valid_args = re.findall(r"(?:^([\S_]+)=\S+\n?){1,2}\s+([\S\s]+?(?=^[\S_]+=\S+))", picard_help, re.M)
+        valid_args = []
+        new_short_option = None;
+        new_description = '';
+
+        for line in picard_help.split("\n"):
+            m= re.search("(?:^([\S_]+)=\S+\n?)\s+([\S\s]+)$", line)
+            if(m):
+                #new option
+                if new_short_option:
+                    valid_args.append((new_short_option, new_description))
+                new_short_option = m.group(1)
+                new_description = m.group(2)
+            elif new_description !='':
+                new_description = new_description + line
+        valid_args.append((new_short_option, new_description))
+        #valid_args = re.findall(r"(?:^([\S_]+)=\S+\n?){1,2}\s+([\S\s]+?(?=^[\S_]+=\S+))", picard_help, re.M)
         return (dict(valid_args), None)
 
 
