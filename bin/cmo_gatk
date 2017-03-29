@@ -45,7 +45,7 @@ if __name__ =='__main__':
     preparser.add_argument("-T", "--cmd", required=True)
     options, _ = preparser.parse_known_args()
     #time for monkey business
-    gatk_helper = cmo.gatk.Gatk(java_version=options.version, version=options.version)
+    gatk_helper = cmo.gatk.Gatk(java_version=options.java_version, version=options.version)
     (sub_command_options, error_msg) = find_sub_command_options(gatk_helper, options.cmd)
     if sub_command_options == None:
         print >>sys.stderr, error_msg
