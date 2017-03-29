@@ -12,10 +12,10 @@ class Gatk:
             else:
                 self.gatk_jar=util.programs["gatk"][version]
         except KeyError, e:
-            print >>sys.stderr, "Cannot find specified version of piard in configuration file: %s" % version
+            print >>sys.stderr, "Cannot find specified version of gatk in configuration file: %s" % version
             sys.exit(1)
         try: 
-            self.java_cmd=util.programs["java"][version]
+            self.java_cmd=util.programs["java"][java_version]
         except KeyError, e:
             print >>sys.stderr, "Cannot find specified version of java to run gatk with: %s" % version
             sys.exit(1)
