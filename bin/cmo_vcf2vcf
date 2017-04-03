@@ -65,5 +65,5 @@ if __name__ =='__main__':
     for arg, value in args_dict.items():
         arg = arg.replace("_","-")
         cmd = cmd + ["--"+arg, value]
-    sys.stderr.write( "Running: " + " ".join( cmd ) + "\n" )
+    sys.stderr.write( "RUNNING: " + " ".join( cmd ) + "\n" )
     cmo.util.call_cmd( " ".join( cmd ))
