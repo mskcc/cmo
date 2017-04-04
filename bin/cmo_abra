@@ -5,7 +5,7 @@ import re, os
 import subprocess
 
 import time
-import cmo
+import cmo, shutil 
 
 '''
 This method adds custom arguments to run the wrapper
