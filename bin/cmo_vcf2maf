@@ -1,6 +1,6 @@
 #!/opt/common/CentOS_6-dev/python/python-2.7.10/bin/python
 
-import argparse, os, sys, re, subprocess, itertools, glob, tempfile, shutil
+import argparse, os, sys, re, subprocess, itertools, glob, getpass, tempfile, shutil
 from operator import attrgetter
 import textwrap as _textwrap
 import cmo
@@ -42,8 +42,8 @@ if __name__ =='__main__':
     defaults_dict['--maf-center'] = 'mskcc.org'
     defaults_dict['--vcf-tumor-id'] = defaults_dict['--tumor-id']
     defaults_dict['--vcf-normal-id'] = defaults_dict['--normal-id']
-    tmp_dir = tempfile.mkdtemp(dir='/scratch') if os.path.exists('/scratch') else tempfile.mkdtemp(dir='/tmp');
-    defaults_dict['--tmp-dir'] = tmp_dir
+    tmp_root = "/scratch/<username>/..."
+    defaults_dict['--tmp-dir'] = tmp_root
 
     # With arguments and defaults set, let's construct an argparse instance
     parser = argparse.ArgumentParser(parents = [preparser], add_help=True, formatter_class=SortingHelpFormatter)
@@ -55,11 +55,24 @@ if __name__ =='__main__':
             parser.add_argument(arg, action="store", metavar='', help=description, default=defaults_dict[arg])
         else:
             parser.add_argument(arg, action="store", metavar='', help=description)
-    cmo.util.add_logging_options(parser)
 
     # Now run the argparse instance, which will parse and execute, or print help text if requested
     args = parser.parse_args()
     args_dict = vars(args)
+
+    # If user didn't define their own --tmp-dir, let's create one for them under /scratch/username
+    if args_dict['tmp_dir'] == tmp_root:
+        # Create a subdirectory under /scratch with the username, if it doesn't already exist
+        tmp_root = "/scratch/" + getpass.getuser()
+        if not os.path.exists(tmp_root):
+            os.makedirs(tmp_root)
+        # For machines without writable /scratch, default to creating a temp folder under /tmp
+        tmp_dir = tempfile.mkdtemp(dir=tmp_root) if os.path.exists(tmp_root) else tempfile.mkdtemp(dir='/tmp')
+        args_dict['tmp_dir'] = tmp_dir
+        # Show the user a warning about limited storage in temp directories
+        sys.stderr.write( "WARNING: Writing temporary files to " + tmp_dir + " which could fill " + 
+            "up and interrupt your colleagues' work. If you're working with giant files, then " +
+            "please define your own --tmp-dir, or we're gonna get ya!\n" )
 
     # Locate VEP and it's cache, the reference FASTA, and the VCF used for filtering
     vep_dir = cmo.util.programs['vep'][args.vep_release]
@@ -77,16 +90,13 @@ if __name__ =='__main__':
 
     # Build the command we're going to run
     cmd = [cmo.util.programs['perl']['default'], script_path]
-    stderr = args.stderr
-    stdout = args.stdout
-    # Trim out arguments without values, and also any args that might mess with our logging
+    # Trim out arguments without values
     args_dict = dict((k, v) for k, v in args_dict.iteritems() if v)
-    cmo.util.remove_logging_options_from_dict(args_dict)
 
     # Make sure the arguments are in a format that the script will accept, and kick it off
     for arg, value in args_dict.items():
         arg = arg.replace("_","-")
         cmd = cmd + ["--"+arg, value]
-    sys.stderr.write( "Running: " + " ".join( cmd ) + "\n" )
-    cmo.util.call_cmd( " ".join( cmd ), stdout=stdout, stderr=stderr )
+    sys.stderr.write( "RUNNING: " + " ".join( cmd ) + "\n" )
+    cmo.util.call_cmd( " ".join( cmd ))
     shutil.rmtree(tmp_dir)

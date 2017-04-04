@@ -24,13 +24,13 @@ def parse_script_help(script_path):
 
 if __name__ =='__main__':
     # We'll first need to figure out which version to run with "-h" to parse the help text
-    preparser = argparse.ArgumentParser(description="Run maf2vcf", add_help=False, formatter_class=SortingHelpFormatter)
+    preparser = argparse.ArgumentParser(description="Run vcf2vcf", add_help=False, formatter_class=SortingHelpFormatter)
     preparser.add_argument("--version", help="Version of tool to run", choices=cmo.util.programs['vcf2maf'].keys(), default="default")
     preparser.add_argument("--ncbi-build", help="Genome build of variants in input", choices=["GRCh37","GRCh38","GRCm38"], default="GRCh37")
     options, _ = preparser.parse_known_args()
 
     # Figure out the path to the actual Perl script that this Python wrapper will run
-    script_path = cmo.util.programs['vcf2maf'][options.version] + "maf2vcf.pl"
+    script_path = cmo.util.programs['vcf2maf'][options.version] + "vcf2vcf.pl"
     # Extract arguments and their defaults, by parsing the --help output
     args_dict, defaults_dict = parse_script_help(script_path)
 
