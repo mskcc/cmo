@@ -66,7 +66,7 @@ def get_version():
 
 
 ##make _version.py
-update_version_py();
+#update_version_py();
 #use its value in setuptools
 setup(name='cmo',
         version=get_version(),

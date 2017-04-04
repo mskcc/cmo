@@ -39,7 +39,7 @@ def find_chromosomes(genome_string, extended=False):
         
 
 def samtools_index(bam):
-    samtools = programs['samtools']['0.1.2']
+    samtools = programs['samtools']['default']
     cmd = [ samtools, "index", bam ]
     return call_cmd(" ".join(cmd))
 
