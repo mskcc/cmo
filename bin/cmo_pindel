@@ -68,7 +68,7 @@ if __name__ =='__main__':
     args.fasta=cmo.util.genomes[args.fasta]['fasta']
     run_pindel(opts.version, args)
     if(args.vcf):
-        pindel2vcf = cmo.util.programs['pindel'][opts.version] + "2vcf"
+        pindel2vcf = cmo.util.programs['pindel2vcf'][opts.version]
         p2v_cmd = [pindel2vcf, "-r", args.fasta, "-R", genome_string, "-G", "-P", os.path.abspath(args.output_prefix), "-d",  date.fromtimestamp(time.time()).__str__(), args.vcf]
         cmo.util.call_cmd(" ".join(p2v_cmd))
     #remove extra args if any exist
