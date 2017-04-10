@@ -1,0 +1,50 @@
+#!/opt/common/CentOS_6-dev/python/python-2.7.10/bin/python
+
+import argparse, os, sys, subprocess
+import cmo
+from fireworks.scripts.lpad_run import *
+import getpass
+from cStringIO import StringIO
+
+LPAD_CONFIG_LOC = "/opt/common/CentOS_6-dev/cmo/fireworks_config_files/"
+
+
+def find_pindel_options(pindel_version):
+    pindel_help = subprocess.Popen(cmd, stderr=subprocess.PIPE).communicate()[1]
+    lines = pindel_help.split("\n")
+    last_sarg=''
+    last_larg=''
+    last_desc=''
+    parsed_options = []
+    for line in lines:
+        m = re.match(r"\s+-?(\S)?/--([\S_]+)", line)
+        if m:
+            if last_sarg:
+                parsed_options.append((last_sarg, last_larg, last_desc))
+            last_sarg = m.group(1)
+            last_larg = m.group(2)
+            last_desc=''
+        else:
+            last_desc = last_desc + line
+    parsed_options.append((last_sarg, last_larg, last_desc))
+    return parsed_options
+                
+
+
+
+
+if __name__ =='__main__':
+    preparser = argparse.ArgumentParser(description="run PINDEL" add_help=False)
+    preparser.add_argument("-v", "--version", action="store", choices=cmo.util.programs['pindel'].keys(), default="default")
+    opts = preparser.parse_args()
+    parser = argparse.ArgumentParser(parents=[preparser], add_help=True)
+    pindel_options = find_pindel_options(opts.version)
+    print pindel_options
+    sys.exit(1)
+    for (short_arg, long_arg, description) in  pindel_options:
+        #add args
+    #remove extra args if any exist
+    #execute command
+
+
+
