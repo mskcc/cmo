@@ -1,7 +1,8 @@
 #!/opt/common/CentOS_6-dev/python/python-2.7.10/bin/python
 
 import argparse, os, sys, subprocess, re
-import cmo
+import cmo, time, copy
+from datetime import date
 
 LPAD_CONFIG_LOC = "/opt/common/CentOS_6-dev/cmo/fireworks_config_files/"
 
@@ -29,16 +30,16 @@ def find_pindel_options(pindel_version):
                 
 
 def run_pindel(pindel_version, args):
-    args_dict = vars(args)
+    args_dict = copy.deepcopy(vars(args))
     del args_dict['version']
+    del args_dict['vcf']
     command = [cmo.util.programs['pindel'][pindel_version]]
     for argument, value in args_dict.items():
         if value:
             if value == True:
-                command = command + ["--"+argument]
+                command = command + ["--"+argument.replace("_","-")]
             else:
-                command = command + ["--"+argument, value]
-    print command
+                command = command + ["--"+argument.replace("_","-"), value]
     cmo.util.call_cmd(" ".join(command))
 
 
@@ -50,7 +51,6 @@ if __name__ =='__main__':
     pindel_options = find_pindel_options(opts.version)
     for (short_arg, long_arg, description) in  pindel_options:
         description=description.replace("%","%%")
-        print description
         if re.search(r"default.*(true|false)", description):
             action="store_true"
         else:
@@ -61,11 +61,16 @@ if __name__ =='__main__':
             parser.add_argument(short_arg, long_arg, action=action, help=description)
         else:
             parser.add_argument(long_arg, action=action, help=description)
-        print short_arg, long_arg, action
     parser.add_argument("-f", "--fasta", choices=cmo.util.genomes.keys(), default="GRCh37")
+    parser.add_argument("--vcf", action="store", help="supply a vcf filename to run pindel2vcf automatically")
     args = parser.parse_args()
+    genome_string = args.fasta
     args.fasta=cmo.util.genomes[args.fasta]['fasta']
     run_pindel(opts.version, args)
+    if(args.vcf):
+        pindel2vcf = cmo.util.programs['pindel'][opts.version] + "2vcf"
+        p2v_cmd = [pindel2vcf, "-r", args.fasta, "-R", genome_string, "-G", "-P", os.path.abspath(args.output_prefix), "-d",  date.fromtimestamp(time.time()).__str__(), args.vcf]
+        cmo.util.call_cmd(" ".join(p2v_cmd))
     #remove extra args if any exist
     #execute command
 
