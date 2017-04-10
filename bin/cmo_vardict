@@ -1,0 +1,74 @@
+#!/opt/common/CentOS_6-dev/python/python-2.7.10/bin/python
+
+import argparse, os, sys, subprocess, re
+import cmo, time, copy
+from datetime import date
+
+LPAD_CONFIG_LOC = "/opt/common/CentOS_6-dev/cmo/fireworks_config_files/"
+
+
+def find_vardict_options(vardict_version):
+    vardict_cmd = cmo.util.programs['vardict'][vardict_version]
+    vardict_help = subprocess.Popen([vardict_cmd], stdout=subprocess.PIPE, stderr=open(os.devnull, "wb")).communicate()[0]
+    lines = vardict_help.split("\n")
+    last_sarg=''
+    arg_type = None
+    last_desc=''
+    parsed_options = []
+    for line in lines:
+        m = re.match(r"\s+(-\S+) (<[\S\s]+>)?\s+(.*$)", line)
+        if m:
+            if last_sarg:
+                parsed_options.append((last_sarg, arg_type, last_desc))
+            last_sarg = m.group(1)
+            arg_type = m.group(2)
+            last_desc=m.group(3)
+        else:
+            last_desc = last_desc + line
+    parsed_options.append((last_sarg, arg_type, last_desc))
+    return parsed_options
+                
+
+def run_vardict(vardict_version, args):
+    args_dict = copy.deepcopy(vars(args))
+    del args_dict['version']
+    command = [cmo.util.programs['vardict'][vardict_version]]
+    for argument, value in args_dict.items():
+        if argument == 'bedfile':
+            continue;
+        elif value:
+            if value == True:
+                command = command + ["-"+argument.replace("_","-")]
+            else:
+                command = command + ["-"+argument.replace("_","-"), value]
+    command = command + [args_dict['bedfile']]
+    print >>sys.stderr, " ".join(command)
+    cmo.util.call_cmd(" ".join(command))
+
+
+if __name__ =='__main__':
+    preparser = argparse.ArgumentParser(description="run vardict", add_help=False)
+    preparser.add_argument("-v", "--version", action="store", choices=cmo.util.programs['vardict'].keys(), default="default")
+    opts, _ = preparser.parse_known_args()
+    parser = argparse.ArgumentParser(parents=[preparser], add_help=True)
+    vardict_options = find_vardict_options(opts.version)
+    parser.add_argument("bedfile", action="store", metavar="BEDFILE")
+    for (short_arg, arg_type, description) in  vardict_options:
+        description=description.replace("%","%%")
+        if short_arg =="-h":
+            short_arg="-hh"
+        if short_arg in ["-G", "-v"]:
+            continue
+        if(arg_type == None):
+            action="store_true"
+        else:
+            action="store"
+        parser.add_argument(short_arg, action=action, help=description)
+    parser.add_argument("-G", choices=cmo.util.genomes.keys(), default="GRCh37")
+    args = parser.parse_args()
+    genome_string = args.G
+    args.G=cmo.util.genomes[args.G]['fasta']
+    run_vardict(opts.version, args)
+
+
+
