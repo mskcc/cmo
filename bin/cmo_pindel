@@ -1,23 +1,21 @@
 #!/opt/common/CentOS_6-dev/python/python-2.7.10/bin/python
 
-import argparse, os, sys, subprocess
+import argparse, os, sys, subprocess, re
 import cmo
-from fireworks.scripts.lpad_run import *
-import getpass
-from cStringIO import StringIO
 
 LPAD_CONFIG_LOC = "/opt/common/CentOS_6-dev/cmo/fireworks_config_files/"
 
 
 def find_pindel_options(pindel_version):
-    pindel_help = subprocess.Popen(cmd, stderr=subprocess.PIPE).communicate()[1]
+    pindel_cmd = cmo.util.programs['pindel'][pindel_version]
+    pindel_help = subprocess.Popen([pindel_cmd, "-h"], stdout=subprocess.PIPE).communicate()[0]
     lines = pindel_help.split("\n")
     last_sarg=''
     last_larg=''
     last_desc=''
     parsed_options = []
     for line in lines:
-        m = re.match(r"\s+-?(\S)?/--([\S_]+)", line)
+        m = re.match(r"\s+(-\S)?/(--[\S_]+)", line)
         if m:
             if last_sarg:
                 parsed_options.append((last_sarg, last_larg, last_desc))
@@ -30,19 +28,44 @@ def find_pindel_options(pindel_version):
     return parsed_options
                 
 
-
+def run_pindel(pindel_version, args):
+    args_dict = vars(args)
+    del args_dict['version']
+    command = [cmo.util.programs['pindel'][pindel_version]]
+    for argument, value in args_dict.items():
+        if value:
+            if value == True:
+                command = command + ["--"+argument]
+            else:
+                command = command + ["--"+argument, value]
+    print command
+    cmo.util.call_cmd(" ".join(command))
 
 
 if __name__ =='__main__':
-    preparser = argparse.ArgumentParser(description="run PINDEL" add_help=False)
+    preparser = argparse.ArgumentParser(description="run PINDEL", add_help=False)
     preparser.add_argument("-v", "--version", action="store", choices=cmo.util.programs['pindel'].keys(), default="default")
-    opts = preparser.parse_args()
+    opts, _ = preparser.parse_known_args()
     parser = argparse.ArgumentParser(parents=[preparser], add_help=True)
     pindel_options = find_pindel_options(opts.version)
-    print pindel_options
-    sys.exit(1)
     for (short_arg, long_arg, description) in  pindel_options:
-        #add args
+        description=description.replace("%","%%")
+        print description
+        if re.search(r"default.*(true|false)", description):
+            action="store_true"
+        else:
+            action="store"
+        if short_arg and short_arg in ['-h', '-v', '-f']:
+            continue;
+        elif short_arg:
+            parser.add_argument(short_arg, long_arg, action=action, help=description)
+        else:
+            parser.add_argument(long_arg, action=action, help=description)
+        print short_arg, long_arg, action
+    parser.add_argument("-f", "--fasta", choices=cmo.util.genomes.keys(), default="GRCh37")
+    args = parser.parse_args()
+    args.fasta=cmo.util.genomes[args.fasta]['fasta']
+    run_pindel(opts.version, args)
     #remove extra args if any exist
     #execute command
 
