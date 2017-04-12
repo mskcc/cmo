@@ -1,0 +1,30 @@
+#!/opt/common/CentOS_6-dev/python/python-2.7.10/bin/python
+
+import argparse, os, sys, subprocess
+import cmo
+
+
+
+if __name__ =='__main__':
+    parser = argparse.ArgumentParser(description="rerun a FIZZLED Job")
+    #this is a dirty ass hack
+    #you are welcome
+    script = cmo.util.programs['list2bed']['default']
+    script_fh = open(script, "r")
+    for line in script_fh:
+        add_argument_index = line.find("add_argument")
+        if add_argument_index > -1:
+            fixed_code = line[add_argument_index:].rstrip()
+            python_code = "parser." + fixed_code
+            exec python_code
+    args = parser.parse_args()
+    args_dict = vars(args)
+    cmd = [script]
+    for key, val in args_dict.items():
+        if val == True:
+            cmd = cmd + ["--" + key]
+        elif val != None:
+            cmd = cmd + ["--" + key, val]
+    cmo.util.call_cmd(" ".join(cmd))
+
+
