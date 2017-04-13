@@ -9,7 +9,7 @@ if __name__ =='__main__':
     parser = argparse.ArgumentParser(description="rerun a FIZZLED Job")
     #this is a dirty ass hack
     #you are welcome
-    #script = cmo.util.programs['list2bed']['default']
+    script = cmo.util.programs['list2bed']['default']
     #script_fh = open(script, "r")
     #for line in script_fh:
     #    add_argument_index = line.find("add_argument")
