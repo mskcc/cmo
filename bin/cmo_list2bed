@@ -9,14 +9,22 @@ if __name__ =='__main__':
     parser = argparse.ArgumentParser(description="rerun a FIZZLED Job")
     #this is a dirty ass hack
     #you are welcome
-    script = cmo.util.programs['list2bed']['default']
-    script_fh = open(script, "r")
-    for line in script_fh:
-        add_argument_index = line.find("add_argument")
-        if add_argument_index > -1:
-            fixed_code = line[add_argument_index:].rstrip()
-            python_code = "parser." + fixed_code
-            exec python_code
+    #script = cmo.util.programs['list2bed']['default']
+    #script_fh = open(script, "r")
+    #for line in script_fh:
+    #    add_argument_index = line.find("add_argument")
+    #    if add_argument_index > -1:
+    #        fixed_code = line[add_argument_index:].rstrip()
+    #        python_code = "parser." + fixed_code
+    #        exec python_code
+
+    #update 1 day after dirty hack
+    #jaeyoung told me not to do stuff like this 
+    #because we can't open and scrape singularity version
+    #he's a very mean individual
+    parser.add_argument("-i", "--input_file", help="picard interval list", required=True)
+    parser.add_argument("-o", "--output_file", help="output bed file", required=True)
+    parser.add_argument("-ns", "--no_sort", help="sort bed file output", default='store_false')
     args = parser.parse_args()
     args_dict = vars(args)
     cmd = [script]

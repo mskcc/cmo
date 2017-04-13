@@ -109,7 +109,9 @@ setup(name='cmo',
                  'bin/cmo_gdc',
                  'bin/cmoflow_rnaseq',
                  'bin/cmo_snp-pileup',
-                 'bin/cmo_trimgalore'
+                 'bin/cmo_trimgalore',
+                 'bin/cmo_vardict',
+                 'bin/cmo_list2bed'
                  #'bin/cmo_hotspot3d'
                  ],
         zip_safe=False)
