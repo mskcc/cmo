@@ -33,6 +33,7 @@ def run_pindel(pindel_version, args):
     args_dict = copy.deepcopy(vars(args))
     del args_dict['version']
     del args_dict['vcf']
+    del args_dict['config_line']
     command = [cmo.util.programs['pindel'][pindel_version]]
     for argument, value in args_dict.items():
         if value:
@@ -62,10 +63,17 @@ if __name__ =='__main__':
         else:
             parser.add_argument(long_arg, action=action, help=description)
     parser.add_argument("-f", "--fasta", choices=cmo.util.genomes.keys(), default="GRCh37")
+    parser.add_argument("--config-line", action="append", help="pass a config string multiple times to generate a config file on the fly") 
     parser.add_argument("--vcf", action="store", help="supply a vcf filename to run pindel2vcf automatically")
     args = parser.parse_args()
     genome_string = args.fasta
     args.fasta=cmo.util.genomes[args.fasta]['fasta']
+    if args.config_line != None:
+        fh=open("temp.config", "w")
+        for line in args.config_line:
+            fh.write(line + "\n")
+        fh.close()
+    args.config_file="temp.config"
     run_pindel(opts.version, args)
     if(args.vcf):
         pindel2vcf = cmo.util.programs['pindel2vcf'][opts.version]
