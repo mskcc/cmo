@@ -111,7 +111,8 @@ setup(name='cmo',
                  'bin/cmo_snp-pileup',
                  'bin/cmo_trimgalore',
                  'bin/cmo_vardict',
-                 'bin/cmo_list2bed'
+                 'bin/cmo_list2bed',
+                 'bin/cmo_pindel'
                  #'bin/cmo_hotspot3d'
                  ],
         zip_safe=False)
