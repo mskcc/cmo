@@ -29,12 +29,14 @@ def find_vardict_options(vardict_version):
     return parsed_options
                 
 
-def run_vardict(vardict_version, args):
+def run_vardict(vardict_version, args, vcf_output):
     args_dict = copy.deepcopy(vars(args))
     del args_dict['version']
+    del args_dict['b2']
+    del args_dict['vcf']
     command = [cmo.util.programs['vardict'][vardict_version]]
     for argument, value in args_dict.items():
-        if argument == 'bedfile':
+        if argument == 'bedfile' or argument=='N2':
             continue;
         elif value:
             if value == True:
@@ -42,6 +44,15 @@ def run_vardict(vardict_version, args):
             else:
                 command = command + ["-"+argument.replace("_","-"), value]
     command = command + [args_dict['bedfile']]
+    #ronak example command:
+    #/path/to/VarDict -th 10 -G /path/to/reference -N TumorSampleID -b "/path/to/Tumor.bam|/path/to/Normal.bam" -Q 20 -q 20 -f 0.01 -C -z 1 -c 1 -S 2 -E 3 -x 2000 -X 5 /path/to/targets.bed | testsomatic.R | /path/to/var2vcf_paired.pl -N "TumorSampleID|NormalSampleID" -f 0.01
+    somatic_cmd = cmo.util.programs['vardict_bin'][vardict_version] + "testsomatic.R"
+    vcf_cmd = [cmo.util.programs['vardict_bin'][vardict_version] + "var2vcf_paired.pl"]
+    print args_dict
+    vcf_cmd = vcf_cmd + ['-N', '"' + args_dict['N'] + "|" + args_dict['N2'] + '"']
+    if args_dict['f'] != None:
+        vcf_cmd = vcf_cmd + ['-f', args_dict['f']]
+    command = command + ["|", somatic_cmd, "|", " ".join(vcf_cmd), ">", os.path.abspath(vcf_output)]
     print >>sys.stderr, " ".join(command)
     cmo.util.call_cmd(" ".join(command))
 
@@ -63,12 +74,20 @@ if __name__ =='__main__':
             action="store_true"
         else:
             action="store"
+        if(short_arg == '-N'):
+            description = "Tumor Sample Name"
+            parser.add_argument("-N2", required=True, help="Normal Sample Name")
+        if(short_arg == '-b'):
+            description = "Tumor bam"
+            parser.add_argument("-b2", required=True, help="Normal bam")
         parser.add_argument(short_arg, action=action, help=description)
     parser.add_argument("-G", choices=cmo.util.genomes.keys(), default="GRCh37")
+    parser.add_argument("--vcf", required=True, help="output vcf file")
     args = parser.parse_args()
+    args.b = '"' + os.path.abspath(args.b) + "|" + os.path.abspath(args.b2) + '"'
     genome_string = args.G
     args.G=cmo.util.genomes[args.G]['fasta']
-    run_vardict(opts.version, args)
+    run_vardict(opts.version, args, args.vcf)
 
 
 
