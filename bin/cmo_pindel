@@ -33,7 +33,8 @@ def run_pindel(pindel_version, args):
     args_dict = copy.deepcopy(vars(args))
     del args_dict['version']
     del args_dict['vcf']
-    del args_dict['config_line']
+    del args_dict['bams']
+    del args_dict['sample_names']
     command = [cmo.util.programs['pindel'][pindel_version]]
     for argument, value in args_dict.items():
         if value:
@@ -63,21 +64,31 @@ if __name__ =='__main__':
         else:
             parser.add_argument(long_arg, action=action, help=description)
     parser.add_argument("-f", "--fasta", choices=cmo.util.genomes.keys(), default="GRCh37")
-    parser.add_argument("--config-line", action="append", help="pass a config string multiple times to generate a config file on the fly") 
+    parser.add_argument("--sample_names", action="store", help="pass a config string multiple times to generate a config file on the fly") 
+    parser.add_argument("--bams", action="store", help="dummy option to get cwltool to copy the file to the working dir..hacks") 
     parser.add_argument("--vcf", action="store", help="supply a vcf filename to run pindel2vcf automatically")
     args = parser.parse_args()
     genome_string = args.fasta
     args.fasta=cmo.util.genomes[args.fasta]['fasta']
-    if args.config_line != None:
-        fh=open("temp.config", "w")
-        for line in args.config_line:
-            fh.write(line + "\n")
+    #hacks for cwl.. sorry everyone. lets just generate config on fly for now, maybe eventually we do it in exptool
+    print args.bams
+    if args.bams != None and args.sample_names != None:
+        args.sample_names = args.sample_names.split(" ")
+        args.bams = args.bams.split(" ")
+        fh=open(os.path.join(os.getcwd(),"temp.config"), "w")
+        for index, value in enumerate(args.bams):
+            fh.write("\t".join([args.bams[index], "400", args.sample_names[index]+ "\n"]))
         fh.close()
-    args.config_file="temp.config"
+        args.config_file="temp.config"
+    else:
+        if not args.config_file:
+            sys.exit(1)
+
+
     run_pindel(opts.version, args)
     if(args.vcf):
         pindel2vcf = cmo.util.programs['pindel2vcf'][opts.version]
-        p2v_cmd = [pindel2vcf, "-r", args.fasta, "-R", genome_string, "-G", "-P", os.path.abspath(args.output_prefix), "-d",  date.fromtimestamp(time.time()).__str__(), args.vcf]
+        p2v_cmd = [pindel2vcf, "-r", args.fasta, "-R", genome_string, "-G", "-P", os.path.abspath(args.output_prefix), "-d",  date.fromtimestamp(time.time()).__str__(), os.path.join(os.getcwd(), args.vcf)]
         cmo.util.call_cmd(" ".join(p2v_cmd))
     #remove extra args if any exist
     #execute command
