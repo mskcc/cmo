@@ -90,7 +90,6 @@ if __name__ =='__main__':
         pindel2vcf = cmo.util.programs['pindel2vcf'][opts.version]
         p2v_cmd = [pindel2vcf, "-r", args.fasta, "-R", genome_string, "-G", "-P", os.path.abspath(args.output_prefix), "-d",  date.fromtimestamp(time.time()).__str__(), "-v",  args.vcf]
         cmo.util.call_cmd(" ".join(p2v_cmd))
-        console.log(os.getcwd()).
         
     #remove extra args if any exist
     #execute command

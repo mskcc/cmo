@@ -32,7 +32,7 @@ if __name__ =='__main__':
     preparser.add_argument("--java-version", choices=cmo.util.programs['java'].keys(), default="default")
     options, _ = preparser.parse_known_args()
     #time for monkey business
-    gatk_helper = cmo.gatk.Gatk(java_version=options.version, version=options.version, mutect=True)
+    gatk_helper = cmo.gatk.Gatk(java_version=options.java_version, version=options.version, mutect=True)
     (sub_command_options, error_msg) = find_sub_command_options(gatk_helper, "MuTect")
     parser = argparse.ArgumentParser(parents= [ preparser ] , add_help= True, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument("--java_args", default=gatk_helper.java_args, help="args to pass to java")
