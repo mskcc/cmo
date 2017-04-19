@@ -33,8 +33,7 @@ class Picard:
         
     def picard_cmd(self, command, default_args_override={}, command_specific_args={}):
         #TODO -make this resource hack better
-        if command == "MergeSamFiles" or command == "MarkDuplicates" or command == "FixMateInformation":
-            self.java_args = "-Xms256m -Xmx30g -XX:-UseGCOverheadLimit -Djava.io.tmpdir=/scratch/"
+        self.java_args = "-Xms256m -Xmx30g -XX:-UseGCOverheadLimit -Djava.io.tmpdir=/scratch/"
         if(self.version == "1.96"):
             cmd = [self.java_cmd, self.java_args, "-jar", os.path.join(self.picard_jar, command+".jar")]
         else:
