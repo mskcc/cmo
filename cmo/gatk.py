@@ -17,7 +17,7 @@ class Gatk:
         try: 
             self.java_cmd=util.programs["java"][java_version]
         except KeyError, e:
-            print >>sys.stderr, "Cannot find specified version of java to run gatk with: %s" % version
+            print >>sys.stderr, "Cannot find specified version of java to run gatk with: %s" % java_version
             sys.exit(1)
         self.temp_dir=None
         if temp_dir:
