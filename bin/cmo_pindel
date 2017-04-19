@@ -9,7 +9,7 @@ LPAD_CONFIG_LOC = "/opt/common/CentOS_6-dev/cmo/fireworks_config_files/"
 
 def find_pindel_options(pindel_version):
     pindel_cmd = cmo.util.programs['pindel'][pindel_version]
-    pindel_help = subprocess.Popen([pindel_cmd, "-h"], stdout=subprocess.PIPE).communicate()[0]
+    pindel_help = subprocess.Popen([pindel_cmd, "-h"], shell=True, stdout=subprocess.PIPE).communicate()[0]
     lines = pindel_help.split("\n")
     last_sarg=''
     last_larg=''
