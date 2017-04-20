@@ -55,6 +55,8 @@ if __name__ =='__main__':
                 parser_group.add_argument(arg,long_arg, action=action, help=help)
             else: 
                 parser_group.add_argument(long_arg, action=action,  help=help)
+    if options.version=="1.1.4":
+        parser_group.add_argument("--enable_extended_output", action="store_true", help="enable extended output")
     cmo.util.add_logging_options(parser)
     (args, unknowns) = parser.parse_known_args()
     stderr=args.stderr
@@ -65,6 +67,7 @@ if __name__ =='__main__':
         gatk_helper.temp_dir = args.java_temp
     #hack to get mutect to run with the weird colon arguments, but must be improved if it would also support weird arguments without a value 
     #e.g. ---resource::shitballs with no trailing value would braek this, still
+    print vars(args)
     if len(unknowns) > 0:
         print >>sys.stderr, "WARNING: INCLUDING UNKNOWN ARGUMENTS (DID YOU TYPO, OR IS THIS A WEIRD COLON ARGUMENT THAT GATK SUCKS FOR HAVING?"
         print >>sys.stderr, " ".join(unknowns)
