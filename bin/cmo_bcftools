@@ -1,0 +1,97 @@
+#!/opt/common/CentOS_6-dev/python/python-2.7.10/bin/python
+
+import argparse, os, sys, subprocess, re
+import cmo, time, copy
+from datetime import date
+
+LPAD_CONFIG_LOC = "/opt/common/CentOS_6-dev/cmo/fireworks_config_files/"
+
+
+def find_bcftools_options(bcftools_version, subcommand):
+    bcftools_cmd = cmo.util.programs['bcftools'][bcftools_version]
+    bcftools_help = subprocess.Popen(" ".join([bcftools_cmd, subcommand, "-h"]), shell=True, stderr=subprocess.PIPE).communicate()[1]
+    lines = bcftools_help.split("\n")
+    last_sarg=''
+    last_larg=''
+    last_desc=''
+    parsed_options = dict()
+    for line in lines:
+        m = re.match(r"\s+(-\S)?,? *(--[\S-]+)\s+(.*$)", line)
+        if m:
+            if last_larg:
+                parsed_options[last_larg]=(last_sarg, last_larg, last_desc)
+            last_sarg = m.group(1)
+            last_larg = m.group(2)
+            last_desc=m.group(3)
+        else:
+            if line.find("--") > -1:
+                print line
+    parsed_options[last_larg]=(last_sarg, last_larg, last_desc)
+    return parsed_options.values()
+                
+def find_bcftools_subcommands(bcftools_version):
+    bcftools_cmd = cmo.util.programs['bcftools'][bcftools_version]
+    bcftools_help = subprocess.Popen([bcftools_cmd, "-h"], shell=True, stderr=subprocess.PIPE).communicate()[1]
+    lines = bcftools_help.split("\n")
+    subcommand_help_tuples = list()
+    for line in lines:
+        print line
+        m = re.search("^\s\s+(\S+)\s\s+(\S[\s\S]+$)", line)
+        if m:
+            #subcommand, help blurb
+            subcommand_help_tuples.append((m.group(1), m.group(2)))
+    return subcommand_help_tuples
+ 
+
+
+def run_bcftools(bcftools_version, args):
+    args_dict = copy.deepcopy(vars(args))
+    command = [cmo.util.programs['bcftools'][bcftools_version], args_dict['subcommand']]
+    del args_dict['subcommand']
+    del args_dict['version']
+    for argument, value in args_dict.items():
+        if value:
+            if value == True:
+                command = command + ["--"+argument.replace("_","-")]
+            else:
+                command = command + ["--"+argument.replace("_","-"), value]
+    print >>sys.stderr, " ".join(command)
+    cmo.util.call_cmd(" ".join(command))
+
+
+if __name__ =='__main__':
+    preparser = argparse.ArgumentParser(description="run bcftools", add_help=False)
+    preparser.add_argument("-v", "--version", action="store", choices=cmo.util.programs['bcftools'].keys(), default="default")
+    opts, _ = preparser.parse_known_args()
+    parser = argparse.ArgumentParser(parents=[preparser], add_help=True)
+    subcommands = find_bcftools_subcommands(opts.version)
+    subparsers = parser.add_subparsers(help="bcftoooooooools!!!!", dest="subcommand")
+    for (subcommand, help) in  subcommands:
+         add_F=False
+         subparser = subparsers.add_parser(subcommand, help=help)
+         bcftools_options = find_bcftools_options(opts.version, subcommand)
+         for (short_arg, long_arg, description) in bcftools_options:
+             if(re.search("[<\[][\s\S[<\]]>", description)):
+                 action="store"
+             else:
+                 action="store_true"
+             description=description.replace("%","%%")
+             if short_arg and short_arg in ['-h', '-f']:
+                 add_f=True
+                 continue;
+             elif short_arg:
+                 subparser.add_argument(short_arg, long_arg, action=action, help=description)
+             else:
+                 subparser.add_argument(long_arg, action=action, help=description)
+         if(add_F):
+             subparser.add_argument("-f", "--fasta-ref", choices=cmo.util.genomes.keys())
+
+        
+    args = parser.parse_args()
+    if "fasta_ref" in args:
+        args.fasta_ref = cmo.util.genomes[args.fasta_ref]['fasta']
+#    args.fasta=cmo.util.genomes[args.fasta]['fasta']
+    run_bcftools(opts.version, args)
+
+
+
