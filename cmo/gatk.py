@@ -23,6 +23,7 @@ class Gatk:
         if temp_dir:
             self.temp_dir = temp_dir
         self.java_args = java_args 
+        print "selected %s" % self.gatk_jar
     def gatk_cmd(self, command, java_args_override=None, command_specific_args={}):
         cmd = [self.java_cmd, self.java_args]
         if(self.temp_dir != None):
