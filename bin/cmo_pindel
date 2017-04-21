@@ -42,6 +42,7 @@ def run_pindel(pindel_version, args):
                 command = command + ["--"+argument.replace("_","-")]
             else:
                 command = command + ["--"+argument.replace("_","-"), value]
+    print >>sys.stderr, " ".join(command)
     cmo.util.call_cmd(" ".join(command))
 
 
