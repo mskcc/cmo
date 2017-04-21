@@ -47,6 +47,8 @@ def find_bcftools_subcommands(bcftools_version):
 def run_bcftools(bcftools_version, args):
     args_dict = copy.deepcopy(vars(args))
     command = [cmo.util.programs['bcftools'][bcftools_version], args_dict['subcommand']]
+    vcf = args.vcf
+    del args_dict['vcf']
     del args_dict['subcommand']
     del args_dict['version']
     for argument, value in args_dict.items():
@@ -55,6 +57,7 @@ def run_bcftools(bcftools_version, args):
                 command = command + ["--"+argument.replace("_","-")]
             else:
                 command = command + ["--"+argument.replace("_","-"), value]
+    command = command + [vcf]
     print >>sys.stderr, " ".join(command)
     cmo.util.call_cmd(" ".join(command))
 
@@ -85,7 +88,8 @@ if __name__ =='__main__':
                  subparser.add_argument(long_arg, action=action, help=description)
          if(add_F):
              subparser.add_argument("-f", "--fasta-ref", choices=cmo.util.genomes.keys())
-
+         subparser.add_argument("vcf", action="store", required=True)
+    
         
     args = parser.parse_args()
     if "fasta_ref" in args:
