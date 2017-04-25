@@ -2,6 +2,7 @@
 
 import argparse, os, sys, re, subprocess,itertools
 import cmo
+logger = cmo.util.get_logger()
 
 def find_sub_command_options(bedtools_command):
     bedtools_help = subprocess.Popen(bedtools_command + " -h",stderr=subprocess.PIPE,shell=True).communicate()[1]
@@ -54,7 +55,7 @@ if __name__ =='__main__':
     verparser.add_argument("--version", choices=cmo.util.programs['bedtools'].keys(), default="default")
     options, _ = verparser.parse_known_args()
     preparser = argparse.ArgumentParser(parents=[verparser], add_help=False)
-    preparser.add_argument("--cmd", required=True, choices=find_sub_commands(cmo.util.programs['bedtools'][options.version]), metavar='BEDTOOLS COMMAND')
+    preparser.add_argument("cmd", choices=find_sub_commands(cmo.util.programs['bedtools'][options.version]))
     selection,_ = preparser.parse_known_args()
     bedtools_command = os.path.join(cmo.util.programs['bedtools'][options.version], selection.cmd)
     sub_command_options = find_sub_command_options(bedtools_command)
@@ -78,12 +79,11 @@ if __name__ =='__main__':
         else:
             group.add_argument(arg, action="store_true", help=help) 
 #    parser.add_argument("--genome", required=True, choices=cmo.util.genomes.keys())
-    cmo.util.add_logging_options(parser)
+    parser.prog="cmo_bedtools " + selection.cmd
     args = parser.parse_args()
     command_specific_args = vars(args)
     stderr=args.stderr
     stdout=args.stdout
-    cmo.util.remove_logging_options_from_dict(command_specific_args)
     if 'fi' in command_specific_args:
         command_specific_args['fi']=cmo.util.genomes[args.fi]['fasta']
     for key in  ["version", "cmd"]:
