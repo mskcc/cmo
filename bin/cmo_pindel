@@ -4,8 +4,7 @@ import argparse, os, sys, subprocess, re
 import cmo, time, copy
 from datetime import date
 
-LPAD_CONFIG_LOC = "/opt/common/CentOS_6-dev/cmo/fireworks_config_files/"
-
+logger = cmo.util.get_logger()
 
 def find_pindel_options(pindel_version):
     pindel_cmd = cmo.util.programs['pindel'][pindel_version]
@@ -42,7 +41,6 @@ def run_pindel(pindel_version, args):
                 command = command + ["--"+argument.replace("_","-")]
             else:
                 command = command + ["--"+argument.replace("_","-"), value]
-    print >>sys.stderr, " ".join(command)
     cmo.util.call_cmd(" ".join(command))
 
 
@@ -72,7 +70,6 @@ if __name__ =='__main__':
     genome_string = args.fasta
     args.fasta=cmo.util.genomes[args.fasta]['fasta']
     #hacks for cwl.. sorry everyone. lets just generate config on fly for now, maybe eventually we do it in exptool
-    print args.bams
     if args.bams != None and args.sample_names != None:
         args.sample_names = args.sample_names.split(" ")
         args.bams = args.bams.split(" ")
