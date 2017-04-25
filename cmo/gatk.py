@@ -1,6 +1,6 @@
 import os, sys
 from . import util
-
+logger = util.get_logger()
 
 
 
@@ -12,18 +12,18 @@ class Gatk:
             else:
                 self.gatk_jar=util.programs["gatk"][version]
         except KeyError, e:
-            print >>sys.stderr, "Cannot find specified version of gatk in configuration file: %s" % version
+            logger.critical("Cannot find specified version of gatk in configuration file: %s" % version)
             sys.exit(1)
         try: 
             self.java_cmd=util.programs["java"][java_version]
         except KeyError, e:
-            print >>sys.stderr, "Cannot find specified version of java to run gatk with: %s" % java_version
+            logger.critical("Cannot find specified version of java to run gatk with: %s" % java_version)
             sys.exit(1)
         self.temp_dir=None
         if temp_dir:
             self.temp_dir = temp_dir
         self.java_args = java_args 
-        print "selected %s" % self.gatk_jar
+        logger.info("selected %s" % self.gatk_jar)
     def gatk_cmd(self, command, java_args_override=None, command_specific_args={}):
         cmd = [self.java_cmd, self.java_args]
         if(self.temp_dir != None):
