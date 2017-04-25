@@ -80,7 +80,6 @@ if __name__ =='__main__':
     cmd = cmd + [fastq1]
     if fastq2 != None:
         cmd = cmd + [fastq2]
-    print >>sys.stderr, (" ".join(cmd))
     cmo.util.call_cmd(" ".join(cmd), stderr=stderr, stdout=stdout, stdin=stdin)
 
      
