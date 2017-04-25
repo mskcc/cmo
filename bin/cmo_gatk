@@ -113,7 +113,6 @@ if __name__ =='__main__':
         for bam in command_specific_args['input_file']:
             if not os.path.exists(bam.replace(".bam",".bai"))and not os.path.exists(bam +".bai"):
                 cmo.util.samtools_index(bam)
-    cmo.util.remove_logging_options_from_dict(command_specific_args)
     cmo.util.call_cmd(gatk_helper.gatk_cmd(options.cmd, command_specific_args=command_specific_args), stderr=stderr, stdout=stdout)
     
      
