@@ -3,6 +3,8 @@
 import argparse, os, sys, re, subprocess,itertools
 import cmo
 from collections import defaultdict
+logger = cmo.util.get_logger()
+
 def find_sub_command_options(gatk_helper, sub_command):
     cmd = gatk_helper.gatk_cmd_help(sub_command) 
     gatk_help = subprocess.Popen(cmd,stdout=subprocess.PIPE,shell=True).communicate()[0]
@@ -42,13 +44,13 @@ if __name__ =='__main__':
     preparser = argparse.ArgumentParser(description="run gatk", add_help=False)
     preparser.add_argument("--version", choices=cmo.util.programs['gatk'].keys(), default="default")
     preparser.add_argument("--java-version", choices=cmo.util.programs['java'].keys(), default="default")
-    preparser.add_argument("-T", "--cmd", required=True)
+    preparser.add_argument("cmd" )
     options, _ = preparser.parse_known_args()
     #time for monkey business
     gatk_helper = cmo.gatk.Gatk(java_version=options.java_version, version=options.version)
     (sub_command_options, error_msg) = find_sub_command_options(gatk_helper, options.cmd)
     if sub_command_options == None:
-        print >>sys.stderr, error_msg
+        logger.critical(error_msg)
         sys.exit(1)
     #ok it was a valid subcommand, add the options we found and the genome option
     parser = argparse.ArgumentParser(parents=[ preparser ], add_help=True, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -57,6 +59,9 @@ if __name__ =='__main__':
     for group in sub_command_options:
         parser_group=parser.add_argument_group(group)
         for (arg, long_arg, param, help) in sub_command_options[group]:
+            if arg=='' and long_arg=='':
+                logger.critical("Didn't find any options to parse for %s, perhaps subcommand is invalid" % group)
+                sys.exit(1)
             #we want to add our ref seqs ourselves
             if(arg == "-R"):
                 parser_group.add_argument("-R", "--reference_sequence", choices=cmo.util.genomes.keys())
@@ -74,16 +79,21 @@ if __name__ =='__main__':
                     parser_group.add_argument(arg,long_arg, action="store_true", help=help)
                 else:
                     parser_group.add_argument(long_arg, action="store_true", help=help)
-    cmo.util.add_logging_options(parser)
-    (args, unknowns) = parser.parse_known_args()
+    try:
+        parser.prog='cmo_gatk ' + options.cmd
+        args = parser.parse_args()
+        unknowns = []
+    except Exception, e:
+        logger.info(e)
+        (args, unknowns) = parser.parse_known_args()
     #hack to get vqsr to run with the weird colon arguments, but must be improved if it would also support weird arguments without a value 
     #e.g. ---resource::shitballs with no trailing value would braek this, still
     if len(unknowns) > 0:
-        print >>sys.stderr, "WARNING: INCLUDING UNKNOWN ARGUMENTS (DID YOU TYPO, OR IS THIS A WEIRD COLON ARGUMENT THAT GATK SUCKS FOR HAVING?"
-        print >>sys.stderr, " ".join(unknowns)
-    unknowns_dict = dict()
-    for i in range(0, len(unknowns), 2):
-        unknowns_dict[re.sub("^--?", "", unknowns[i])]=unknowns[i+1]
+        logger.warning("INCLUDING UNKNOWN ARGUMENTS (DID YOU TYPO, OR IS THIS A WEIRD COLON ARGUMENT THAT GATK SUCKS FOR HAVING?");
+        logger.warning(" ".join(unknowns))
+        unknowns_dict = dict()
+        for i in range(0, len(unknowns), 2):
+            unknowns_dict[re.sub("^--?", "", unknowns[i])]=unknowns[i+1]
     if args.java_args:
         gatk_helper.java_args=args.java_args
     if args.java_temp:
