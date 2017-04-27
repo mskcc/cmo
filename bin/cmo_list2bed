@@ -24,7 +24,7 @@ if __name__ =='__main__':
     #he's a very mean individual
     parser.add_argument("-i", "--input_file", help="picard interval list", required=True)
     parser.add_argument("-o", "--output_file", help="output bed file", required=True)
-    parser.add_argument("-ns", "--no_sort", help="sort bed file output", default='store_false')
+    parser.add_argument("-ns", "--no_sort", help="sort bed file output", action='store_false')
     args = parser.parse_args()
     args_dict = vars(args)
     cmd = [script]

@@ -9,7 +9,7 @@ LPAD_CONFIG_LOC = "/opt/common/CentOS_6-dev/cmo/fireworks_config_files/"
 
 def find_bcftools_options(bcftools_version, subcommand):
     bcftools_cmd = cmo.util.programs['bcftools'][bcftools_version]
-    bcftools_help = subprocess.Popen(" ".join([bcftools_cmd, subcommand, "-h"]), shell=True, stderr=subprocess.PIPE).communicate()[1]
+    bcftools_help = subprocess.Popen(" ".join([bcftools_cmd, subcommand, "--help"]), shell=True, stderr=subprocess.PIPE).communicate()[1]
     lines = bcftools_help.split("\n")
     last_sarg=''
     last_larg=''
