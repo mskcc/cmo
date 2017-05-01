@@ -65,7 +65,9 @@ def test_bwa_mem():
             "--genome", genome_string,
             "--output", output,
             "--version", '0.7.5a'  ]
-    subprocess.check_call(" ".join(cmd), shell=True)
+    prog_output = subprocess.check_call(" ".join(cmd), shell=True)
+    assert_true(re.search("0.7.5a", prog_output))
+
 def test_list2bed():
     cmd = ["cmo_list2bed",
             "--input_file", input_list,
@@ -87,6 +89,7 @@ def test_mutect():
             '--enable_extended_output',
             '--vcf', output]
     subprocess.check_call(" ".join(cmd), shell=True)
+    assert_true(re.search("#INFO.*HelpFormatter - Program Args: -T MuTect --vcf .* --cosmic /ifs/work/socci/Pipelines/CBE/variants_pipeline/data/b37/CosmicCodingMuts_v67_b37_20131024__NDS.vcf --input_file:tumor /ifs/work/charris/testdata_for_cmo/P1_ADDRG_MD.abra.fmi.printreads.bam --downsampling_type NONE --input_file:normal /ifs/work/charris/testdata_for_cmo/P2_ADDRG_MD.abra.fmi.printreads.bam --intervals 1 --dbsnp /ifs/work/charris/temp_depot/dbsnp_138.b37.excluding_sites_after_129.vcf --enable_extended_output --reference_sequence /ifs/depot/assemblies/H.sapiens/b37/b37.fasta", prog_output))
 
 def test_printreads():
     cmd = ['cmo_gatk',
@@ -98,7 +101,8 @@ def test_printreads():
             '--num_cpu_threads_per_data_thread', '6',
             '--out', output,
             '--reference_sequence', genome_string]
-    subprocess.check_call(" ".join(cmd), shell=True)
+    prog_output = subprocess.check_output(" ".join(cmd), shell=True, stderr=subprocess.STDOUT)
+    assert_true(re.search("INFO  .* HelpFormatter - Program Args: -T PrintReads --input_file /ifs/work/charris/testdata_for_cmo/P1_ADDRG_MD.abra.fmi.printreads.bam --num_cpu_threads_per_data_thread 6 --BQSR /ifs/work/charris/testdata_for_cmo/recal.matrix --reference_sequence /ifs/depot/assemblies/H.sapiens/b37/b37.fasta --out", prog_output))
 
 def test_baserecal():
     cmd= ['cmo_gatk',
@@ -116,8 +120,8 @@ def test_baserecal():
             '--java_args', "'-Xmx48g -Xms256m -XX:-UseGCOverheadLimit'",
             '--out', output,
             '--reference_sequence', genome_string]
-    subprocess.check_call(" ".join(cmd), shell=True)
-
+    prog_output = subprocess.check_output(" ".join(cmd), shell=True)
+    assert_true(re.search("INFO .* HelpFormatter - Program Args: -T BaseRecalibrator --input_file /ifs/work/charris/testdata_for_cmo/P1_ADDRG_MD.abra.fmi.printreads.bam --reference_sequence /ifs/depot/assemblies/H.sapiens/b37/b37.fasta --knownSites /ifs/work/charris/temp_depot/dbsnp_138.b37.excluding_sites_after_129.vcf --knownSites /ifs/work/charris/temp_depot/hapmap_3.3.b37.vcf --knownSites /ifs/work/charris/temp_depot/1000G_phase1.snps.high_confidence.b37.vcf --knownSites /ifs/work/charris/temp_depot/Mills_and_1000G_gold_standard.indels.b37.vcf --covariate ContextCovariate --covariate CycleCovariate --covariate ReadGroupCovariate --covariate QualityScoreCovariate --out", prog_output))
 
 def test_addorreplacereadgroups():
     cmd = ['cmo_picard',
@@ -133,7 +137,9 @@ def test_addorreplacereadgroups():
             '--SM', 'P-0000377-T02-IM3',
             '--SO', 'coordinate',
             '--TMP_DIR', tmpdir]
-    subprocess.check_call(" ".join(cmd), shell=True)
+    prog_output = subprocess.check_output(" ".join(cmd), shell=True, stderr=subprocess.STDOUT)
+    print prog_output
+    assert_true(re.search("picard.sam.AddOrReplaceReadGroups INPUT=/ifs/work/charris/testdata_for_cmo/P1_ADDRG_MD.abra.fmi.printreads.bam OUTPUT=.* SORT_ORDER=coordinate RGID=P-0000377 RGLB=5 RGPL=Illumina RGPU=bc26 RGSM=P-0000377-T02-IM3 RGCN=MSKCC TMP_DIR=\[/scratch\] CREATE_INDEX=true    VERBOSITY=INFO QUIET=false VALIDATION_STRINGENCY=STRICT COMPRESSION_LEVEL=5 MAX_RECORDS_IN_RAM=500000 CREATE_MD5_FILE=false", prog_output))
 
 def test_trimgalore():
     cmd = ['cmo_trimgalore',
@@ -150,7 +156,9 @@ def test_trimgalore():
             fastq1,
             fastq2,
             ]
-    subprocess.check_call(" ".join(cmd), shell=True)
+    prog_output = subprocess.check_output(" ".join(cmd), shell=True, stderr=subprocess.STDOUT)
+    assert_true("/opt/common/CentOS_6/trim_galore/Trim_Galore_v0.2.5/trim_galore --adapter AGATCGGAAGAGCACACGTCTGAACTCCAGTCACATGAGCATCTCGTATGCCGTCTTCTGCTTG --suppress_warn --paired --length 25 --gzip --quality 1 --adapter2 AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGTAGATCTCGGTGGTCGCCGTATCATT /ifs/work/charris/testdata_for_cmo/P1_R1.fastq.gz /ifs/work/charris/testdata_for_cmo/P1_R2.fastq.gz", prog_output)
+
 
 def test_vardict():
     cmd = ['cmo_vardict',
@@ -178,9 +186,8 @@ def test_vardict():
 def test_somaticindeldetector():
     cmd = ['cmo_gatk',
             '--version', '2.3-9',
-            
             '-T', 'SomaticIndelDetector',
-            '--filter_expressions', "'T_COV<10||N_COV<4||T_INDEL_F<0.0001||T_INDEL_CF<0.7'",
+            '--filter_expressions', "'\"T_COV<10||N_COV<4||T_INDEL_F<0.0001||T_INDEL_CF<0.7\"'",
             '--intervals', input_bed,
             '--java_args', '"-Xmx48g -Xms256m -XX:-UseGCOverheadLimit"', 
             '--maxNumberOfReads', '100000',
@@ -198,7 +205,8 @@ def test_somaticindeldetector():
             '--read_filter', 'UnmappedRead',
             '--read_filter', 'MappingQuality',
             '--read_filter', 'BadCigar']
-    subprocess.check_call(" ".join(cmd), shell=True)
+    prog_output = subprocess.check_output(" ".join(cmd), shell=True, stderr=subprocess.STDOUT)
+    assert_true(re.search("INFO  .* HelpFormatter - Program Args: -T SomaticIndelDetector --input_file:normal /ifs/work/charris/testdata_for_cmo/P2_ADDRG_MD.abra.fmi.printreads.bam --input_file:tumor /ifs/work/charris/testdata_for_cmo/P1_ADDRG_MD.abra.fmi.printreads.bam --min_mapping_quality_score 20 --intervals /ifs/work/charris/testdata_for_cmo/intervals.bed --filter_expressions T_COV<10||N_COV<4||T_INDEL_F<0.0001||T_INDEL_CF<0.7 --maxNumberOfReads 100000 --verboseOutput .* --read_filter DuplicateRead --read_filter FailsVendorQualityCheck --read_filter NotPrimaryAlignment --read_filter BadMate --read_filter MappingQualityUnavailable --read_filter UnmappedRead --read_filter MappingQuality --read_filter BadCigar --reference_sequence /ifs/depot/assemblies/H.sapiens/b37/b37.fasta --out .*", prog_output))
 
 def test_markduplicates():
     cmd = ['cmo_picard',
@@ -209,14 +217,19 @@ def test_markduplicates():
             '--O', output,
             '--TMP_DIR', tmpdir
             ]
-    subprocess.check_call(" ".join(cmd), shell=True)
+    prog_output = subprocess.check_output(" ".join(cmd), shell=True, stderr=subprocess.STDOUT)
+    assert_true(re.search("picard.sam.markduplicates.MarkDuplicates INPUT=\[/ifs/work/charris/testdata_for_cmo/P1_ADDRG_MD.abra.fmi.printreads.bam\] OUTPUT=.* METRICS_FILE=/tmp/tmp5N4nfn/output2 TMP_DIR=\[/scratch\] CREATE_INDEX=true    MAX_SEQUENCES_FOR_DISK_READ_ENDS_MAP=50000 MAX_FILE_HANDLES_FOR_READ_ENDS_MAP=8000 SORTING_COLLECTION_SIZE_RATIO=0.25 PROGRAM_RECORD_ID=MarkDuplicates PROGRAM_GROUP_NAME=MarkDuplicates REMOVE_DUPLICATES=false ASSUME_SORTED=false DUPLICATE_SCORING_STRATEGY=SUM_OF_BASE_QUALITIES READ_NAME_REGEX=\[a-zA-Z0-9\]+:\[0-9\]:(\[0-9\]+):(\[0-9\]+):(\[0-9\]+).* OPTICAL_DUPLICATE_PIXEL_DISTANCE=100 VERBOSITY=INFO QUIET=false VALIDATION_STRINGENCY=STRICT COMPRESSION_LEVEL=5 MAX_RECORDS_IN_RAM=500000 CREATE_MD5_FILE=false", prog_output))
 
 def test_fixmateinformation():
     cmd = ['cmo_picard',
             '--cmd', 'FixMateInformation',
             '--I', tumor_bam,
             '--O', output]
-    subprocess.check_call(" ".join(cmd), shell=True)
+    prog_output = subprocess.check_output(" ".join(cmd), shell=True, stderr=subprocess.STDOUT)
+    print prog_output
+    assert_true(re.search("picard.sam.FixMateInformation INPUT=\[/ifs/work/charris/testdata_for_cmo/P1_ADDRG_MD.abra.fmi.printreads.bam\] OUTPUT=.* ASSUME_SORTED=false ADD_MATE_CIGAR=true VERBOSITY=INFO QUIET=false VALIDATION_STRINGENCY=STRICT COMPRESSION_LEVEL=5 MAX_RECORDS_IN_RAM=500000 CREATE_INDEX=false CREATE_MD5_FILE=false", prog_output))
+    
+
 
 
 
