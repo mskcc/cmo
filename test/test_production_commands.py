@@ -1,4 +1,5 @@
-import subprocess, shutil, os, sys, tempfile
+import subprocess, shutil, os, sys, tempfile, re
+from nose.tools import assert_true
 
 TEST_TEMP_DIR = None
 TEST_DATA_DIR = "/ifs/work/charris/testdata_for_cmo"
@@ -46,8 +47,14 @@ def test_abra():
             '--reference_sequence', genome_string,
             '--targets', input_bed,
             '--working', abratmpdir]
-#    cmo.util.call_cmd(" ".join(cmd))
-    subprocess.check_call(" ".join(cmd), shell=True)
+    prog_output = subprocess.check_output(" ".join(cmd), shell=True)
+    #check prog_output to see if it picked up the arguments we gave...
+    assert_true(re.search("input0: /ifs/work/charris/testdata_for_cmo/P1_ADDRG_MD.abra.fmi.printreads.bam", prog_output))
+    assert_true(re.search("input0: /ifs/work/charris/testdata_for_cmo/P2_ADDRG_MD.abra.fmi.printreads.bam", prog_output))
+    assert_true(re.search("regions: /ifs/work/charris/testdata_for_cmo/intervals.bed", prog_output))
+    assert_true(re.search("reference: /ifs/depot/assemblies/H.sapiens/b37/b37.fasta", prog_output))
+    assert_true(re.search("working dir: /scratch/abra_cmo_test/", prog_output))
+
 
 
 
@@ -77,6 +84,7 @@ def test_mutect():
             '--input_file:tumor', tumor_bam,
             '--java_args', '"-Xmx48g -Xms256m -XX:-UseGCOverheadLimit"',
             '--reference_sequence', genome_string,
+            '--enable_extended_output',
             '--vcf', output]
     subprocess.check_call(" ".join(cmd), shell=True)
 
