@@ -29,9 +29,9 @@ if __name__ =='__main__':
     args_dict = vars(args)
     cmd = [script]
     for key, val in args_dict.items():
-        if val == True:
-            cmd = cmd + ["--" + key]
-        elif val != None:
+        if val == False:
+            cmd = cmd + ["--" + str(key)]
+        elif val != None and val !=True:
             cmd = cmd + ["--" + key, val]
     cmo.util.call_cmd(" ".join(cmd))
 
