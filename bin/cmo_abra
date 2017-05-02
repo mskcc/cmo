@@ -6,7 +6,7 @@ import subprocess
 
 import time
 import cmo, shutil 
-
+logger = cmo.util.get_logger()
 '''
 This method adds custom arguments to run the wrapper
 '''
@@ -153,17 +153,16 @@ def main():
     # Make the command that needs to be launched
     # To get the time
     start_time = time.time()
-    print "Start Time:", time.ctime(start_time)
+    logger.info("Start Time:", time.ctime(start_time))
     java = java + " -Djava.io.tmpdir=/scratch/" + str(os.getpid())
     cmd = make_command_to_run(java, abra_jar, command_specific_args)
-    print " ".join(cmd)
     try:
         cmo.util.call_cmd(" ".join(cmd), shell=True)
     except:
         pass
     end_time = time.time()
-    print "End Time:", time.ctime(end_time)
-    print("Elapsed time was %g seconds" % (end_time - start_time))
+    logger.info("End Time:", time.ctime(end_time))
+    logger.info("Elapsed time was %g seconds" % (end_time - start_time)))
     shutil.rmtree(os.path.abspath(args.working))
 
 '''
