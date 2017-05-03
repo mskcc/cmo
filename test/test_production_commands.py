@@ -14,6 +14,9 @@ fastq2=os.path.join(TEST_DATA_DIR, "P1_R2.fastq.gz")
 matrix=os.path.join(TEST_DATA_DIR, "recal.matrix")
 genome_string = "GRCh37"
 abratmpdir = "/scratch/abra_cmo_test/"
+if not os.path.exists("/scratch"):
+    #for jenkins box
+    abratmpdir = "/srv/data/scratch"
 tmpdir = "/scratch/"
 cosmic = "/ifs/work/socci/Pipelines/CBE/variants_pipeline/data/b37/CosmicCodingMuts_v67_b37_20131024__NDS.vcf"
 dbsnp = "/ifs/work/charris/temp_depot/dbsnp_138.b37.excluding_sites_after_129.vcf"
@@ -94,7 +97,7 @@ def test_mutect():
 
 def test_printreads():
     cmd = ['cmo_gatk',
-            '-T', 'PrintReads',
+             'PrintReads',
             '--version', '3.3-0',
             '--BQSR', matrix,
             '--input_file', tumor_bam,
@@ -107,7 +110,7 @@ def test_printreads():
 
 def test_baserecal():
     cmd= ['cmo_gatk',
-            '-T', 'BaseRecalibrator',
+            'BaseRecalibrator',
             '--version', '3.3-0',
             '--input_file', tumor_bam,
             '--covariate', 'ContextCovariate',
@@ -126,7 +129,7 @@ def test_baserecal():
 
 def test_addorreplacereadgroups():
     cmd = ['cmo_picard',
-            '--cmd', 'AddOrReplaceReadGroups',
+            'AddOrReplaceReadGroups',
             '--CN', 'MSKCC',
             '--CREATE_INDEX',
             '--I', tumor_bam,
@@ -187,7 +190,7 @@ def test_vardict():
 def test_somaticindeldetector():
     cmd = ['cmo_gatk',
             '--version', '2.3-9',
-            '-T', 'SomaticIndelDetector',
+            'SomaticIndelDetector',
             '--filter_expressions', "'\"T_COV<10||N_COV<4||T_INDEL_F<0.0001||T_INDEL_CF<0.7\"'",
             '--intervals', input_bed,
             '--java_args', '"-Xmx48g -Xms256m -XX:-UseGCOverheadLimit"', 
@@ -211,7 +214,7 @@ def test_somaticindeldetector():
 
 def test_markduplicates():
     cmd = ['cmo_picard',
-            '--cmd', 'MarkDuplicates',
+            'MarkDuplicates',
             '--CREATE_INDEX',
             '--I', tumor_bam,
             '--M', output2,
@@ -223,7 +226,7 @@ def test_markduplicates():
 
 def test_fixmateinformation():
     cmd = ['cmo_picard',
-            '--cmd', 'FixMateInformation',
+            'FixMateInformation',
             '--I', tumor_bam,
             '--O', output]
     prog_output = subprocess.check_output(" ".join(cmd), shell=True, stderr=subprocess.STDOUT)
