@@ -11,5 +11,5 @@ fi
     . $PYENV_HOME/bin/activate
     pip install --quiet nosexcover
     python $WORKSPACE/setup.py install  # where your setup.py lives
-    nosetests --with-xunit
+    nosetests --with-xunit --ignore-files="postprocess*.py" -v
 #    pylint -f parseable myapp/ | tee pylint.out
