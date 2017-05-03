@@ -14,10 +14,11 @@ fastq2=os.path.join(TEST_DATA_DIR, "P1_R2.fastq.gz")
 matrix=os.path.join(TEST_DATA_DIR, "recal.matrix")
 genome_string = "GRCh37"
 abratmpdir = "/scratch/abra_cmo_test/"
+tmpdir = "/scratch/"
 if not os.path.exists("/scratch"):
     #for jenkins box
     abratmpdir = "/srv/data/scratch"
-tmpdir = "/scratch/"
+    tmpdir = "/srv/data/scratch"
 cosmic = "/ifs/work/socci/Pipelines/CBE/variants_pipeline/data/b37/CosmicCodingMuts_v67_b37_20131024__NDS.vcf"
 dbsnp = "/ifs/work/charris/temp_depot/dbsnp_138.b37.excluding_sites_after_129.vcf"
 hapmap = "/ifs/work/charris/temp_depot/hapmap_3.3.b37.vcf"
