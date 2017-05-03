@@ -162,7 +162,7 @@ def main():
         pass
     end_time = time.time()
     logger.info("End Time:", time.ctime(end_time))
-    logger.info("Elapsed time was %g seconds" % (end_time - start_time)))
+    logger.info("Elapsed time was %g seconds" % (end_time - start_time))
     shutil.rmtree(os.path.abspath(args.working))
 
 '''
