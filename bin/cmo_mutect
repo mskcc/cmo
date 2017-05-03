@@ -61,10 +61,8 @@ if __name__ =='__main__':
     try:
        args = parser.parse_args()
        unknowns = []
-    except:
+    except SystemExit:
         (args, unknowns) = parser.parse_known_args()
-    stderr=args.stderr
-    stdout=args.stdout
     if args.java_args:
         gatk_helper.java_args=args.java_args
     if args.java_temp:
@@ -90,5 +88,5 @@ if __name__ =='__main__':
     for key in  ["version", "java_version", "sub_command", "java_args", "java_temp"]:
         if key in command_specific_args:
             del command_specific_args[key]
-    cmo.util.call_cmd(gatk_helper.gatk_cmd("MuTect", command_specific_args=command_specific_args), stderr=stderr, stdout=stdout)
+    cmo.util.call_cmd(gatk_helper.gatk_cmd("MuTect", command_specific_args=command_specific_args))
      
