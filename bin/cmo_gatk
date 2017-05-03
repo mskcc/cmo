@@ -83,6 +83,7 @@ if __name__ =='__main__':
         parser.prog='cmo_gatk ' + options.cmd
         args = parser.parse_args()
         unknowns = []
+        unknowns_dict = {}
     except SystemExit:
         (args, unknowns) = parser.parse_known_args()
     #hack to get vqsr to run with the weird colon arguments, but must be improved if it would also support weird arguments without a value 
