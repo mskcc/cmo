@@ -83,8 +83,8 @@ if __name__ =='__main__':
         parser.prog='cmo_gatk ' + options.cmd
         args = parser.parse_args()
         unknowns = []
-    except Exception, e:
-        logger.info(e)
+        unknowns_dict = {}
+    except SystemExit:
         (args, unknowns) = parser.parse_known_args()
     #hack to get vqsr to run with the weird colon arguments, but must be improved if it would also support weird arguments without a value 
     #e.g. ---resource::shitballs with no trailing value would braek this, still
@@ -107,12 +107,10 @@ if __name__ =='__main__':
     for key in  ["version", "java_version", "cmd", "java_args", "java_temp"]:
         if key in command_specific_args:
             del command_specific_args[key]
-    stderr=args.stderr
-    stdout=args.stdout
     if 'input_file' in command_specific_args:
         for bam in command_specific_args['input_file']:
             if not os.path.exists(bam.replace(".bam",".bai"))and not os.path.exists(bam +".bai"):
                 cmo.util.samtools_index(bam)
-    cmo.util.call_cmd(gatk_helper.gatk_cmd(options.cmd, command_specific_args=command_specific_args), stderr=stderr, stdout=stdout)
+    cmo.util.call_cmd(gatk_helper.gatk_cmd(options.cmd, command_specific_args=command_specific_args))
     
      

@@ -9,7 +9,7 @@ LPAD_CONFIG_LOC = "/opt/common/CentOS_6-dev/cmo/fireworks_config_files/"
 
 def find_bcftools_options(bcftools_version, subcommand):
     bcftools_cmd = cmo.util.programs['bcftools'][bcftools_version]
-    bcftools_help = subprocess.Popen(" ".join([bcftools_cmd, subcommand, "-h"]), shell=True, stderr=subprocess.PIPE).communicate()[1]
+    bcftools_help = subprocess.Popen(" ".join([bcftools_cmd, subcommand, "--help"]), shell=True, stderr=subprocess.PIPE).communicate()[1]
     lines = bcftools_help.split("\n")
     last_sarg=''
     last_larg=''
@@ -23,9 +23,6 @@ def find_bcftools_options(bcftools_version, subcommand):
             last_sarg = m.group(1)
             last_larg = m.group(2)
             last_desc=m.group(3)
-        else:
-            if line.find("--") > -1:
-                print line
     parsed_options[last_larg]=(last_sarg, last_larg, last_desc)
     return parsed_options.values()
                 
@@ -35,7 +32,6 @@ def find_bcftools_subcommands(bcftools_version):
     lines = bcftools_help.split("\n")
     subcommand_help_tuples = list()
     for line in lines:
-        print line
         m = re.search("^\s\s+(\S+)\s\s+(\S[\s\S]+$)", line)
         if m:
             #subcommand, help blurb
@@ -74,13 +70,14 @@ if __name__ =='__main__':
          subparser = subparsers.add_parser(subcommand, help=help)
          bcftools_options = find_bcftools_options(opts.version, subcommand)
          for (short_arg, long_arg, description) in bcftools_options:
-             if(re.search("[<\[][\s\S[<\]]>", description)):
+             if(re.search("[<\[][\s\S]+[>\]]", description)):
                  action="store"
              else:
                  action="store_true"
              description=description.replace("%","%%")
-             if short_arg and short_arg in ['-h', '-f']:
-                 add_f=True
+             if short_arg and short_arg in ['-h', "-f", "-F"]:
+                 if short_arg in ['-f', '-F']:
+                     add_F=True
                  continue;
              elif short_arg:
                  subparser.add_argument(short_arg, long_arg, action=action, help=description)
@@ -88,7 +85,7 @@ if __name__ =='__main__':
                  subparser.add_argument(long_arg, action=action, help=description)
          if(add_F):
              subparser.add_argument("-f", "--fasta-ref", choices=cmo.util.genomes.keys())
-         subparser.add_argument("vcf", action="store", required=True)
+         subparser.add_argument("vcf", action="store")
     
         
     args = parser.parse_args()
