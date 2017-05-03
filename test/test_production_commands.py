@@ -17,7 +17,7 @@ abratmpdir = "/scratch/abra_cmo_test/"
 tmpdir = "/scratch/"
 if not os.path.exists("/scratch"):
     #for jenkins box
-    abratmpdir = "/srv/data/scratch"
+    abratmpdir = "/tmp/abra/"
     tmpdir = "/srv/data/scratch"
 cosmic = "/ifs/work/socci/Pipelines/CBE/variants_pipeline/data/b37/CosmicCodingMuts_v67_b37_20131024__NDS.vcf"
 dbsnp = "/ifs/work/charris/temp_depot/dbsnp_138.b37.excluding_sites_after_129.vcf"
@@ -40,8 +40,8 @@ def setup_module():
 
 def teardown_module():
     if TEST_TEMP_DIR is not None:
-#        shutil.rmtree(TEST_TEMP_DIR)
-#        shutil.rmtree(abratmpdir)
+        shutil.rmtree(TEST_TEMP_DIR)
+        shutil.rmtree(abratmpdir)
         pass
 
 def test_abra():
