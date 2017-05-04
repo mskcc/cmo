@@ -69,15 +69,15 @@ if __name__ =='__main__':
         # For machines without writable /scratch, default to creating a temp folder under /tmp
         tmp_dir = tempfile.mkdtemp(dir=tmp_root) if os.path.exists(tmp_root) else tempfile.mkdtemp(dir='/tmp')
         args_dict['tmp_dir'] = tmp_dir
-        # Show the user a warning about limited storage in temp directories
-        sys.stderr.write( "WARNING: Writing temporary files to " + tmp_dir + " which could fill " + 
-            "up and interrupt your colleagues' work. If you're working with giant files, then " +
-            "please define your own --tmp-dir, or we're gonna get ya!\n" )
+        # If input is large, show the user a warning about limited storage in temp directories
+        if os.path.getsize(args_dict['input_vcf']) > 100000000:
+            sys.stderr.write( "WARNING: Writing temporary files to " + tmp_dir + " which could " + 
+                "fill up and interrupt your colleagues' work. If you're working with giant " +
+                "files, then please define your own --tmp-dir.\n" )
 
     # Locate VEP and it's cache, the reference FASTA, and the VCF used for filtering
-    vep_dir = cmo.util.programs['vep'][args.vep_release]
-    args_dict['vep_data'] = vep_dir
-    args_dict['vep_path'] = vep_dir
+    args_dict['vep_path'] = cmo.util.programs['vep'][args.vep_release]
+    args_dict['vep_data'] = cmo.util.genomes[args.ncbi_build]['vep_cache']
     args_dict['ref_fasta'] = cmo.util.genomes[args.ncbi_build]['fasta']
     try:
         args_dict['filter_vcf'] = cmo.util.genomes[args.ncbi_build]['exac']
