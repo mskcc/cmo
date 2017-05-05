@@ -16,7 +16,7 @@ def run_DESeq2(samplefile, conditionname):
                         resources="rusage[mem=15]",
                         name="Run DESeq2")
 
-def run_sleuth(samplefile, conditionname, subdir, processors = 4):
+def run_sleuth(samplefile, conditionname, subdir, processors = 1):
     samplefile = os.path.abspath(samplefile)
 
     sleuth_cmd = [cmo.util.programs["R"]["3.2.2-dev"] + "Rscript",
@@ -24,8 +24,7 @@ def run_sleuth(samplefile, conditionname, subdir, processors = 4):
                   "-e", "'options(mc.cores = " + str(processors) + "L); rnaseq.scripts::run_sleuth()'",
                   "-s", samplefile, ## --samplefile doesn't work??
                   "--conditionname", conditionname,
-                  "--subdir", subdir,
-                  "--gene.names", cmo.util.genomes[args.reference_sequence]['default']['gene_names']]
+                  "--subdir", subdir]
     return workflow.Job(" ".join(sleuth_cmd), 
                         resources="rusage[mem=200]",
                         processors = processors,
@@ -87,7 +86,7 @@ def run_JunctionSeq(samplefile, conditionname, processors = 10):
                         processors = processors,
                         name="Run JunctionSeq")
 
-def run_make_suppa_files(samplefile, conditionname):
+def run_make_suppa_files(samplefile, conditionname, suppa_tpm_file):
     samplefile = os.path.abspath(samplefile)
     make_suppa_files_cmd = [
         cmo.util.programs["R"]["3.2.2-dev"] + "Rscript",
@@ -96,11 +95,16 @@ def run_make_suppa_files(samplefile, conditionname):
         "-c", conditionname,
         "-t", "kallisto.transcripts"
         ]
+    mem = 5
+    if not suppa_tpm_file == "":
+        suppa_tpm_file = os.path.abspath(suppa_tpm_file)
+        make_suppa_files_cmd = make_suppa_files_cmd + ["--suppa_tpm_file", suppa_tpm_file]
+        mem = 25
     return workflow.Job(" ".join(make_suppa_files_cmd),
-                        resources="rusage[mem=5]",
+                        resources="rusage[mem=" + str(mem) + "]",
                         name="Make SUPPA files")
 
-def run_suppa(samplefile, conditionname, AS_type, area = 1000, lower_bound = 0.05):
+def run_suppa(samplefile, conditionname, AS_type, suppa_method = "empirical", area = 1000, lower_bound = 0.05):
     samplefile = os.path.abspath(samplefile)
     table = pandas.read_table(
         open(samplefile), 
@@ -110,9 +114,13 @@ def run_suppa(samplefile, conditionname, AS_type, area = 1000, lower_bound = 0.0
         conditions = list(set(table[conditionname]))
     else:
         colname_list_split = [x.split(":") for x in list(table.columns.values)]
+        icol = -1
         for i,colnames in enumerate(colname_list_split):
             if colnames[0] == conditionname: 
                 icol = i
+        if icol == -1: 
+            print("cannot find column " + conditionname)
+            sys.exit(1)
         conditions = list(set(table[colname_list[icol]]))
     ### allow the condition column to be blank
         conditions = [str(i) for i in conditions]
@@ -123,6 +131,7 @@ def run_suppa(samplefile, conditionname, AS_type, area = 1000, lower_bound = 0.0
         conditions = [base_level] + list(set(conditions) - set([base_level]))
         
     workdir = samplefile + "_" + conditionname + "/suppa"
+    ioefile = cmo.util.genomes[args.reference_sequence][args.transcript_definition]['suppa_index'] + "/suppa_index_" + AS_type + "_strict.ioe"
 
     cmd_list = list()
     for condition in conditions:
@@ -130,32 +139,36 @@ def run_suppa(samplefile, conditionname, AS_type, area = 1000, lower_bound = 0.0
                 cmo.util.programs["python"]["3.5.1"], 
                 cmo.util.programs["suppa"]["default"], 
                 "psiPerEvent",
-                "--ioe-file", cmo.util.genomes[args.reference_sequence]['default']['suppa_index'] + "/suppa_index_" + AS_type + "_strict.ioe",
+                "--ioe-file", ioefile,
                 "--expression-file", workdir + "/" + condition + ".tpm",
                 "-o", workdir + "/" + condition + "." + AS_type
                 ])
         cmd_list.append(psiPerEvent_cmd)
-        
-    diffSplice_cmd = " ".join([
-            cmo.util.programs["python"]["3.5.1"],
-            cmo.util.programs["suppa"]["default"],
-            "diffSplice",
-            "--method", "empirical",
-            "--ioe", cmo.util.genomes[args.reference_sequence]['default']['suppa_index'] + "/suppa_index_" + AS_type + "_strict.ioe",
-            "--psi",
-            workdir + "/" + conditions[0] + "." + AS_type + ".psi",
-            workdir + "/" + conditions[1] + "." + AS_type + ".psi",
-            "--expression-file",
-            workdir + "/" + conditions[0] + ".tpm",
-            workdir + "/" + conditions[1] + ".tpm",
-            "--area", str(area),
-            "--lower-bound", str(lower_bound),
-            "-gc", ## account for multiple hypothesis testing
-            "-o", workdir + "/suppa." + AS_type])
-    cmd_list.append(diffSplice_cmd)
+
+#    for isuppa_method in suppa_method:
+        outputfile = workdir + "/suppa." + AS_type
+        if suppa_method == "classical":
+            outputfile = outputfile + "." + suppa_method
+        diffSplice_cmd = " ".join([
+                cmo.util.programs["python"]["3.5.1"],
+                cmo.util.programs["suppa"]["default"],
+                "diffSplice",
+                "--method", suppa_method,
+                "--ioe", ioefile,
+                "--psi",
+                workdir + "/" + conditions[0] + "." + AS_type + ".psi",
+                workdir + "/" + conditions[1] + "." + AS_type + ".psi",
+                "--expression-file",
+                workdir + "/" + conditions[0] + ".tpm",
+                workdir + "/" + conditions[1] + ".tpm",
+                "--area", str(area),
+                "--lower-bound", str(lower_bound),
+                "-gc", ## account for multiple hypothesis testing
+                "-o", outputfile])
+        cmd_list.append(diffSplice_cmd)
     
     return workflow.Job(" && ".join(cmd_list),
-                        resources="rusage[mem=15]",
+                        resources="rusage[mem=30]",
                         name="Run SUPPA " + AS_type)
 
 def run_filter_suppa_results(samplefile, conditionname):
@@ -216,6 +229,8 @@ if __name__ == "__main__":
     parser.add_argument("-R", "--reference_sequence", required=True, 
                         choices=cmo.util.genomes.keys(),
                         help="name of reference")
+    parser.add_argument("-t", "--transcript_definition", default="default",
+                        help="name of transcript annotation")
     parser.add_argument("-a", "--algorithms", nargs='*',
                         default=algorithm_list,
                         choices=algorithm_list + ["check"],
@@ -226,6 +241,14 @@ if __name__ == "__main__":
                         help="condition within samplefile")
     # parser.add_argument("-n", "--minCounts", default = "6",
     #                     help="minCounts for JunctionSeq")
+    parser.add_argument("-m", "--suppa_method", default = "empirical",
+                        choices=["empirical", "classical"],
+                        help="method for SUPPA")
+    parser.add_argument("-e", "--scheduler", default = "LSF",
+                        choices=["LSF", "serial"],
+                        help="option to run pipeline serially")
+    parser.add_argument("-x", "--suppa_tpm_file", default = "",
+                        help="tab-delimited file with tpm values, one column per sample")
     args = parser.parse_args()
     # print(args)
 
@@ -247,13 +270,13 @@ if __name__ == "__main__":
     if "BENTO-Seq" in args.algorithms:
         pass
     if "SUPPA" in args.algorithms:
-        make_suppa_files = run_make_suppa_files(args.samplefile, args.conditionname)
+        make_suppa_files = run_make_suppa_files(args.samplefile, args.conditionname, args.suppa_tpm_file)
         jobs_list.append(make_suppa_files)
         jobs_dict[make_suppa_files] = []
         filter_suppa_results = run_filter_suppa_results(args.samplefile, args.conditionname)
         jobs_list.append(filter_suppa_results)
         for AS_type in ["SE", "RI", "A3", "A5", "MX", "AL", "AF"]:
-            suppa = run_suppa(args.samplefile, args.conditionname, AS_type)
+            suppa = run_suppa(args.samplefile, args.conditionname, AS_type, suppa_method = args.suppa_method)
             jobs_list.append(suppa)
             jobs_dict[make_suppa_files].append(suppa)
             jobs_dict[suppa] = [filter_suppa_results]
@@ -268,5 +291,5 @@ if __name__ == "__main__":
             
     new_workflow = workflow.Workflow(jobs_list, jobs_dict,
                                      name="RNASeq Project Workflow " + ",".join(args.algorithms))
-    new_workflow.run('LSF')
+    new_workflow.run(args.scheduler)
             
