@@ -1,0 +1,20 @@
+#!/opt/common/CentOS_6-dev/python/python-2.7.10/bin/python
+##########################################################################################
+# MSKCC CMO
+descr = 'Perform fillout operation on MAF file using GetBaseCountsMultiSample'
+##########################################################################################
+
+import argparse
+import subprocess
+import os, csv
+import string
+import uuid
+import cmo
+
+parser = argparse.ArgumentParser(description = descr, formatter_class = argparse.RawTextHelpFormatter)
+parser.add_argument('-b', '--bams', help = 'BAM files to fillout with', required = True, nargs='+')
+args = parser.parse_args()
+samtools = cmo.util.programs['samtools']['default']
+for bam in args.bams:
+    command = [samtools, "index", bam, bam.replace(".bam",".bai")]
+    cmo.util.call_cmd(" ".join(command), shell=True)
