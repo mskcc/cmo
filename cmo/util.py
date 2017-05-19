@@ -21,15 +21,19 @@ chr1_fingerprints = json_config['chr1_fingerprints']
 keys = json_config['keys']
 targets = json_config['targets']
 config = json_config['config']
+FORMAT = '%(asctime)-15s %(funcName)-8s %(levelname)s %(message)s'
+out_hdlr = logging.StreamHandler(sys.stdout)
+out_hdlr.setFormatter(logging.Formatter(FORMAT))
+out_hdlr.setLevel(logging.INFO)
+d = {'clientip': '192.168.0.1', 'user': 'fbloggs'}
+logger = logging.getLogger('cmo')
+logger.addHandler(out_hdlr)
+logger.setLevel(logging.INFO)
+
 
 def get_logger():
-    FORMAT = '%(asctime)-15s %(funcName)-8s %(levelname)s %(message)s'
-    logging.basicConfig(format=FORMAT)
-    d = {'clientip': '192.168.0.1', 'user': 'fbloggs'}
-    logger = logging.getLogger('cmo')
     return logger
 #GLOBAL WHAT SHUT UP
-logger = get_logger()
 
 
 def find_chromosomes(genome_string, extended=False):
