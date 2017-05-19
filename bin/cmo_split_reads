@@ -1,38 +1,49 @@
 #!/opt/common/CentOS_6-dev/python/python-2.7.10/bin/python
 
-import argparse, os, sys, signal, subprocess, math
+import argparse, os, sys, signal, subprocess, math, gzip
 import cmo
 
 if __name__ =='__main__':
-    parser = argparse.ArgumentParser(description="restart watcher daemon")
-    parser.add_argument('-n', "--num-pieces", action='store', help="number of pieces to split the file into", required=True)
-    parser.add_argument('-f', "--file", action='store', help="filename to split", required=True)
-    parser.add_argument('-op', "--out-prefix", action="store", help="out prefix", required=True)
+    logger = cmo.util.get_logger()
+    parser = argparse.ArgumentParser(description="split files into chunks based on filesize")
+    parser.add_argument('-f1', "--fastq1", action='store', help="filename to split", required=True)
+    parser.add_argument('-f2', "--fastq2", action='store', help="filename2 to split")
     args = parser.parse_args()
-    args.num_pieces = args.num_pieces.replace(".0", "")
-    num_reads_cmd = ["cat", args.file, "|", "wc -l", "|", "cut -f 1"]
-    print " ".join(num_reads_cmd)
-    num_lines = subprocess.check_output(" ".join(num_reads_cmd), shell=True)
-    lines_per_chunk = math.ceil(float(num_lines) / int(args.num_pieces))
-    while lines_per_chunk % 4 != 0:
-        lines_per_chunk +=1
-    fh = open(args.file, "rb")
-    output_file_count = 0
-    output_file_lines = 0
-    ofh = open(args.out_prefix + "{:0>3d}".format(output_file_count), "wb")
-    while(1):
-        line = fh.readline()
-        if not line:
-            break;
-        ofh.write(line)
-        output_file_lines+=1
-        if output_file_lines == lines_per_chunk:
-            if(output_file_count < int(args.num_pieces)-1):
-                output_file_lines=0
-                ofh.close()
-                output_file_count +=1
-                ofh = open(args.out_prefix + "{:0>3d}".format(output_file_count), "wb")
-    ofh.close()
+    fastqs = [args.fastq1]
+    if args.fastq2:
+        fastqs.append(args.fastq2)
+    filesize = os.path.getsize(fastqs[0])
+    logger.info("Fastq1 Filesize: %sGB" % ("{:.2f}".format(float(filesize)/1000000000)))
+    num_pieces = math.ceil(float(filesize)/350000000)
+    logger.info("Splitting into %s pieces" % "{:.0f}".format(num_pieces))
+    num_lines = sum(1 for line in gzip.open(fastqs[0]))
+    lines_per_chunk = math.ceil(float(num_lines) / int(num_pieces))
+    logger.info("%s lines per chunk" % str(lines_per_chunk))
+    for fastq in fastqs:
+        output_prefix = os.path.basename(fastq).split(".", 1)[0] + "."
+        while lines_per_chunk % 4 != 0:
+            lines_per_chunk +=1
+        fh = gzip.open(fastq, "rb")
+        output_file_count = 0
+        output_file_lines = 0
+        filename = output_prefix +  "chunk{:0>3d}".format(output_file_count) +  ".fastq.gz"
+        logger.info("Opening %s and writing reads..." % (filename))
+        ofh = gzip.open(filename, "wb")
+        while(1):
+            line = fh.readline()
+            if not line:
+                break;
+            ofh.write(line)
+            output_file_lines+=1
+            if output_file_lines == lines_per_chunk:
+                if(output_file_count < int(num_pieces)-1):
+                    output_file_lines=0
+                    ofh.close()
+                    output_file_count +=1
+                    filename = output_prefix + "chunk{:0>3d}".format(output_file_count) +  ".fastq.gz"
+                    logger.info("Opening %s and writing reads..." % (filename))
+                    ofh = gzip.open(filename, "wb")
+        ofh.close()
 
         
 
