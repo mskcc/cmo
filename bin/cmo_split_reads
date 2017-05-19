@@ -1,6 +1,6 @@
 #!/opt/common/CentOS_6-dev/python/python-2.7.10/bin/python
 
-import argparse, os, sys, signal, subprocess, math, gzip
+import argparse, os, sys, signal, subprocess, math, gzip, io
 import cmo
 
 if __name__ =='__main__':
@@ -16,19 +16,19 @@ if __name__ =='__main__':
     logger.info("Fastq1 Filesize: %sGB" % ("{:.2f}".format(float(filesize)/1000000000)))
     num_pieces = math.ceil(float(filesize)/350000000)
     logger.info("Splitting into %s pieces" % "{:.0f}".format(num_pieces))
-    num_lines = sum(1 for line in gzip.open(fastqs[0]))
+    num_lines = sum(1 for line in io.BufferedReader(gzip.open(fastqs[0])))
     lines_per_chunk = math.ceil(float(num_lines) / int(num_pieces))
     logger.info("%s lines per chunk" % str(lines_per_chunk))
     for fastq in fastqs:
         output_prefix = os.path.basename(fastq).split(".", 1)[0] + "."
         while lines_per_chunk % 4 != 0:
             lines_per_chunk +=1
-        fh = gzip.open(fastq, "rb")
+        fh = io.BufferedReader(gzip.open(fastq, "rb"))
         output_file_count = 0
         output_file_lines = 0
         filename = output_prefix +  "chunk{:0>3d}".format(output_file_count) +  ".fastq.gz"
         logger.info("Opening %s and writing reads..." % (filename))
-        ofh = gzip.open(filename, "wb")
+        ofh = io.BufferedWriter(gzip.open(filename, "wb"))
         while(1):
             line = fh.readline()
             if not line:
@@ -42,7 +42,7 @@ if __name__ =='__main__':
                     output_file_count +=1
                     filename = output_prefix + "chunk{:0>3d}".format(output_file_count) +  ".fastq.gz"
                     logger.info("Opening %s and writing reads..." % (filename))
-                    ofh = gzip.open(filename, "wb")
+                    ofh = io.BufferedWriter(gzip.open(filename, "wb"))
         ofh.close()
 
         
