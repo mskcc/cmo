@@ -163,7 +163,7 @@ class Workflow():
                 launcher_log_dir = os.path.join(FW_WFLOW_LAUNCH_LOC, getpass.getuser(), "")
                 queue_launcher.rapidfire(self.launchpad, fireworks.FWorker(name="LSF"), common_adapter, reserve=True, nlaunches=0, launch_dir=launcher_log_dir, sleep_time=10, njobs_queue=500)
                 failed_fws = []
-                time.sleep(10)
+                time.sleep(50)
 #                offline_runs =  self.launchpad.offline_runs.find({"completed": False, "deprecated": False}, {"launch_id": 1}).count()
 #                self.launchpad.m_logger.info("%s offline runs found" % offline_runs)
                 ready_lsf_jobs = self.launchpad.fireworks.find({"state":"READY", "spec._fworker" : "LSF"}).count()

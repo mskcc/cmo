@@ -16,7 +16,7 @@ if __name__ =='__main__':
     logger.info("Fastq1 Filesize: %sGB" % ("{:.2f}".format(float(filesize)/1000000000)))
     num_pieces = math.ceil(float(filesize)/350000000)
     logger.info("Splitting into %s pieces" % "{:.0f}".format(num_pieces))
-    num_lines = sum(1 for line in io.BufferedReader(gzip.open(fastqs[0])))
+    num_lines = sum(1 for line in os.popen("zcat " + fastqs[0]))
     lines_per_chunk = math.ceil(float(num_lines) / int(num_pieces))
     logger.info("%s lines per chunk" % str(lines_per_chunk))
     for fastq in fastqs:
@@ -29,20 +29,21 @@ if __name__ =='__main__':
         filename = output_prefix +  "chunk{:0>3d}".format(output_file_count) +  ".fastq.gz"
         logger.info("Opening %s and writing reads..." % (filename))
         ofh = io.BufferedWriter(gzip.open(filename, "wb"))
-        while(1):
-            line = fh.readline()
-            if not line:
-                break;
-            ofh.write(line)
+        lines = list()
+        for line in os.popen("zcat " + fastq):
+            lines.append(line)
             output_file_lines+=1
             if output_file_lines == lines_per_chunk:
                 if(output_file_count < int(num_pieces)-1):
                     output_file_lines=0
+                    ofh.write("".join(lines))
                     ofh.close()
+                    lines = list()
                     output_file_count +=1
                     filename = output_prefix + "chunk{:0>3d}".format(output_file_count) +  ".fastq.gz"
                     logger.info("Opening %s and writing reads..." % (filename))
                     ofh = io.BufferedWriter(gzip.open(filename, "wb"))
+        ofh.write("".join(lines))
         ofh.close()
 
         
