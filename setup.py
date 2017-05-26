@@ -115,7 +115,8 @@ setup(name='cmo',
                  'bin/cmo_list2bed',
                  'bin/cmo_pindel',
                  'bin/cmo_bcftools',
-                 'bin/cmo_index'
+                 'bin/cmo_index',
+                 'bin/cmo_fillout'
                  #'bin/cmo_hotspot3d'
                  ],
         zip_safe=False)
