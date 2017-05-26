@@ -23,6 +23,7 @@ if __name__ =='__main__':
         output_prefix = os.path.basename(fastq).split(".", 1)[0] + "."
         while lines_per_chunk % 4 != 0:
             lines_per_chunk +=1
+        fh = io.BufferedReader(gzip.open(fastq, "rb"))
         output_file_count = 0
         output_file_lines = 0
         filename = output_prefix +  "chunk{:0>3d}".format(output_file_count) +  ".fastq.gz"
