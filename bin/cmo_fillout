@@ -32,7 +32,7 @@ else:
 
 ### Path to GetBaseCountsMultiSample
 #should be cmo.util.programs['GetBaseCountsMultiSample]['1.0.0'], but zeng hasn't packaged this for release yet
-gbcmPath = cmo.util.programs['getbasecountsmultisample']['1.2.1']
+gbcmPath = cmo.util.programs['getbasecountsmultisample'][args.version]
 
 
 ### Set genome path
