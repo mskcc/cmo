@@ -26,9 +26,10 @@ if __name__ =='__main__':
         fh = io.BufferedReader(gzip.open(fastq, "rb"))
         output_file_count = 0
         output_file_lines = 0
+        #these aren't relaly gz but trimgalore doesnt like files not named gz...great work trimgalore
         filename = output_prefix +  "chunk{:0>3d}".format(output_file_count) +  ".fastq.gz"
         logger.info("Opening %s and writing reads..." % (filename))
-        ofh = io.BufferedWriter(gzip.open(filename, "wb"))
+        ofh = open(filename, "wb")
         lines = list()
         for line in os.popen("zcat " + fastq):
             lines.append(line)
@@ -42,7 +43,7 @@ if __name__ =='__main__':
                     output_file_count +=1
                     filename = output_prefix + "chunk{:0>3d}".format(output_file_count) +  ".fastq.gz"
                     logger.info("Opening %s and writing reads..." % (filename))
-                    ofh = io.BufferedWriter(gzip.open(filename, "wb"))
+                    ofh = open(filename, "wb")
         ofh.write("".join(lines))
         ofh.close()
 
