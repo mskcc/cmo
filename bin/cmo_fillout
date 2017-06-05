@@ -16,6 +16,7 @@ parser.add_argument('-m', '--maf', help = 'MAF file on which to filllout', requi
 parser.add_argument('-b', '--bams', help = 'BAM files to fillout with', required = True, nargs='+')
 parser.add_argument('-g', '--genome', help = 'Reference assembly of BAM files, e.g. hg19/grch37/b37', required = True, choices = cmo.util.genomes.keys())
 parser.add_argument('-o', '--output', help = 'Prefix for output file', required = False)
+parser.add_argument('-f', '--format', help = 'Output format MAF(1) or tab-delimited with VCF based coordinates(2)', required = True)
 parser.add_argument('-n', '--n_threads', help = 'Multithread', default = 10, required = False)
 parser.add_argument("-v", "--version", help="version of GBCMS to use to count with...", choices=cmo.util.programs['getbasecountsmultisample'].keys())
 args = parser.parse_args()
@@ -31,7 +32,7 @@ else:
 
 ### Path to GetBaseCountsMultiSample
 #should be cmo.util.programs['GetBaseCountsMultiSample]['1.0.0'], but zeng hasn't packaged this for release yet
-gbcmPath = cmo.util.programs['getbasecountsmultisample']['1.1.9']
+gbcmPath = cmo.util.programs['getbasecountsmultisample'][args.version]
 
 
 ### Set genome path
@@ -61,7 +62,7 @@ for bam in bams:
 tmpMaf = uuid.uuid4().hex+'_tmp.maf'
 
 fh = open(maf, "rb")
-reader = csv.DictReader(fh, delimiter="\t")
+reader = csv.DictReader(filter(lambda row: row[0]!='#',fh), delimiter="\t")
 header = reader.fieldnames
 lines = dict()
 for line in reader:
@@ -76,7 +77,13 @@ for (key, line) in lines.items():
 tmpfh.close()
 
 ### Call GetBaseCountsMultiSample
-gbcmCall = gbcmPath+' --thread %s --filter_improper_pair 0 --fasta %s --maf %s --output %s %s' % (n, genomePath, tmpMaf, output, bamString)
+gbcmCall = None
+if(int(args.format) == 1):
+	gbcmCall = gbcmPath+' --omaf --thread %s --filter_improper_pair 0 --fasta %s --maf %s --output %s %s' % (n, genomePath, tmpMaf, output, bamString)
+	print(gbcmCall)
+else:
+	gbcmCall = gbcmPath+' --thread %s --filter_improper_pair 1 --fasta %s --maf %s --output %s %s' % (n, genomePath, tmpMaf, output, bamString)
+	print(gbcmCall)
 subprocess.call(gbcmCall, shell = True)
 
 ### Remove temporary MAF

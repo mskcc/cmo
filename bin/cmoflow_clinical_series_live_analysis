@@ -8,6 +8,7 @@ def run_mutation_signatures(directory):
     """Run Mutation Signatures"""
 
     Rdir = "/opt/common/CentOS_6-dev/R/R-3.2.2/bin"
+    pythondir = "/opt/common/CentOS_6-dev/bin/current"
 
     signature_definition = "/ifs/work/taylorlab/pensona/checkout/mutation-signatures/Stratton_signatures30.txt"
     mutation_signatures_repo = "/ifs/work/taylorlab/pensona/checkout/mutation-signatures"
@@ -23,13 +24,13 @@ def run_mutation_signatures(directory):
     prepare_mafs_cmd = " ".join([
             os.path.join(Rdir, 
                          "Rscript"),
-            "-e", "'clinical.series::make.maf.for.signatures()'",
+            "-e", "'clinical.series.live.analysis::make.maf.for.signatures()'",
             "-d", directory,
             "-o", combined_maf_file])
     cmd_list.append(prepare_mafs_cmd)
 
     add_trinuc_cmd = " ".join([
-            "python",
+            os.path.join(pythondir, "python"),
             os.path.join(mutation_signatures_repo, 
                          "make_trinuc_maf.py"),
             combined_maf_file,
@@ -37,12 +38,12 @@ def run_mutation_signatures(directory):
     cmd_list.append(add_trinuc_cmd)
 
     mkdir_cmd = " ".join([
-            "mkdir", 
+            "mkdir", "-p",
             os.path.join(directory, "analysis")])
     cmd_list.append(mkdir_cmd)
     
     mutation_signatures_cmd = " ".join([
-            "python",
+            os.path.join(pythondir, "python"),
             os.path.join(mutation_signatures_repo, 
                          "main.py"), 
             "--seed", "100",

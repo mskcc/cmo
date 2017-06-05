@@ -1,0 +1,61 @@
+#!/opt/common/CentOS_6-dev/python/python-2.7.10/bin/python
+from cmo import workflow
+import argparse, os, sys
+import cmo, shutil, pandas
+from distutils.version import StrictVersion
+
+def run_mattspots(maf_file, output_file):
+
+    mattspot_directory = "/ifs/work/taylorlab/pensona/checkout/hotspots"
+    
+    Rdir = "/opt/common/CentOS_6-dev/R/R-3.2.2/bin"
+
+    cmd_list = list()
+
+    ### must be executed in the code directory (due to funcs.R)
+    cd_cmd = " ".join(["cd",
+                       mattspot_directory])
+    cmd_list.append(cd_cmd)
+
+    mattspot_cmd = " ".join([
+            os.path.join(Rdir, "Rscript"),
+            os.path.join(".", "hotspot_algo.R"),
+            "--input-maf=" + maf_file,
+            "--rdata=" + os.path.join(".", "hotspot_algo.Rdata"),
+            "--gene-query=" + os.path.join(".", "genes_of_interest.txt"),
+            "--output-file=" + output_file])
+    cmd_list.append(mattspot_cmd)
+    
+    ### move output file putative_false_positive_mutations.txt to the same directory as the specified output file
+    mv_cmd = " ".join(["mv",
+                       os.path.join(".", "putative_false_positive_mutations.txt"), 
+                       os.path.dirname(output_file)])
+    cmd_list.append(mv_cmd)
+
+    return workflow.Job(" && ".join(cmd_list),
+                        resources="rusage[mem=15]",
+                        name="Generate Mattspots")
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Generate Mattspots on luna!")
+    parser.add_argument("-m", "--maf_file", default = None,
+                        help="maf file")
+    parser.add_argument("-o", "--output_file", default = None,
+                        help="output file")
+    args = parser.parse_args()
+    print(args)
+
+    jobs_list = list()
+    jobs_dict = dict()
+
+    maf_file = os.path.abspath(args.maf_file)
+    output_file = os.path.abspath(args.output_file)
+
+    mattspots = run_mattspots(maf_file, output_file)
+    jobs_list.append(mattspots)
+
+    name = "Generate Mattspots Workflow"
+    new_workflow = workflow.Workflow(jobs_list,
+                                     jobs_dict,
+                                     name=name)
+    new_workflow.run('LSF')
