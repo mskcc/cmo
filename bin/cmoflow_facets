@@ -63,7 +63,7 @@ def construct_workflow(tumorbam, normalbam, tag, facets_args, output_dir,snps=No
             if(snps):
                 basecount_cmd = basecount_cmd + ["--vcf" ,os.path.abspath(snps)]
             #print " ".join(basecount_cmd)
-            job = workflow.Job(" ".join(basecount_cmd), resources="rusage[mem=40]", name="getBasecounts " + base)
+            job = workflow.Job(" ".join(basecount_cmd), resources="rusage[mem=40] -We 0:59", name="getBasecounts " + base)
             count_jobs.append(job)
     else:
         for (bam, base) in [(tumorbam, tumor_sample), (normalbam, normal_sample)]:
@@ -81,8 +81,8 @@ def construct_workflow(tumorbam, normalbam, tag, facets_args, output_dir,snps=No
                     "--pseudo-snps=50",
                     snps,
                     merged_counts,
-                    normalbam,
-                    tumorbam]
+                    os.path.abspath(os.path.join(output_dir, normal_sample + ".ppfixed.bam")),
+                    os.path.abspath(os.path.join(output_dir, tumor_sample + ".ppfixed.bam"))]
             merge_job = workflow.Job(" ".join(basecount_cmd), resources="rusage[mem=40]", name="snp-pileup " + tag)
    
     merged_counts = os.path.join(output_dir, "countsMerged____" + tag + ".dat.gz")
@@ -127,7 +127,7 @@ def construct_workflow(tumorbam, normalbam, tag, facets_args, output_dir,snps=No
         facets_cmd = ["cmo_facets", "--lib-version=0.3.9", "doFacets", "-g", genome, "-f", merged_counts, "-t", tag, "-D", facets_dir] + facets_args
     else:
         facets_cmd = ["cmo_facets", "--lib-version", rlib_arg, "doFacets", "-g", genome, "-f", merged_counts, "-t", tag, "-D", facets_dir] + facets_args
-    facets_job = workflow.Job(" ".join(facets_cmd), est_wait_Time="59", resource="rusage[mem=16]", name="Run Facets")
+    facets_job = workflow.Job(" ".join(facets_cmd), est_wait_Time="59", resource="rusage[mem=32]", name="Run Facets")
     dependencies = {}
   
   #FIXME: can we have a merge exist without the counts file?
