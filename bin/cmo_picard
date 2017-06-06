@@ -3,19 +3,20 @@
 import argparse, os, sys, re, subprocess,itertools
 import cmo
 
+logger = cmo.util.get_logger()
 
 if __name__ =='__main__':
     #partially parse options to get versin/subcommand and add more options
     preparser = argparse.ArgumentParser(description="run picard", add_help=False)
     preparser.add_argument("--version", choices=cmo.util.programs['picard'].keys(), default="default")
     preparser.add_argument("--java-version", choices=cmo.util.programs['java'].keys(), default="default")
-    preparser.add_argument("--cmd", required=True)
+    preparser.add_argument("cmd")
     options, _ = preparser.parse_known_args()
     #time for monkey business
     picard_helper = cmo.picard.Picard(java_version=options.java_version, version=options.version)
     (sub_command_options, error_msg) = picard_helper.find_sub_command_options(options.cmd)
     if sub_command_options == None:
-        print >>sys.stderr, error_msg
+        logger.critical(error_msg)
         sys.exit(1)
     #ok it was a valid subcommand, add the options we found and the genome option
     parser = argparse.ArgumentParser(parents= [ preparser ] , add_help= True,
@@ -39,6 +40,7 @@ if __name__ =='__main__':
     for arg in ['TMP_DIR', 'VERBOSITY', 'VALIDATION_STRINGENCY', 'COMPRESSION_LEVEL', 'MAX_RECORDS_IN_RAM', 'REFERENCE_SEQUENCE']:
         parser.add_argument("--"+arg, action="store")
     cmo.util.add_logging_options(parser)
+    parser.prog="cmo_picard " + options.cmd
     args = parser.parse_args()
     command_specific_args = vars(args)
     default_args_override = {}

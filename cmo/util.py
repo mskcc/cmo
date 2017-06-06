@@ -36,6 +36,16 @@ def get_logger():
 #GLOBAL WHAT SHUT UP
 
 
+def get_logger():
+    FORMAT = '%(asctime)-15s %(funcName)-8s %(levelname)s %(message)s'
+    logging.basicConfig(format=FORMAT)
+    d = {'clientip': '192.168.0.1', 'user': 'fbloggs'}
+    logger = logging.getLogger('cmo')
+    return logger
+#GLOBAL WHAT SHUT UP
+logger = get_logger()
+
+
 def find_chromosomes(genome_string, extended=False):
     try:
         fasta = genomes[genome_string]['fasta']
