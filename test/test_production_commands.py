@@ -209,6 +209,43 @@ def test_somaticindeldetector():
     prog_output = subprocess.check_output(" ".join(cmd), shell=True, stderr=subprocess.STDOUT)
     assert_true(re.search("INFO  .* HelpFormatter - Program Args: -T SomaticIndelDetector --input_file:normal /ifs/work/charris/testdata_for_cmo/P2_ADDRG_MD.abra.fmi.printreads.bam --input_file:tumor /ifs/work/charris/testdata_for_cmo/P1_ADDRG_MD.abra.fmi.printreads.bam --min_mapping_quality_score 20 --intervals /ifs/work/charris/testdata_for_cmo/intervals.bed --filter_expressions T_COV<10||N_COV<4||T_INDEL_F<0.0001||T_INDEL_CF<0.7 --maxNumberOfReads 100000 --verboseOutput .* --read_filter DuplicateRead --read_filter FailsVendorQualityCheck --read_filter NotPrimaryAlignment --read_filter BadMate --read_filter MappingQualityUnavailable --read_filter UnmappedRead --read_filter MappingQuality --read_filter BadCigar --reference_sequence /ifs/depot/assemblies/H.sapiens/b37/b37.fasta --out .*", prog_output))
 
+def test_findcoveredintervals():
+    cmd = ['cmo_gatk',
+            '--version', '3.3-0',
+            '-T','FindCoveredIntervals',
+            '--input_file',tumor_bam,
+            '--java_args','"-Xmx48g -Xms256m -XX:-UseGCOverheadLimit"',
+            '--out',output,
+            '--reference_sequence', genome_string,
+            '--input_file',normal_bam]
+    prog_output = subprocess.check_output(" ".join(cmd),shell=True, stderr=subprocess.STDOUT)
+    assert_true(re.search("INFO  .* HelpFormatter - Program Args: -T FindCoveredIntervals --input_file /ifs/work/charris/testdata_for_cmo/P1_ADDRG_MD.abra.fmi.printreads.bam --input_file /ifs/work/charris/testdata_for_cmo/P2_ADDRG_MD.abra.fmi.printreads.bam --out .* --reference_sequence /ifs/depot/assemblies/H.sapiens/b37/b37.fasta",prog_output))
+
+def test_pindel():
+    cmd = ['cmo_pindel',
+           '--version','0.2.5a7',
+           '--bams','"'+normal_bam+' '+tumor_bam+'"',
+           '--fasta',genome_string,
+           '--output-prefix','Tumor',
+           '--sample_names','"Normal Tumor"']
+
+    prog_output = subprocess.check_output(" ".join(cmd),shell=True, stderr=subprocess.STDOUT)
+    #print prog_output
+    assert_true(re.search(tumor_bam,prog_output))
+    assert_true(re.search(normal_bam,prog_output))
+    assert_true(re.search("call_cmd INFO EXECUTING: .*/v0.2.5a7/pindel --fasta /ifs/depot/assemblies/H.sapiens/b37/b37.fasta --config-file temp.config --output-prefix Tumor",prog_output))
+    with open('temp.config') as configFile:
+        configFileStr = configFile.read()
+    assert_true(re.search("Normal",configFileStr))
+    assert_true(re.search("Tumor",configFileStr))
+def test_index():
+    cmd = ['cmo_index',
+           '--normal',normal_bam,
+           '--tumor',tumor_bam]
+    prog_output = subprocess.check_output(" ".join(cmd),shell=True,stderr=subprocess.STDOUT)
+    assert_true(re.search(normal_bam,prog_output))
+    assert_true(re.search(tumor_bam,prog_output))
+
 def test_markduplicates():
     cmd = ['cmo_picard',
             '--cmd', 'MarkDuplicates',
