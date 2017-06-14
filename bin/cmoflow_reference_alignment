@@ -240,7 +240,7 @@ def fix_bam_and_call_variants(mdbam_group_file, pair_file, final_sample_jobs, ou
         (mutect_job, mutect_vcf) = mutect(normal, tumor, output_dir)
         (fm_job, mutect_maf) = filter_mutect_job(mutect_vcf, pair_file, output_dir)
         mafs_to_merge.append(mutect_maf)
-        (facets_jobs, facets_deps, name, terminal_job, count_jobs) = facets.construct_workflow(sample_map[normal]['final_bam'], sample_map[tumor]['final_bam'], None, None, facets_dir, tumor_sample=tumor, normal_sample=normal,force=True)
+        (facets_jobs, facets_deps, name, terminal_job, count_jobs) = facets.construct_workflow(tumorbam=sample_map[tumor]['final_bam'], normalbam=sample_map[normal]['final_bam'], tag=None, facets_args=None, output_dir=facets_dir, snps=None, tumor_sample=tumor, normal_sample=normal, force=True, rlib_arg="0.5.6", vcf=None, genome=genome_string)
 
         for job in splitsamfiles_jobs:
             if job in job_deps:
@@ -938,7 +938,7 @@ def bwa(read1, read2, readgroup):
     return(bam, bwa_job)
 
 def samtools_index(bam):
-    samtools = cmo.util.programs['samtools']['0.1.2']
+    samtools = cmo.util.programs['samtools']['1.3.1']
     cmd = [ samtools, "index", bam ]
     return workflow.Job(" ".join(cmd), name="index " + os.path.basename(bam))
 
@@ -1165,7 +1165,7 @@ def hs_metrics(sample,bam, output_dir, targets):
     targets_ilist = cmo.util.targets[targets]['targets_ilist']
     cmd = cmd + ["--TI", targets_ilist]
     print " ".join(cmd)
-    metrics_job = workflow.Job(" ".join(cmd), name="HsMetrics " + sample,resources="rusage[mem=10]", processors=1)
+    metrics_job = workflow.Job(" ".join(cmd), name="HsMetrics " + sample,resources="rusage[mem=18]", processors=1)
     return (metrics_job, out)
 
 def insertsize_metrics(sample,bam, output_dir):
@@ -1266,14 +1266,7 @@ if __name__=='__main__':
     hapmap33 = cmo.util.genomes[args.genome]['hapmap33']
     gatk_indel = args.gatk_indel
 
-
-
-
-
-    (jobs, dependencies)  = construct_workflow(args.map_file, args.pair_file, args.group_file, args.output_dir, args.targets)
+    (jobs, dependencies) = construct_workflow(args.map_file, args.pair_file, args.group_file, args.output_dir, args.targets)
     refalign_workflow = workflow.Workflow(jobs, dependencies, name=args.workflow_name)
     refalign_workflow.dump_yaml(os.path.join(args.output_dir, "workflow.yaml"))
     refalign_workflow.run(args.workflow_mode)
-         
-
-
