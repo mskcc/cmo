@@ -174,7 +174,9 @@ def run_check(samplefile = "samples.txt"):
         sys.exit(1)
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Run RNASeq on luna!")
+    parser = argparse.ArgumentParser(
+        description="Run RNASeq on luna!\n" + 
+        "Alex Penson <pensona@mskcc.org>")
     parser.add_argument("-R", "--reference_sequence", required=True, 
                         choices=cmo.util.genomes.keys(),
                         help="name of reference")
