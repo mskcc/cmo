@@ -1,0 +1,90 @@
+#!/opt/common/CentOS_6-dev/python/python-2.7.10/bin/python
+from cmo import workflow
+import argparse, os, sys
+import cmo, shutil 
+from distutils.version import StrictVersion
+
+def run_mutation_signatures(directory):
+    """Run Mutation Signatures"""
+
+    Rdir = "/opt/common/CentOS_6-dev/R/R-3.2.2/bin"
+    pythondir = "/opt/common/CentOS_6-dev/bin/current"
+
+    signature_definition = "/ifs/work/taylorlab/pensona/checkout/mutation-signatures/Stratton_signatures30.txt"
+    mutation_signatures_repo = "/ifs/work/taylorlab/pensona/checkout/mutation-signatures"
+
+    combined_maf_file = "data_mutations_signatures.wo_trinuc.txt"
+    annotated_maf_file = "data_mutations_signatures.txt"
+
+    output_spectrum_file = "data_mutations_signatures.spectrum.txt"
+    output_sigs_file = "data_mutations_signatures.30sigs.txt"
+
+    cmd_list = list()
+
+    prepare_mafs_cmd = " ".join([
+            os.path.join(Rdir, 
+                         "Rscript"),
+            "-e", "'clinical.series.live.analysis::make.maf.for.signatures()'",
+            "-d", directory,
+            "-o", combined_maf_file])
+    cmd_list.append(prepare_mafs_cmd)
+
+    add_trinuc_cmd = " ".join([
+            os.path.join(pythondir, "python"),
+            os.path.join(mutation_signatures_repo, 
+                         "make_trinuc_maf.py"),
+            combined_maf_file,
+            annotated_maf_file])
+    cmd_list.append(add_trinuc_cmd)
+
+    mkdir_cmd = " ".join([
+            "mkdir", "-p",
+            os.path.join(directory, "analysis")])
+    cmd_list.append(mkdir_cmd)
+    
+    mutation_signatures_cmd = " ".join([
+            os.path.join(pythondir, "python"),
+            os.path.join(mutation_signatures_repo, 
+                         "main.py"), 
+            "--seed", "100",
+            "--spectrum_output", 
+            os.path.join(directory, "analysis",
+                         output_spectrum_file),
+            signature_definition,
+            annotated_maf_file, 
+            os.path.join(directory, "analysis",
+                         output_sigs_file)])
+    cmd_list.append(mutation_signatures_cmd)
+    
+    rm_cmd = " ".join([
+            "rm", 
+            combined_maf_file,
+            annotated_maf_file])
+    cmd_list.append(rm_cmd)
+    
+    return workflow.Job(" && ".join(cmd_list),
+                        resources="rusage[mem=15]",
+                        name="Generate Signatures")
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Run RNASeq on luna!")
+    parser.add_argument("-d", "--directory", default = ".",
+                        help="mercurial dir, will default to '.'")
+    args = parser.parse_args()
+    print(args)
+
+    jobs_list = list()
+    jobs_dict = dict()
+
+    directory = os.path.abspath(args.directory)
+
+    mutation_signatures = run_mutation_signatures(directory = directory)
+    jobs_list.append(mutation_signatures)
+
+    name = "Update Clinical Series Analyses Workflow"
+    new_workflow = workflow.Workflow(jobs_list, 
+                                     jobs_dict, 
+                                     name=name)
+    new_workflow.run('LSF')
+    
