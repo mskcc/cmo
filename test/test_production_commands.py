@@ -14,8 +14,8 @@ fastq2=os.path.join(TEST_DATA_DIR, "P1_R2.fastq.gz")
 matrix=os.path.join(TEST_DATA_DIR, "recal.matrix")
 genome_string = "GRCh37"
 current_dir = os.getcwd()
-abratmpdir = "/"+current_dir+"/abra_cmo_test/"
-tmpdir = "/"+current_dir+"/"
+abratmpdir = current_dir+"/abra_cmo_test/"
+tmpdir = current_dir+"/"
 cosmic = "/ifs/work/socci/Pipelines/CBE/variants_pipeline/data/b37/CosmicCodingMuts_v67_b37_20131024__NDS.vcf"
 dbsnp = "/ifs/work/charris/temp_depot/dbsnp_138.b37.excluding_sites_after_129.vcf"
 hapmap = "/ifs/work/charris/temp_depot/hapmap_3.3.b37.vcf"
@@ -54,7 +54,7 @@ def test_abra():
     assert_true(re.search("input0: /ifs/work/charris/testdata_for_cmo/P2_ADDRG_MD.abra.fmi.printreads.bam", prog_output))
     assert_true(re.search("regions: /ifs/work/charris/testdata_for_cmo/intervals.bed", prog_output))
     assert_true(re.search("reference: /ifs/depot/assemblies/H.sapiens/b37/b37.fasta", prog_output))
-    assert_true(re.search("working dir: /"+current_dir+"/abra_cmo_test/", prog_output))
+    assert_true(re.search("working dir: "+current_dir+"/abra_cmo_test/", prog_output))
 
 
 
@@ -141,7 +141,7 @@ def test_addorreplacereadgroups():
             '--TMP_DIR', tmpdir]
     prog_output = subprocess.check_output(" ".join(cmd), shell=True, stderr=subprocess.STDOUT)
     print prog_output
-    assert_true(re.search("picard.sam.AddOrReplaceReadGroups INPUT=/ifs/work/charris/testdata_for_cmo/P1_ADDRG_MD.abra.fmi.printreads.bam OUTPUT=.* SORT_ORDER=coordinate RGID=P-0000377 RGLB=5 RGPL=Illumina RGPU=bc26 RGSM=P-0000377-T02-IM3 RGCN=MSKCC TMP_DIR=\[/"+current_dir+"\] CREATE_INDEX=true    VERBOSITY=INFO QUIET=false VALIDATION_STRINGENCY=STRICT COMPRESSION_LEVEL=5 MAX_RECORDS_IN_RAM=500000 CREATE_MD5_FILE=false", prog_output))
+    assert_true(re.search("picard.sam.AddOrReplaceReadGroups INPUT=/ifs/work/charris/testdata_for_cmo/P1_ADDRG_MD.abra.fmi.printreads.bam OUTPUT=.* SORT_ORDER=coordinate RGID=P-0000377 RGLB=5 RGPL=Illumina RGPU=bc26 RGSM=P-0000377-T02-IM3 RGCN=MSKCC TMP_DIR=\["+current_dir+"\] CREATE_INDEX=true    VERBOSITY=INFO QUIET=false VALIDATION_STRINGENCY=STRICT COMPRESSION_LEVEL=5 MAX_RECORDS_IN_RAM=500000 CREATE_MD5_FILE=false", prog_output))
 
 def test_trimgalore():
     cmd = ['cmo_trimgalore',
@@ -257,7 +257,7 @@ def test_markduplicates():
             '--TMP_DIR', tmpdir
             ]
     prog_output = subprocess.check_output(" ".join(cmd), shell=True, stderr=subprocess.STDOUT)
-    assert_true(re.search("picard.sam.markduplicates.MarkDuplicates INPUT=\[/ifs/work/charris/testdata_for_cmo/P1_ADDRG_MD.abra.fmi.printreads.bam\] OUTPUT=.* METRICS_FILE=.* TMP_DIR=\[/"+current_dir+"\] CREATE_INDEX=true    MAX_SEQUENCES_FOR_DISK_READ_ENDS_MAP=50000 MAX_FILE_HANDLES_FOR_READ_ENDS_MAP=8000 SORTING_COLLECTION_SIZE_RATIO=0.25 PROGRAM_RECORD_ID=MarkDuplicates PROGRAM_GROUP_NAME=MarkDuplicates REMOVE_DUPLICATES=false ASSUME_SORTED=false DUPLICATE_SCORING_STRATEGY=SUM_OF_BASE_QUALITIES READ_NAME_REGEX=\[a-zA-Z0-9\]\+:\[0-9\]:\(\[0-9\]\+\):\(\[0-9\]\+\):\(\[0-9\]\+\).* OPTICAL_DUPLICATE_PIXEL_DISTANCE=100 VERBOSITY=INFO QUIET=false VALIDATION_STRINGENCY=STRICT COMPRESSION_LEVEL=5 MAX_RECORDS_IN_RAM=500000 CREATE_MD5_FILE=false", prog_output))
+    assert_true(re.search("picard.sam.markduplicates.MarkDuplicates INPUT=\[/ifs/work/charris/testdata_for_cmo/P1_ADDRG_MD.abra.fmi.printreads.bam\] OUTPUT=.* METRICS_FILE=.* TMP_DIR=\["+current_dir+"\] CREATE_INDEX=true    MAX_SEQUENCES_FOR_DISK_READ_ENDS_MAP=50000 MAX_FILE_HANDLES_FOR_READ_ENDS_MAP=8000 SORTING_COLLECTION_SIZE_RATIO=0.25 PROGRAM_RECORD_ID=MarkDuplicates PROGRAM_GROUP_NAME=MarkDuplicates REMOVE_DUPLICATES=false ASSUME_SORTED=false DUPLICATE_SCORING_STRATEGY=SUM_OF_BASE_QUALITIES READ_NAME_REGEX=\[a-zA-Z0-9\]\+:\[0-9\]:\(\[0-9\]\+\):\(\[0-9\]\+\):\(\[0-9\]\+\).* OPTICAL_DUPLICATE_PIXEL_DISTANCE=100 VERBOSITY=INFO QUIET=false VALIDATION_STRINGENCY=STRICT COMPRESSION_LEVEL=5 MAX_RECORDS_IN_RAM=500000 CREATE_MD5_FILE=false", prog_output))
 
 def test_fixmateinformation():
     cmd = ['cmo_picard',
