@@ -63,7 +63,7 @@ def construct_workflow(tumorbam, normalbam, tag, facets_args, output_dir,snps=No
             if(snps):
                 basecount_cmd = basecount_cmd + ["--vcf" ,os.path.abspath(snps)]
             #print " ".join(basecount_cmd)
-            job = workflow.Job(" ".join(basecount_cmd), resources="rusage[mem=40]", name="getBasecounts " + base)
+            job = workflow.Job(" ".join(basecount_cmd), resources="rusage[mem=40] -We 0:59", name="getBasecounts " + base)
             count_jobs.append(job)
     else:
         for (bam, base) in [(tumorbam, tumor_sample), (normalbam, normal_sample)]:
