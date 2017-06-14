@@ -54,7 +54,7 @@ def test_abra():
     assert_true(re.search("input0: /ifs/work/charris/testdata_for_cmo/P2_ADDRG_MD.abra.fmi.printreads.bam", prog_output))
     assert_true(re.search("regions: /ifs/work/charris/testdata_for_cmo/intervals.bed", prog_output))
     assert_true(re.search("reference: /ifs/depot/assemblies/H.sapiens/b37/b37.fasta", prog_output))
-    assert_true(re.search("working dir: /"+os.getcwd()+"/abra_cmo_test/", prog_output))
+    assert_true(re.search("working dir: /"+current_dir+"/abra_cmo_test/", prog_output))
 
 
 
