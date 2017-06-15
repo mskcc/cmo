@@ -52,5 +52,5 @@ if __name__ =='__main__':
             del command_specific_args[key]
     cmo.util.remove_logging_options_from_dict(command_specific_args)
     #default_args is handled a little crappily, but not a big deal for now
-    cmo.util.call_cmd(picard_helper.picard_cmd(options.cmd, command_specific_args=command_specific_args), stdout=stdout, stderr=stderr)
+    cmo.util.call_cmd(picard_helper.picard_cmd(options.cmd, command_specific_args=command_specific_args, default_args_override=default_args_override), stdout=stdout, stderr=stderr)
      
