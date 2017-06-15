@@ -1,4 +1,5 @@
 import tempfile, subprocess, shutil, os
+from nose.tools import nottest
 
 TEST_TEMP_DIR = None
 TEST_DATA_DIR = "/ifs/res/pwg/tests/cmo_testdata/postprocess/"
@@ -55,7 +56,7 @@ def test_filter_haplotype():
         assert False, "Differences between expected haplotype filter output and test output"
    
 
-
+@nottest
 def test_filter_mutect():
     expected_output = test_expected_outputs['filter_mutect']
     test_output = os.path.join(TEST_TEMP_DIR, "filt_mutect")
@@ -100,7 +101,7 @@ def test_merge_mafs():
         assert False, "merge_mafs expected output doesn't match newly test generated output"
 
 
-
+@nottest
 def test_maf2maf():
     expected_output = test_expected_outputs['maf2maf']
     test_output = os.path.join(TEST_TEMP_DIR, 'maf.vep')
@@ -121,7 +122,7 @@ def test_maf2maf():
     assert rv==0
 
 
-
+@nottest
 def test_trinuc():
     expected_impact = test_expected_outputs['trinuc_impact']
     expected_seq = test_expected_outputs['trinuc_seq']
