@@ -154,7 +154,7 @@ def main():
         except:
             print >>sys.stderr, "Unable to create your directory tree for scratch."
             sys.exit(1)
-    command_specific_args.working = os.path.join(args.working, str(uuid.uuid4()) + "/")
+    command_specific_args['working'] = os.path.join(args.working, str(uuid.uuid4()) + "/")
     # Delete keys that are created by wrapper before making the command
     command_specific_args = delete_wrapper_specific_args(command_specific_args)
     # Make the command that needs to be launched
