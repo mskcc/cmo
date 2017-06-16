@@ -5,7 +5,7 @@ import re, os
 import subprocess
 
 import time
-import cmo, shutil 
+import cmo, shutil, uuid 
 
 '''
 This method adds custom arguments to run the wrapper
@@ -148,6 +148,13 @@ def main():
     parser = process_options(parser, cmd_options)
     # Process the default variable to reflect true paths from json
     (args, command_specific_args) = convert_default_variables(parser)
+    if not os.path.exists(args.working):
+        try: 
+            os.makedirs(args.working)
+        except:
+            print >>sys.stderr, "Unable to create your directory tree for scratch."
+            sys.exit(1)
+    command_specific_args['working'] = os.path.join(args.working, str(uuid.uuid4()) + "/")
     # Delete keys that are created by wrapper before making the command
     command_specific_args = delete_wrapper_specific_args(command_specific_args)
     # Make the command that needs to be launched

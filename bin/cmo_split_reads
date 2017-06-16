@@ -2,6 +2,38 @@
 
 import argparse, os, sys, signal, subprocess, math, gzip, io
 import cmo
+import multiprocessing
+
+def chunk(fastq, lines_per_chunk, num_pieces):
+    logger = cmo.util.get_logger()
+    output_prefix = os.path.basename(fastq).split(".", 1)[0] + "."
+    while lines_per_chunk % 4 != 0:
+        lines_per_chunk +=1
+    fh = io.BufferedReader(gzip.open(fastq, "rb"))
+    output_file_count = 0
+    output_file_lines = 0
+    #these aren't relaly gz but trimgalore doesnt like files not named gz...great work trimgalore
+    filename = output_prefix +  "chunk{:0>3d}".format(output_file_count) +  ".fastq.gz"
+    logger.info("Opening %s and writing reads..." % (filename))
+    ofh = gzip.open(filename, "wb", 1)
+    lines = list()
+    for line in os.popen("zcat " + fastq):
+        lines.append(line)
+        output_file_lines+=1
+        if output_file_lines == lines_per_chunk:
+            if(output_file_count < int(num_pieces)-1):
+                output_file_lines=0
+                ofh.write("".join(lines))
+                ofh.close()
+                lines = list()
+                output_file_count +=1
+                filename = output_prefix + "chunk{:0>3d}".format(output_file_count) +  ".fastq.gz"
+                logger.info("Opening %s and writing reads..." % (filename))
+                ofh = gzip.open(filename, "wb", 1)
+    ofh.write("".join(lines))
+    ofh.close()
+    return True
+
 
 if __name__ =='__main__':
     logger = cmo.util.get_logger()
@@ -19,35 +51,13 @@ if __name__ =='__main__':
     num_lines = sum(1 for line in os.popen("zcat " + fastqs[0]))
     lines_per_chunk = math.ceil(float(num_lines) / int(num_pieces))
     logger.info("%s lines per chunk" % str(lines_per_chunk))
+    pool=multiprocessing.Pool(processes=2)
     for fastq in fastqs:
-        output_prefix = os.path.basename(fastq).split(".", 1)[0] + "."
-        while lines_per_chunk % 4 != 0:
-            lines_per_chunk +=1
-        fh = io.BufferedReader(gzip.open(fastq, "rb"))
-        output_file_count = 0
-        output_file_lines = 0
-        #these aren't relaly gz but trimgalore doesnt like files not named gz...great work trimgalore
-        filename = output_prefix +  "chunk{:0>3d}".format(output_file_count) +  ".fastq.gz"
-        logger.info("Opening %s and writing reads..." % (filename))
-        ofh = open(filename, "wb")
-        lines = list()
-        for line in os.popen("zcat " + fastq):
-            lines.append(line)
-            output_file_lines+=1
-            if output_file_lines == lines_per_chunk:
-                if(output_file_count < int(num_pieces)-1):
-                    output_file_lines=0
-                    ofh.write("".join(lines))
-                    ofh.close()
-                    lines = list()
-                    output_file_count +=1
-                    filename = output_prefix + "chunk{:0>3d}".format(output_file_count) +  ".fastq.gz"
-                    logger.info("Opening %s and writing reads..." % (filename))
-                    ofh = open(filename, "wb")
-        ofh.write("".join(lines))
-        ofh.close()
+        result = pool.apply_async(chunk, args=(fastq, lines_per_chunk, num_pieces, ))
+    pool.close()
+    pool.join()
 
-        
+                
 
 
         
