@@ -164,14 +164,15 @@ def main():
     java = java + " -Djava.io.tmpdir=/scratch/" + str(os.getpid())
     cmd = make_command_to_run(java, abra_jar, command_specific_args)
     print " ".join(cmd)
-    try:
-        cmo.util.call_cmd(" ".join(cmd), shell=True)
-    except:
-        pass
+    cmo.util.call_cmd(" ".join(cmd), shell=True)
     end_time = time.time()
     print "End Time:", time.ctime(end_time)
     print("Elapsed time was %g seconds" % (end_time - start_time))
-    shutil.rmtree(os.path.abspath(args.working))
+    try:
+        shutil.rmtree(os.path.abspath(command_specific_args['working']))
+    except:
+        print >>sys.stderr, "working tree remove failed, but continue anyway, abra probably completed successful"
+        
 
 '''
 This will help to initiate the main
