@@ -6,7 +6,7 @@ from distutils.version import StrictVersion
 #WHOA, existentially troubling, man
 PYTHON = cmo.util.programs['python']['default']
 
-def construct_workflow(tumorbam, normalbam, tag, facets_args, output_dir,snps=None, tumor_sample=None, normal_sample=None, force=False, rlib_arg=None, vcf=None):
+def construct_workflow(tumorbam, normalbam, tag, facets_args, output_dir, snps=None, tumor_sample=None, normal_sample=None, force=False, rlib_arg=None, vcf=None, genome=None):
     snps = None
     #use user snps file instead of one we ahve stored for the genome we find in the bam
     if vcf:
@@ -49,7 +49,9 @@ def construct_workflow(tumorbam, normalbam, tag, facets_args, output_dir,snps=No
         print >>sys.stderr, "Normal bam does not exist? is %s a real path to a bam? " % normalbam
     print rlib_arg
     temp_bams = list()
-    (genome, fasta) = cmo.util.infer_fasta_from_bam(tumorbam)
+    if not genome:
+        # The fasta is not really needed here, so we'll just get the first value returned
+        genome = cmo.util.infer_fasta_from_bam(tumorbam)[0]
     if(rlib_arg != None and StrictVersion(rlib_arg) < StrictVersion("0.5.2")):
         for (bam, base) in [(tumorbam, tumor_sample), (normalbam, normal_sample)]:
             out_file = os.path.abspath(os.path.join(output_dir, base + ".dat"))
@@ -63,7 +65,7 @@ def construct_workflow(tumorbam, normalbam, tag, facets_args, output_dir,snps=No
             if(snps):
                 basecount_cmd = basecount_cmd + ["--vcf" ,os.path.abspath(snps)]
             #print " ".join(basecount_cmd)
-            job = workflow.Job(" ".join(basecount_cmd), resources="rusage[mem=40]", name="getBasecounts " + base)
+            job = workflow.Job(" ".join(basecount_cmd), resources="rusage[mem=40] -We 0:59", name="getBasecounts " + base)
             count_jobs.append(job)
     else:
         for (bam, base) in [(tumorbam, tumor_sample), (normalbam, normal_sample)]:
@@ -81,8 +83,8 @@ def construct_workflow(tumorbam, normalbam, tag, facets_args, output_dir,snps=No
                     "--pseudo-snps=50",
                     snps,
                     merged_counts,
-                    normalbam,
-                    tumorbam]
+                    os.path.abspath(os.path.join(output_dir, normal_sample + ".ppfixed.bam")),
+                    os.path.abspath(os.path.join(output_dir, tumor_sample + ".ppfixed.bam"))]
             merge_job = workflow.Job(" ".join(basecount_cmd), resources="rusage[mem=40]", name="snp-pileup " + tag)
    
     merged_counts = os.path.join(output_dir, "countsMerged____" + tag + ".dat.gz")

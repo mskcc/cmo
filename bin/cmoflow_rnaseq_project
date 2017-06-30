@@ -1,52 +1,68 @@
 #!/opt/common/CentOS_6-dev/python/python-2.7.10/bin/python
 from cmo import workflow
 import argparse, os, sys
-import cmo, shutil 
+import cmo, shutil, pandas
 from distutils.version import StrictVersion
 
-def run_sleuth(samplefile):
+def run_DESeq2(samplefile, conditionname):
     samplefile = os.path.abspath(samplefile)
 
-    ## options(mc.cores = 4L)
-    sleuth_cmd = [programs["R"]["3.2.2-dev"] + "Rscript",
-                  "-e", "rnaseq.scripts::run_sleuth()",
-                  "-d", inputdir,
-                  "--gene.names", genomes[args.reference_sequence]['default']['gene_names']]
+    DESeq2_cmd = [cmo.util.programs["R"]["3.2.2-dev"] + "Rscript",
+                  "-e", "'rnaseq.scripts::run_DESeq2()'",
+                  "-s", samplefile, ## --samplefile doesn't work??
+                  "--conditionname", conditionname,
+                  "--gene.names", cmo.util.genomes[args.reference_sequence]['default']['gene_names']]
+    return workflow.Job(" ".join(DESeq2_cmd), 
+                        resources="rusage[mem=15]",
+                        name="Run DESeq2")
+
+def run_sleuth(samplefile, conditionname, subdir, processors = 1):
+    samplefile = os.path.abspath(samplefile)
+
+    sleuth_cmd = [cmo.util.programs["R"]["3.2.2-dev"] + "Rscript",
+                  "--default-packages=ggplot2,methods,stats,utils", ## DESCRIPTION file Depends doens't work...
+                  "-e", "'options(mc.cores = " + str(processors) + "L); rnaseq.scripts::run_sleuth()'",
+                  "-s", samplefile, ## --samplefile doesn't work??
+                  "--conditionname", conditionname,
+                  "--subdir", subdir]
     return workflow.Job(" ".join(sleuth_cmd), 
-                        resources="rusage[mem=4]",
+                        resources="rusage[mem=200]",
+                        processors = processors,
                         name="Run Sleuth")
 
-def QoRT_merge_all_junctions(inputdir, samplenames, outputdir, minCount = 6):
-    inputdir = os.path.abspath(inputdir)
+def run_miso_combine(samplefile, conditionname):
+    samplefile = os.path.abspath(samplefile)
+    
+    miso_combine_cmd = [cmo.util.programs["R"]["3.2.2-dev"] + "Rscript",
+                        "--default-packages=ggplot2,methods,stats,utils", ## DESCRIPTION file Depends doens't work...
+                        "-e", "'rnaseq.scripts::miso_combine()'",
+                        "-s", samplefile, ## --samplefile doesn't work??
+                        "--conditionname", conditionname,
+                        "-m", cmo.util.genomes[args.reference_sequence]['default']['miso_index']]
+    return workflow.Job(" ".join(miso_combine_cmd), 
+                        resources="rusage[mem=10]",
+                        name="Combine MISO")
 
-    ### samplenames must be directories in the inputdir
-    for s in samplenames:
-        if not os.path.exists(inputdir + "/" + s):
-            exit("samplenames must be directories in the inputdir")
+def QoRT_merge_all_junctions(samplefile, conditionname, minCount = 6):
+    samplefile = os.path.abspath(samplefile)
 
-    ### inputdirs = [os.path.abspath(d) for d in inputdirs]
-    ### inputdirs_base = [os.path.basename(d) for d in inputdirs]
-
-    outputdir = os.path.abspath(outputdir)
-    if not os.path.exists(outputdir): os.makedirs(outputdir)
-
-    ### list input directories in file for JunctionSeq
-    decoder_filename = outputdir + "/decoder.txt"
-    decoder = open(decoder_filename, 'w')
-    decoder.write("sample.ID\n")
-    for d in samplenames: decoder.write(d + "\n")
-    decoder.close()
-
-    merge_all_cmd = [cmo.util.programs['java']["default"], 
+    workdir = samplefile + "_" + conditionname + "/JunctionSeq"
+    decoder_filename = workdir + "/decoder.txt"
+    merge_all_cmd = [cmo.util.programs["R"]["3.2.2-dev"] + "Rscript",
+                     " -e", "'rnaseq.scripts::write.decoder()'", 
+                     "-s", samplefile,
+                     "-c", conditionname,
+                     "&&",
+                     cmo.util.programs['java']["default"], 
                      "-jar", cmo.util.programs['QoRT']["default"], 
                      "mergeNovelSplices",
                      "--minCount", str(minCount),
-                     inputdir,                
+                     os.path.dirname(samplefile),
                      decoder_filename,
                      cmo.util.genomes[args.reference_sequence]['default']['gtf'],
-                     outputdir]
+                     workdir]
     return workflow.Job(" ".join(merge_all_cmd), 
-                        resources="rusage[mem=15]",
+                        resources="rusage[mem=35]",
                         name="Merge all QoRT junction and exon counts")
 
 def QoRT_merge_excl_novel_junctions(inputdir):
@@ -56,40 +72,224 @@ def QoRT_merge_excl_novel_junctions(inputdir):
     #                annoFiles/JunctionSeq.flat.gff.gz
     pass
 
-def run_JuntionSeq(inputdir):
-    JuntionSeq_cmd = [programs["R"]["3.2.2-dev"] + "Rscript",
-                      "-e", "rnaseq.scripts::JunctionSeq()",
-                      "-d", inputdir,
-                      "--gene.names", genomes[args.reference_sequence]['default']['gene_names']
-                      ]
+def run_JunctionSeq(samplefile, conditionname, processors = 10):
+    samplefile = os.path.abspath(samplefile)
+    JunctionSeq_cmd = [cmo.util.programs["R"]["3.2.2-dev"] + "Rscript",
+                       "-e", "'rnaseq.scripts::run_JunctionSeq()'",
+                       "-s", samplefile,
+                       "-c", conditionname,
+                       "--nCores", str(processors),
+                       "--gene.names", cmo.util.genomes[args.reference_sequence]['default']['gene_names']
+                       ]
     return workflow.Job(" ".join(JunctionSeq_cmd),
-                        resources="rusage[mem=15]",
+                        resources="rusage[mem=150]",
+                        processors = processors,
                         name="Run JunctionSeq")
 
+def run_make_suppa_files(samplefile, conditionname, suppa_tpm_file):
+    samplefile = os.path.abspath(samplefile)
+    make_suppa_files_cmd = [
+        cmo.util.programs["R"]["3.2.2-dev"] + "Rscript",
+        "-e", "'rnaseq.scripts::make_suppa_files()'",
+        "-s", samplefile,
+        "-c", conditionname,
+        "-t", "kallisto.transcripts"
+        ]
+    mem = 5
+    if not suppa_tpm_file == "":
+        suppa_tpm_file = os.path.abspath(suppa_tpm_file)
+        make_suppa_files_cmd = make_suppa_files_cmd + ["--suppa_tpm_file", suppa_tpm_file]
+        mem = 25
+    return workflow.Job(" ".join(make_suppa_files_cmd),
+                        resources="rusage[mem=" + str(mem) + "]",
+                        name="Make SUPPA files")
+
+def run_suppa(samplefile, conditionname, AS_type, suppa_method = "empirical", area = 1000, lower_bound = 0.05):
+    samplefile = os.path.abspath(samplefile)
+    table = pandas.read_table(
+        open(samplefile), 
+        sep='\t', lineterminator='\n')
+    colname_list = list(table.columns.values)
+    if conditionname in colname_list:
+        conditions = list(set(table[conditionname]))
+    else:
+        colname_list_split = [x.split(":") for x in list(table.columns.values)]
+        icol = -1
+        for i,colnames in enumerate(colname_list_split):
+            if colnames[0] == conditionname: 
+                icol = i
+        if icol == -1: 
+            print("cannot find column " + conditionname)
+            sys.exit(1)
+        conditions = list(set(table[colname_list[icol]]))
+    ### allow the condition column to be blank
+        conditions = [str(i) for i in conditions]
+        while 'nan' in conditions: 
+            conditions.remove('nan') 
+    ### reorder conditions (first one is the control, ie dPSI = 2 - 1)
+        base_level = colname_list_split[icol][1]
+        conditions = [base_level] + list(set(conditions) - set([base_level]))
+        
+    workdir = samplefile + "_" + conditionname + "/suppa"
+    ioefile = cmo.util.genomes[args.reference_sequence][args.transcript_definition]['suppa_index'] + "/suppa_index_" + AS_type + "_strict.ioe"
+
+    cmd_list = list()
+    for condition in conditions:
+        psiPerEvent_cmd = " ".join([
+                cmo.util.programs["python"]["3.5.1"], 
+                cmo.util.programs["suppa"]["default"], 
+                "psiPerEvent",
+                "--ioe-file", ioefile,
+                "--expression-file", workdir + "/" + condition + ".tpm",
+                "-o", workdir + "/" + condition + "." + AS_type
+                ])
+        cmd_list.append(psiPerEvent_cmd)
+
+#    for isuppa_method in suppa_method:
+        outputfile = workdir + "/suppa." + AS_type
+        if suppa_method == "classical":
+            outputfile = outputfile + "." + suppa_method
+        diffSplice_cmd = " ".join([
+                cmo.util.programs["python"]["3.5.1"],
+                cmo.util.programs["suppa"]["default"],
+                "diffSplice",
+                "--method", suppa_method,
+                "--ioe", ioefile,
+                "--psi",
+                workdir + "/" + conditions[0] + "." + AS_type + ".psi",
+                workdir + "/" + conditions[1] + "." + AS_type + ".psi",
+                "--expression-file",
+                workdir + "/" + conditions[0] + ".tpm",
+                workdir + "/" + conditions[1] + ".tpm",
+                "--area", str(area),
+                "--lower-bound", str(lower_bound),
+                "-gc", ## account for multiple hypothesis testing
+                "-o", outputfile])
+        cmd_list.append(diffSplice_cmd)
+    
+    return workflow.Job(" && ".join(cmd_list),
+                        resources="rusage[mem=30]",
+                        name="Run SUPPA " + AS_type)
+
+def run_filter_suppa_results(samplefile, conditionname):
+    samplefile = os.path.abspath(samplefile)
+    filter_suppa_results_cmd = [
+        cmo.util.programs["R"]["3.2.2-dev"] + "Rscript",
+        "--default-packages=ggplot2,methods,stats,utils", ## DESCRIPTION file Depends doens't work...
+        "-e", "'rnaseq.scripts::filter_suppa_results()'",
+        "-s", samplefile,
+        "-c", conditionname,
+        "-t", "kallisto.transcripts",
+        "--gene.names", cmo.util.genomes[args.reference_sequence]['default']['gene_names']
+        ]
+    return workflow.Job(" ".join(filter_suppa_results_cmd),
+                        resources="rusage[mem=5]",
+                        name="Filter SUPPA results")
+
+def run_check(samplefile, conditionname, algorithms):
+    """
+    give a list of expected output files for each algorithm
+    it must be a list() even if there's just one file
+    """
+    import os, sys, pandas
+    outputfiles = dict()
+    outputfiles["DESeq2"] = ["DESeq2/DESeq2_results.FDR10.txt"]
+    outputfiles["sleuth"] = ["sleuth/kallisto.pc_transcripts/gene.results_table.FDR10.txt",
+                             "sleuth/kallisto.pc_transcripts/transcript.results_table.FDR10.txt",
+                             "sleuth/kallisto.transcripts/gene.results_table.FDR10.txt",
+                             "sleuth/kallisto.transcripts/transcript.results_table.FDR10.txt"]
+    outputfiles["MISO"] = ["MISO/miso_summary.psi_difference10.txt"]
+    outputfiles["BENTO-Seq"] = []
+    outputfiles["SUPPA"] = ["suppa/suppa.FDR10.txt"]
+    outputfiles["JunctionSeq"] = ["JunctionSeq/testForDU.html"]
+
+    condition_directory = samplefile + "_" + conditionname
+    missing_file_list = list()
+    for algo in outputfiles.keys(): 
+        for outputfile in outputfiles[algo]:
+            if not os.path.isfile(os.path.join(condition_directory, outputfile)): 
+                missing_file_list.append(algo + "\t" + outputfile)
+    if len(missing_file_list):
+        for m in missing_file_list:
+            print m
+        # missing_file_file = open(os.path.join(condition_directory, "missing_files.txt"), 'w')
+        # for m in missing_file_list: 
+        #     missing_file_file.write(m)
+        #     missing_file_file.write('\n')
+        # missing_file_file.close()
+        sys.exit(1)
+    else:
+        print condition_directory + ": All files present"
+        sys.exit(0)
+    
 if __name__ == "__main__":
+    algorithm_list = ["QC", "DESeq2", "sleuth", "MISO", "BENTO-Seq", "SUPPA", "JunctionSeq"]
+
     parser = argparse.ArgumentParser(description="Run RNASeq on luna!")
     parser.add_argument("-R", "--reference_sequence", required=True, 
                         choices=cmo.util.genomes.keys(),
                         help="name of reference")
-    parser.add_argument("-s", "--samplefile", required=True,
+    parser.add_argument("-t", "--transcript_definition", default="default",
+                        help="name of transcript annotation")
+    parser.add_argument("-a", "--algorithms", nargs='*',
+                        default=algorithm_list,
+                        choices=algorithm_list + ["check"],
+                        help="algorithm(s) to run")
+    parser.add_argument("-s", "--samplefile", default="samples.txt",
                         help="text file listing samples and condition")
-    parser.add_argument("-o", "--outputdir", default = ".",
-                        help="output directory, will default to '.'")
-    # parser.add_argument("-i", "--inputdir", default = ".",
-    #                     help="input directory, will default to '.'")
-    parser.add_argument("-c", "--minCounts", default = "6",
-                        help="minCounts for JunctionSeq")
-    # parser.add_argument("-s", '--samplenames', nargs='+', required=True,
-    #                     help='directories within inputdir containing cmoflow_rnaseq output')
+    parser.add_argument("-c", "--conditionname", default="condition",
+                        help="condition within samplefile")
+    # parser.add_argument("-n", "--minCounts", default = "6",
+    #                     help="minCounts for JunctionSeq")
+    parser.add_argument("-m", "--suppa_method", default = "empirical",
+                        choices=["empirical", "classical"],
+                        help="method for SUPPA")
+    parser.add_argument("-e", "--scheduler", default = "LSF",
+                        choices=["LSF", "serial"],
+                        help="option to run pipeline serially")
+    parser.add_argument("-x", "--suppa_tpm_file", default = "",
+                        help="tab-delimited file with tpm values, one column per sample")
     args = parser.parse_args()
-    print(args)
+    # print(args)
 
-    sleuth = run_sleuth(args.samplefile)
-    jobs_list = [sleuth]
-#    QoRT_merge = QoRT_merge_all_junctions(args.inputdir, args.samplenames, args.outputdir)
-#    jobs_list = [sleuth, QoRT_merge]
-    jobs_dict = {}
-
-    new_workflow = workflow.Workflow(jobs_list, jobs_dict, name="RNASeq Project Workflow")
-    new_workflow.run('LSF')
+    jobs_list = list()
+    jobs_dict = dict()
+    if "QC" in args.algorithms:
+        pass
+    if "DESeq2" in args.algorithms:
+        DESeq2 = run_DESeq2(args.samplefile, args.conditionname)
+        jobs_list.append(DESeq2)
+    if "sleuth" in args.algorithms:
+        sleuth_pc = run_sleuth(args.samplefile, args.conditionname, "kallisto.pc_transcripts")
+        jobs_list.append(sleuth_pc)
+        sleuth_all = run_sleuth(args.samplefile, args.conditionname, "kallisto.transcripts")
+        jobs_list.append(sleuth_all)
+    if "MISO" in args.algorithms:
+        miso_combine = run_miso_combine(args.samplefile, args.conditionname)
+        jobs_list.append(miso_combine)
+    if "BENTO-Seq" in args.algorithms:
+        pass
+    if "SUPPA" in args.algorithms:
+        make_suppa_files = run_make_suppa_files(args.samplefile, args.conditionname, args.suppa_tpm_file)
+        jobs_list.append(make_suppa_files)
+        jobs_dict[make_suppa_files] = []
+        filter_suppa_results = run_filter_suppa_results(args.samplefile, args.conditionname)
+        jobs_list.append(filter_suppa_results)
+        for AS_type in ["SE", "RI", "A3", "A5", "MX", "AL", "AF"]:
+            suppa = run_suppa(args.samplefile, args.conditionname, AS_type, suppa_method = args.suppa_method)
+            jobs_list.append(suppa)
+            jobs_dict[make_suppa_files].append(suppa)
+            jobs_dict[suppa] = [filter_suppa_results]
+    if "JunctionSeq" in args.algorithms:
+        QoRT_merge = QoRT_merge_all_junctions(args.samplefile, args.conditionname)
+        jobs_list.append(QoRT_merge)
+        JunctionSeq = run_JunctionSeq(args.samplefile, args.conditionname)
+        jobs_list.append(JunctionSeq)
+        jobs_dict[QoRT_merge] = JunctionSeq
+    if "check" in args.algorithms:
+        run_check(args.samplefile, args.conditionname, algorithm_list)
+            
+    new_workflow = workflow.Workflow(jobs_list, jobs_dict,
+                                     name="RNASeq Project Workflow " + ",".join(args.algorithms))
+    new_workflow.run(args.scheduler)
             

@@ -1,4 +1,5 @@
 import tempfile, subprocess, shutil, os, sys
+from nose.tools import nottest
 
 TEST_TEMP_DIR = None
 TEST_DATA_DIR = "/ifs/res/pwg/tests/cmo_testdata/facets/"
@@ -72,7 +73,7 @@ def test_mergeTN():
     diff_cmd = ["diff", test_output, temp_expected_output]
     rv = subprocess.call(diff_cmd)
     assert rv==0, "cmo_facets mergeTN output does not match expected output, diff exit code: %s" % str(rv)
-
+@nottest
 def test_facets():
     output_dir = os.path.join(TEST_TEMP_DIR)
     merged_count_input = test_inputs['merged_counts']
@@ -127,7 +128,7 @@ def test_facets_maf():
     diff_cmd = ["diff", expected_annmaf_output, test_seg_output]
     rv = subprocess.check_call(diff_cmd)
     assert rv==0, "facets test seg output differs from expected output, diff exit code: %s" % str(rv)
-
+@nottest
 def test_facets_gene_call():
     output_dir = os.path.join(TEST_TEMP_DIR)
     cncf_input = test_inputs['cncf_file']
@@ -144,7 +145,7 @@ def test_facets_gene_call():
     diff_cmd = ["diff", expected_seg_output, test_seg_output]
     rv = subprocess.call(diff_cmd)
     assert rv==0, "facets test seg output differs from expected output, diff exit code: %s" % str(rv)
-
+@nottest
 def test_facets_arm_call():
     output_dir = os.path.join(TEST_TEMP_DIR)
     cncf_input = test_inputs['cncf_file']

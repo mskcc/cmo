@@ -37,6 +37,6 @@ if __name__ =='__main__':
     for key in ["genome", "fastq1", "fastq2", "output", "sam", "version"]:
         del args_dict[key]
     parser.parse_args()
-    cmo.util.call_cmd(bwa_helper.mem(fasta, fastq1, fastq2, output, args_dict=args_dict, no_bam=sam))
+    sys.exit(cmo.util.call_cmd(bwa_helper.mem(fasta, fastq1, fastq2, output, args_dict=args_dict, no_bam=sam)))
 
 
