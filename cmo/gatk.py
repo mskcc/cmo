@@ -5,7 +5,7 @@ logger = util.get_logger()
 
 
 class Gatk:
-    def __init__(self,version="default", java_version="default", java_args="-Xmx48g -Xms256m -XX:-UseGCOverheadLimit", temp_dir="/scratch", mutect=False):
+    def __init__(self,version="default", java_version="default", java_args="-Xmx48g -Xms256m -XX:-UseGCOverheadLimit -Djava.io.tmpdir=/scratch/", temp_dir="/scratch", mutect=False):
         try:
             if mutect:
                 self.gatk_jar=util.programs["mutect"][version]
