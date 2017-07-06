@@ -9,7 +9,7 @@ if __name__ =='__main__':
     preparser = argparse.ArgumentParser(description="run picard", add_help=False)
     preparser.add_argument("--version", choices=cmo.util.programs['picard'].keys(), default="default")
     preparser.add_argument("--java-version", choices=cmo.util.programs['java'].keys(), default="default")
-    preparser.add_argument("--cmd")
+    preparser.add_argument("--cmd",required=True)
     options, _ = preparser.parse_known_args()
     #time for monkey business
     picard_helper = cmo.picard.Picard(java_version=options.java_version, version=options.version)
