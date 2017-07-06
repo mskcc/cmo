@@ -9,7 +9,7 @@ if __name__ =='__main__':
     preparser = argparse.ArgumentParser(description="run picard", add_help=False)
     preparser.add_argument("--version", choices=cmo.util.programs['picard'].keys(), default="default")
     preparser.add_argument("--java-version", choices=cmo.util.programs['java'].keys(), default="default")
-    preparser.add_argument("--cmd", required=True)
+    preparser.add_argument("--cmd")
     options, _ = preparser.parse_known_args()
     #time for monkey business
     picard_helper = cmo.picard.Picard(java_version=options.java_version, version=options.version)
@@ -20,11 +20,15 @@ if __name__ =='__main__':
     #ok it was a valid subcommand, add the options we found and the genome option
     parser = argparse.ArgumentParser(parents= [ preparser ] , add_help= True,
             formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    R_parameter = False
     for arg, help in sub_command_options.items():
         help = help.replace("%","%%")
         if(arg == "R"):
-           parser.add_argument("--R","--genome", required=True, choices=cmo.util.genomes.keys())
-           continue
+            reference_sequence_group = parser.add_mutually_exclusive_group(required=True)
+            reference_sequence_group.add_argument("--R","--genome",choices=cmo.util.genomes.keys())
+            reference_sequence_group.add_argument('--REFERENCE_SEQUENCE', action="store");
+            R_parameter = True
+            continue
         if(arg =="LEVEL" or arg=="I"):
             parser.add_argument("--" + arg, action="append")
             continue
@@ -36,15 +40,18 @@ if __name__ =='__main__':
     parser.add_argument("--QUIET", action="store_true")
     parser.add_argument("--CREATE_MD5_FILE", action="store_true")
     parser.add_argument("--CREATE_INDEX", action="store_true")
-    for arg in ['TMP_DIR', 'VERBOSITY', 'VALIDATION_STRINGENCY', 'COMPRESSION_LEVEL', 'MAX_RECORDS_IN_RAM', 'REFERENCE_SEQUENCE']:
+    list_of_args = ['TMP_DIR', 'VERBOSITY', 'VALIDATION_STRINGENCY', 'COMPRESSION_LEVEL', 'MAX_RECORDS_IN_RAM']
+    if R_parameter == False:
+        list_of_args.append('REFERENCE_SEQUENCE')
+    for arg in list_of_args:
         parser.add_argument("--"+arg, action="store")
     cmo.util.add_logging_options(parser)
     args = parser.parse_args()
     command_specific_args = vars(args)
-    default_args_override = {}
+    default_args_override = {}    
     if "R" in command_specific_args:
         genome = args.R
-        default_args_override["REFERENCE_SEQUENCE"]=cmo.util.genomes[genome]['fasta'] 
+        default_args_override["REFERENCE_SEQUENCE"]=cmo.util.genomes[genome]['fasta']    
     stdout = args.stdout
     stderr = args.stderr
     for key in  ["version", "java_version", "cmd", "R"]:
@@ -52,5 +59,5 @@ if __name__ =='__main__':
             del command_specific_args[key]
     cmo.util.remove_logging_options_from_dict(command_specific_args)
     #default_args is handled a little crappily, but not a big deal for now
-    cmo.util.call_cmd(picard_helper.picard_cmd(options.cmd, command_specific_args=command_specific_args, default_args_override=default_args_override), stdout=stdout, stderr=stderr)
+    cmo.util.call_cmd(picard_helper.picard_cmd(options.cmd, default_args_override=default_args_override, command_specific_args=command_specific_args), stdout=stdout, stderr=stderr)
      
