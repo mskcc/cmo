@@ -40,6 +40,8 @@ def run_pindel(pindel_version, args):
         if value:
             if value == True:
                 command = command + ["--"+argument.replace("_","-")]
+            elif argument=="number_of_threads":
+                command = command + ["--"+argument, value]
             else:
                 command = command + ["--"+argument.replace("_","-"), value]
     print >>sys.stderr, " ".join(command)
