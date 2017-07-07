@@ -28,7 +28,10 @@ output = None
 output2 = None
 def setup_module():
     global TEST_TEMP_DIR
-    TEST_TEMP_DIR = tempfile.mkdtemp();
+    if os.path.exists("/scratch"):
+        TEST_TEMP_DIR = tempfile.mkdtemp(dir="/scratch");
+    else:
+        TEST_TEMP_DIR = tempfile.mkdtemp();
     global output
     output= os.path.join(TEST_TEMP_DIR, "output")
     global output2
