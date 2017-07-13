@@ -130,6 +130,7 @@ def test_baserecal():
 
 def test_addorreplacereadgroups():
     cmd = ['cmo_picard',
+            '--version 1.96',
             '--cmd', 'AddOrReplaceReadGroups',
             '--CN', 'MSKCC',
             '--CREATE_INDEX',
@@ -252,6 +253,7 @@ def test_index():
 
 def test_markduplicates():
     cmd = ['cmo_picard',
+            '--version 1.96',
             '--cmd', 'MarkDuplicates',
             '--CREATE_INDEX',
             '--I', tumor_bam,
@@ -264,6 +266,7 @@ def test_markduplicates():
 
 def test_fixmateinformation():
     cmd = ['cmo_picard',
+            '--version 1.96',
             '--cmd', 'FixMateInformation',
             '--I', tumor_bam,
             '--O', output]
