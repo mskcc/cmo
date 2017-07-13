@@ -4,7 +4,7 @@ import argparse, os, sys, re, subprocess,itertools
 import cmo
 
 
-if __name__ =='__main__':
+if __name__ =='__main__':    
     #partially parse options to get versin/subcommand and add more options
     preparser = argparse.ArgumentParser(description="run picard", add_help=False)
     preparser.add_argument("--version", choices=cmo.util.programs['picard'].keys(), default="default")
@@ -21,14 +21,8 @@ if __name__ =='__main__':
     parser = argparse.ArgumentParser(parents= [ preparser ] , add_help= True,
             formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     R_parameter = False
-    for arg, help in sub_command_options.items():
-        help = help.replace("%","%%")
-        if(arg == "R"):
-            reference_sequence_group = parser.add_mutually_exclusive_group(required=True)
-            reference_sequence_group.add_argument("--R","--genome",choices=cmo.util.genomes.keys())
-            reference_sequence_group.add_argument('--REFERENCE_SEQUENCE', action="store");
-            R_parameter = True
-            continue
+    for arg, help in sub_command_options.items():        
+        help = help.replace("%","%%")                    
         if(arg =="LEVEL" or arg=="I"):
             parser.add_argument("--" + arg, action="append")
             continue
@@ -36,7 +30,16 @@ if __name__ =='__main__':
             required=True
         else:
             required=False
-        parser.add_argument("--"+arg, action="store", help=help, required=required)
+        if(arg == "PROGRAM"):
+            parser.add_argument("--"+arg, action="append", help=help, required=required)
+        elif(arg == "R"):
+            reference_sequence_group = parser.add_mutually_exclusive_group(required=required)
+            reference_sequence_group.add_argument("--R","--genome",choices=cmo.util.genomes.keys())
+            reference_sequence_group.add_argument('--REFERENCE_SEQUENCE', action="store");
+            R_parameter = True
+            continue
+        else:
+            parser.add_argument("--"+arg, action="store", help=help, required=required)
     parser.add_argument("--QUIET", action="store_true")
     parser.add_argument("--CREATE_MD5_FILE", action="store_true")
     parser.add_argument("--CREATE_INDEX", action="store_true")
@@ -49,7 +52,7 @@ if __name__ =='__main__':
     args = parser.parse_args()
     command_specific_args = vars(args)
     default_args_override = {}    
-    if "R" in command_specific_args:
+    if "R" in command_specific_args and args.R != None:
         genome = args.R
         default_args_override["REFERENCE_SEQUENCE"]=cmo.util.genomes[genome]['fasta']    
     stdout = args.stdout
@@ -58,6 +61,6 @@ if __name__ =='__main__':
         if key in command_specific_args:
             del command_specific_args[key]
     cmo.util.remove_logging_options_from_dict(command_specific_args)
-    #default_args is handled a little crappily, but not a big deal for now
+    #default_args is handled a little crappily, but not a big deal for now    
     cmo.util.call_cmd(picard_helper.picard_cmd(options.cmd, default_args_override=default_args_override, command_specific_args=command_specific_args), stdout=stdout, stderr=stderr)
      
