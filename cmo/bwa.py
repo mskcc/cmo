@@ -56,7 +56,7 @@ class Bwa:
         if no_bam: 
             cmd = cmd + [">", output]
         else:
-            cmd = cmd + ["|", self.samtools_cmd, "view -bh - ", ">", output]
+            cmd = ["set -o pipefail;"] + cmd + ["|", self.samtools_cmd, "view -bh - ", ">", output]
         return " ".join(cmd)
     def sampe(self, fasta, sai1, sai2, fq1, fq2, output_bam, args_dict=None, no_bam=False):
         cmd = [self.bwa_cmd, "sampe"]
