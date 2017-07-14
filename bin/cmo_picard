@@ -44,8 +44,8 @@ if __name__ =='__main__':
     parser.add_argument("--CREATE_MD5_FILE", action="store_true")
     parser.add_argument("--CREATE_INDEX", action="store_true")
     list_of_args = ['TMP_DIR', 'VERBOSITY', 'VALIDATION_STRINGENCY', 'COMPRESSION_LEVEL', 'MAX_RECORDS_IN_RAM']
-    if R_parameter == False:
-        list_of_args.append('REFERENCE_SEQUENCE')
+    #if R_parameter == False:
+    #    list_of_args.append('REFERENCE_SEQUENCE')
     for arg in list_of_args:
         parser.add_argument("--"+arg, action="store")
     cmo.util.add_logging_options(parser)
