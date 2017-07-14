@@ -30,6 +30,8 @@ def setup_module():
     global TEST_TEMP_DIR
     if os.path.exists("/scratch"):
         TEST_TEMP_DIR = tempfile.mkdtemp(dir="/scratch");
+    elif os.path.exists("/srv/data/scratch"):
+        TEST_TEMP_DIR = tempfile.mkdtemp(dir="/srv/data/scratch");
     else:
         TEST_TEMP_DIR = tempfile.mkdtemp();
     global output
@@ -51,6 +53,8 @@ def test_abra():
             '--reference_sequence', genome_string,
             '--targets', input_bed,
             '--working', abratmpdir]
+    print " ".join(cmd)
+
     prog_output = subprocess.check_output(" ".join(cmd), shell=True)
     #check prog_output to see if it picked up the arguments we gave...
     assert_true(re.search("input0: /ifs/work/charris/testdata_for_cmo/P1_ADDRG_MD.abra.fmi.printreads.bam", prog_output))
@@ -106,6 +110,7 @@ def test_printreads():
             '--num_cpu_threads_per_data_thread', '6',
             '--out', output,
             '--reference_sequence', genome_string]
+    print " ".join(cmd)
     prog_output = subprocess.check_output(" ".join(cmd), shell=True, stderr=subprocess.STDOUT)
     assert_true(re.search("INFO  .* HelpFormatter - Program Args: -T PrintReads --input_file /ifs/work/charris/testdata_for_cmo/P1_ADDRG_MD.abra.fmi.printreads.bam --num_cpu_threads_per_data_thread 6 --BQSR /ifs/work/charris/testdata_for_cmo/recal.matrix --reference_sequence /ifs/depot/assemblies/H.sapiens/b37/b37.fasta --out", prog_output))
 
@@ -125,6 +130,7 @@ def test_baserecal():
             '--java_args', "'-Xmx48g -Xms256m -XX:-UseGCOverheadLimit'",
             '--out', output,
             '--reference_sequence', genome_string]
+    print " ".join(cmd)
     prog_output = subprocess.check_output(" ".join(cmd), shell=True, stderr=subprocess.STDOUT)
     assert_true(re.search("INFO .* HelpFormatter - Program Args: -T BaseRecalibrator --input_file /ifs/work/charris/testdata_for_cmo/P1_ADDRG_MD.abra.fmi.printreads.bam --reference_sequence /ifs/depot/assemblies/H.sapiens/b37/b37.fasta --knownSites /ifs/work/charris/temp_depot/dbsnp_138.b37.excluding_sites_after_129.vcf --knownSites /ifs/work/charris/temp_depot/hapmap_3.3.b37.vcf --knownSites /ifs/work/charris/temp_depot/1000G_phase1.snps.high_confidence.b37.vcf --knownSites /ifs/work/charris/temp_depot/Mills_and_1000G_gold_standard.indels.b37.vcf --covariate ContextCovariate --covariate CycleCovariate --covariate ReadGroupCovariate --covariate QualityScoreCovariate --out", prog_output))
 
@@ -143,6 +149,7 @@ def test_addorreplacereadgroups():
             '--SM', 'P-0000377-T02-IM3',
             '--SO', 'coordinate',
             '--TMP_DIR', tmpdir]
+    print " ".join(cmd)
     prog_output = subprocess.check_output(" ".join(cmd), shell=True, stderr=subprocess.STDOUT)
     print prog_output
     assert_true(re.search("picard.sam.AddOrReplaceReadGroups INPUT=/ifs/work/charris/testdata_for_cmo/P1_ADDRG_MD.abra.fmi.printreads.bam OUTPUT=.* SORT_ORDER=coordinate RGID=P-0000377 RGLB=5 RGPL=Illumina RGPU=bc26 RGSM=P-0000377-T02-IM3 RGCN=MSKCC TMP_DIR=\["+current_dir+"\] CREATE_INDEX=true    VERBOSITY=INFO QUIET=false VALIDATION_STRINGENCY=STRICT COMPRESSION_LEVEL=5 MAX_RECORDS_IN_RAM=500000 CREATE_MD5_FILE=false", prog_output))
@@ -162,6 +169,7 @@ def test_trimgalore():
             fastq1,
             fastq2,
             ]
+    print " ".join(cmd)
     prog_output = subprocess.check_output(" ".join(cmd), shell=True, stderr=subprocess.STDOUT)
     assert_true("/opt/common/CentOS_6/trim_galore/Trim_Galore_v0.2.5/trim_galore --adapter AGATCGGAAGAGCACACGTCTGAACTCCAGTCACATGAGCATCTCGTATGCCGTCTTCTGCTTG --suppress_warn --paired --length 25 --gzip --quality 1 --adapter2 AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGTAGATCTCGGTGGTCGCCGTATCATT /ifs/work/charris/testdata_for_cmo/P1_R1.fastq.gz /ifs/work/charris/testdata_for_cmo/P1_R2.fastq.gz", prog_output)
 
@@ -186,6 +194,7 @@ def test_vardict():
             '-x', '2000',
             '-z', '1',
             input_bed ]
+    print " ".join(cmd)
     subprocess.check_call(" ".join(cmd), shell=True)
 
 
@@ -211,6 +220,7 @@ def test_somaticindeldetector():
             '--read_filter', 'UnmappedRead',
             '--read_filter', 'MappingQuality',
             '--read_filter', 'BadCigar']
+    print " ".join(cmd)
     prog_output = subprocess.check_output(" ".join(cmd), shell=True, stderr=subprocess.STDOUT)
     assert_true(re.search("INFO  .* HelpFormatter - Program Args: -T SomaticIndelDetector --input_file:normal /ifs/work/charris/testdata_for_cmo/P2_ADDRG_MD.abra.fmi.printreads.bam --input_file:tumor /ifs/work/charris/testdata_for_cmo/P1_ADDRG_MD.abra.fmi.printreads.bam --min_mapping_quality_score 20 --intervals /ifs/work/charris/testdata_for_cmo/intervals.bed --filter_expressions T_COV<10||N_COV<4||T_INDEL_F<0.0001||T_INDEL_CF<0.7 --maxNumberOfReads 100000 --verboseOutput .* --read_filter DuplicateRead --read_filter FailsVendorQualityCheck --read_filter NotPrimaryAlignment --read_filter BadMate --read_filter MappingQualityUnavailable --read_filter UnmappedRead --read_filter MappingQuality --read_filter BadCigar --reference_sequence /ifs/depot/assemblies/H.sapiens/b37/b37.fasta --out .*", prog_output))
 
@@ -223,6 +233,7 @@ def test_findcoveredintervals():
             '--out',output,
             '--reference_sequence', genome_string,
             '--input_file',normal_bam]
+    print " ".join(cmd)
     prog_output = subprocess.check_output(" ".join(cmd),shell=True, stderr=subprocess.STDOUT)
     assert_true(re.search("INFO  .* HelpFormatter - Program Args: -T FindCoveredIntervals --input_file /ifs/work/charris/testdata_for_cmo/P1_ADDRG_MD.abra.fmi.printreads.bam --input_file /ifs/work/charris/testdata_for_cmo/P2_ADDRG_MD.abra.fmi.printreads.bam --out .* --reference_sequence /ifs/depot/assemblies/H.sapiens/b37/b37.fasta",prog_output))
 
@@ -234,6 +245,7 @@ def test_pindel():
            '--output-prefix','Tumor',
            '--sample_names','"Normal Tumor"']
 
+    print " ".join(cmd)
     prog_output = subprocess.check_output(" ".join(cmd),shell=True, stderr=subprocess.STDOUT)
     #print prog_output
     assert_true(re.search(tumor_bam,prog_output))
@@ -247,6 +259,7 @@ def test_index():
     cmd = ['cmo_index',
            '--normal',normal_bam,
            '--tumor',tumor_bam]
+    print " ".join(cmd)
     prog_output = subprocess.check_output(" ".join(cmd),shell=True,stderr=subprocess.STDOUT)
     assert_true(re.search(normal_bam,prog_output))
     assert_true(re.search(tumor_bam,prog_output))
@@ -261,8 +274,10 @@ def test_markduplicates():
             '--O', output,
             '--TMP_DIR', tmpdir
             ]
+    print " ".join(cmd)
     prog_output = subprocess.check_output(" ".join(cmd), shell=True, stderr=subprocess.STDOUT)
-    assert_true(re.search("picard.sam.markduplicates.MarkDuplicates INPUT=\[/ifs/work/charris/testdata_for_cmo/P1_ADDRG_MD.abra.fmi.printreads.bam\] OUTPUT=.* METRICS_FILE=.* TMP_DIR=\["+current_dir+"\] CREATE_INDEX=true    MAX_SEQUENCES_FOR_DISK_READ_ENDS_MAP=50000 MAX_FILE_HANDLES_FOR_READ_ENDS_MAP=8000 SORTING_COLLECTION_SIZE_RATIO=0.25 PROGRAM_RECORD_ID=MarkDuplicates PROGRAM_GROUP_NAME=MarkDuplicates REMOVE_DUPLICATES=false ASSUME_SORTED=false DUPLICATE_SCORING_STRATEGY=SUM_OF_BASE_QUALITIES READ_NAME_REGEX=\[a-zA-Z0-9\]\+:\[0-9\]:\(\[0-9\]\+\):\(\[0-9\]\+\):\(\[0-9\]\+\).* OPTICAL_DUPLICATE_PIXEL_DISTANCE=100 VERBOSITY=INFO QUIET=false VALIDATION_STRINGENCY=STRICT COMPRESSION_LEVEL=5 MAX_RECORDS_IN_RAM=500000 CREATE_MD5_FILE=false", prog_output))
+    print prog_output
+    assert_true(re.search("INPUT=\[/ifs/work/charris/testdata_for_cmo/P1_ADDRG_MD.abra.fmi.printreads.bam\] OUTPUT=.* METRICS_FILE=.* TMP_DIR=.* CREATE_INDEX=true.*", prog_output))
 
 def test_fixmateinformation():
     cmd = ['cmo_picard',
@@ -270,9 +285,10 @@ def test_fixmateinformation():
             '--cmd', 'FixMateInformation',
             '--I', tumor_bam,
             '--O', output]
+    print cmd
     prog_output = subprocess.check_output(" ".join(cmd), shell=True, stderr=subprocess.STDOUT)
     print prog_output
-    assert_true(re.search("picard.sam.FixMateInformation INPUT=\[/ifs/work/charris/testdata_for_cmo/P1_ADDRG_MD.abra.fmi.printreads.bam\] OUTPUT=.* ASSUME_SORTED=false ADD_MATE_CIGAR=true VERBOSITY=INFO QUIET=false VALIDATION_STRINGENCY=STRICT COMPRESSION_LEVEL=5 MAX_RECORDS_IN_RAM=500000 CREATE_INDEX=false CREATE_MD5_FILE=false", prog_output))
+    assert_true(re.search("INPUT=\[/ifs/work/charris/testdata_for_cmo/P1_ADDRG_MD.abra.fmi.printreads.bam\] OUTPUT=.* VERBOSITY=INFO QUIET=false VALIDATION_STRINGENCY=STRICT COMPRESSION_LEVEL=5 MAX_RECORDS_IN_RAM=500000 CREATE_INDEX=false CREATE_MD5_FILE=false", prog_output))
     
 
 

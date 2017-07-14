@@ -1,11 +1,11 @@
-import os, sys
+import os, sys, tempfile
 from . import util
 logger = util.get_logger()
 
 
 
 class Gatk:
-    def __init__(self,version="default", java_version="default", java_args="-Xmx48g -Xms256m -XX:-UseGCOverheadLimit -Djava.io.tmpdir=/scratch/", temp_dir="/scratch", mutect=False):
+    def __init__(self,version="default", java_version="default", java_args="-Xmx48g -Xms256m -XX:-UseGCOverheadLimit", temp_dir="/scratch", mutect=False):
         try:
             if mutect:
                 self.gatk_jar=util.programs["mutect"][version]
@@ -27,7 +27,12 @@ class Gatk:
     def gatk_cmd(self, command, java_args_override=None, command_specific_args={}):
         cmd = [self.java_cmd, self.java_args]
         if(self.temp_dir != None):
-            cmd = cmd +  ["-Djava.io.tmpdir="+self.temp_dir]
+            if os.path.exists(self.temp_dir):
+                cmd = cmd +  ["-Djava.io.tmpdir="+self.temp_dir]
+            elif os.path.exists("/srv/data/scratch"):
+                cmd = cmd + ["-Djava.io.tmpdir=/srv/data/scratch"]
+            else:
+                cmd = cmd + ["-Djava.io.tmpdir=" + tempfile.mkdtemp()]
         cmd = cmd + [ "-jar", self.gatk_jar, "-T",command]
         for arg, value in command_specific_args.items():
             if value != None:
