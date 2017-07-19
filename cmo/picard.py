@@ -27,7 +27,6 @@ class Picard:
                 "MAX_RECORDS_IN_RAM": "5000000",
                 "CREATE_INDEX": "true",
                 "CREATE_MD5_FILE": "false",
-                "REFERENCE_SEQUENCE": "null",
            #     "GA4GH_CLIENT_SECRETS":"null",
                 }
         
@@ -45,11 +44,6 @@ class Picard:
             if arg in default_args_override:
                 value = default_args_override[arg]
             if arg not in command_specific_args:
-                if value==True:
-                    cmd = cmd + [arg + "="+ str(value)]
-                elif value != None and value !=False:
-                    cmd = cmd + [arg + "=" + value]
-            elif command_specific_args[arg] == None or command_specific_args[arg] == False:
                 if value==True:
                     cmd = cmd + [arg + "="+ str(value)]
                 elif value != None and value !=False:
