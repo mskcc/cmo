@@ -54,7 +54,7 @@ if __name__ =='__main__':
     default_args_override = {}    
     if "R" in command_specific_args and args.R != None:
         genome = args.R
-        default_args_override["REFERENCE_SEQUENCE"]=cmo.util.genomes[genome]['fasta']    
+        command_specific_args["REFERENCE_SEQUENCE"]=cmo.util.genomes[genome]['fasta']    
     stdout = args.stdout
     stderr = args.stderr
     for key in  ["version", "java_version", "cmd", "R"]:
