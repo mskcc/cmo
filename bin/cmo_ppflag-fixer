@@ -30,7 +30,7 @@ def find_command_options(getbasecounts_command):
 if __name__ =='__main__':
     #partially parse options to get versin/subcommand and add more options
     #ok it was a valid subcommand, add the options we found and the genome option
-    parser = argparse.ArgumentParser(description="run snp-pileup", add_help=True, usage="cmo_snp-pileup [option] <vcf file> <output file> <normal bam> <tumor bam>")
+    parser = argparse.ArgumentParser(description="run ppflag-fixer", add_help=True, usage="cmo_ppflag-fixer input output")
     command = cmo.util.programs['ppflag-fixer']['default']
     command_options = find_command_options(command)
 #    print command_options
