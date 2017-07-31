@@ -1,0 +1,74 @@
+#!/opt/common/CentOS_6-dev/python/python-2.7.10/bin/python
+
+import argparse, os, sys, re, subprocess,itertools
+import cmo
+
+def find_command_options(getbasecounts_command):
+    help = subprocess.Popen(getbasecounts_command + " --help",stdout=subprocess.PIPE,shell=True).communicate()[0]
+    print help
+    lines = help.split("\n")
+    last_short_option= ''
+    last_option = ''
+    last_option_help = ' ' 
+    valid_args = []
+    for line in lines:
+        #m = re.match(r"^[\t ]+(--\w+)[\t ]+(?:[<[]\S+[>\]])[\t ]+(.*)$", line)
+        m = re.match(r"^[\t ]+(-\S), (--[\w-]+)(?:=\S+)?[\t ]+(.*)$", line)
+        if m:
+            if last_option != '':
+                valid_args.append((last_short_option, last_option, last_option_help))
+            last_short_option=m.group(1)
+            last_option = m.group(2)
+            last_option_help = m.group(3)
+        else:
+            last_option_help+=line.strip()
+    valid_args.append((last_short_option, last_option, last_option_help))
+    #FIXME only captures one line of bedtools help, more better regex needed
+    return valid_args
+
+
+if __name__ =='__main__':
+    #partially parse options to get versin/subcommand and add more options
+    #ok it was a valid subcommand, add the options we found and the genome option
+    parser = argparse.ArgumentParser(description="run snp-pileup", add_help=True, usage="cmo_snp-pileup [option] <vcf file> <output file> <normal bam> <tumor bam>")
+    command = cmo.util.programs['ppflag-fixer']['default']
+    command_options = find_command_options(command)
+#    print command_options
+    for arg, long_arg, help in command_options:
+#        help = help.replace("%","%%")
+        if(long_arg =="--help"):
+            continue
+        elif long_arg in ['--progress']:
+            parser.add_argument(arg, long_arg, action="store_true", default=False, help=help)
+        else:
+            parser.add_argument(arg, long_arg, action="store", help=help) 
+    parser.add_argument("input_file", help="vcf file")
+    parser.add_argument("output_file", help="output file")
+#    parser.add_argument("--genome", required=True, choices=cmo.util.genomes.keys())
+    cmo.util.add_logging_options(parser)
+    (args) = parser.parse_args()
+    command_specific_args = vars(args)
+    stderr=args.stderr
+    stdout=args.stdout
+    cmo.util.remove_logging_options_from_dict(command_specific_args)
+    #for key in  ["version"]:
+    #    del command_specific_args[key]
+    command_specific_args = dict((k, v) for k, v in command_specific_args.iteritems() if v)
+    cmd = [command]
+    stdin=None
+    for option, value in command_specific_args.items():
+        if option in ["input_file", "output_file"]:
+            pass
+        elif value ==True:
+            cmd = cmd + ["--"+option.replace("_", "-")]
+        elif value!=False:
+            cmd = cmd + ["--"+option.replace("_","-"), value]
+            if value == "stdin":
+                stdin=sys.stdin
+        else:
+            pass
+    cmd = cmd + [command_specific_args['input_file'], command_specific_args['output_file']]
+    print >>sys.stderr, " ".join(cmd)
+    cmo.util.call_cmd(" ".join(cmd), stderr=stderr, stdout=stdout, stdin=stdin)
+
+     
