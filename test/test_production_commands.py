@@ -13,6 +13,7 @@ fastq1=os.path.join(TEST_DATA_DIR, "P1_R1.fastq.gz")
 fastq2=os.path.join(TEST_DATA_DIR, "P1_R2.fastq.gz")
 matrix=os.path.join(TEST_DATA_DIR, "recal.matrix")
 genome_string = "GRCh37"
+GRCh37_path = "/ifs/depot/assemblies/H.sapiens/b37/b37.fasta"
 current_dir = os.getcwd()
 abratmpdir = current_dir+"/abra_cmo_test/"
 tmpdir = current_dir+"/"
@@ -21,6 +22,8 @@ dbsnp = "/ifs/work/charris/temp_depot/dbsnp_138.b37.excluding_sites_after_129.vc
 hapmap = "/ifs/work/charris/temp_depot/hapmap_3.3.b37.vcf"
 snps_1000g = "/ifs/work/charris/temp_depot/1000G_phase1.snps.high_confidence.b37.vcf"
 indels_1000g = "/ifs/work/charris/temp_depot/Mills_and_1000G_gold_standard.indels.b37.vcf"
+target_interval = "/ifs/work/socci/Pipelines/CBE/variants_pipeline/targets/AgilentExon_51MB_b37_v3/AgilentExon_51MB_b37_v3_targets.ilist"
+bait_interval = "/ifs/work/socci/Pipelines/CBE/variants_pipeline/targets/AgilentExon_51MB_b37_v3/AgilentExon_51MB_b37_v3_baits.ilist"
 input_list = os.path.join(TEST_DATA_DIR, "intervals.list")
 input_bed = os.path.join(TEST_DATA_DIR, "intervals.bed")
 ##########OUTPUTS
@@ -153,6 +156,73 @@ def test_addorreplacereadgroups():
     prog_output = subprocess.check_output(" ".join(cmd), shell=True, stderr=subprocess.STDOUT)
     print prog_output
     assert_true(re.search("picard.sam.AddOrReplaceReadGroups INPUT=/ifs/work/charris/testdata_for_cmo/P1_ADDRG_MD.abra.fmi.printreads.bam OUTPUT=.* SORT_ORDER=coordinate RGID=P-0000377 RGLB=5 RGPL=Illumina RGPU=bc26 RGSM=P-0000377-T02-IM3 RGCN=MSKCC TMP_DIR=\["+current_dir+"\] CREATE_INDEX=true    VERBOSITY=INFO QUIET=false VALIDATION_STRINGENCY=STRICT COMPRESSION_LEVEL=5 MAX_RECORDS_IN_RAM=500000 CREATE_MD5_FILE=false", prog_output))
+
+def test_CalculateHsMetrics():
+    #picard version 1.96 with genome short string
+    cmd = ['cmo_picard',
+            '--version', '1.96',
+            '--cmd', 'CalculateHsMetrics',
+            '--BI', bait_interval,
+            '--I', normal_bam,
+            '--O', output,
+            '--PER_TARGET_COVERAGE', 'Per_Target_Coverage.txt',
+            '--R', genome_string,
+            '--TI', target_interval,
+            '--TMP_DIR', tmpdir,
+            '--VALIDATION_STRINGENCY', 'LENIENT',
+            '--java-version','default']
+    prog_output = subprocess.check_output(" ".join(cmd), shell=True,stderr=subprocess.STDOUT)    
+    CalculateHsMetrics_validation_output = "net.sf.picard.analysis.directed.CalculateHsMetrics BAIT_INTERVALS="+bait_interval+" TARGET_INTERVALS="+target_interval+" INPUT="+normal_bam+" OUTPUT=.* REFERENCE_SEQUENCE=/ifs/depot/assemblies/H.sapiens/b37/b37.fasta PER_TARGET_COVERAGE=Per_Target_Coverage.txt TMP_DIR=\["+current_dir+"\] VALIDATION_STRINGENCY=LENIENT    METRIC_ACCUMULATION_LEVEL=\[ALL_READS\] VERBOSITY=INFO QUIET=false COMPRESSION_LEVEL=5 MAX_RECORDS_IN_RAM=500000 CREATE_INDEX=false CREATE_MD5_FILE=false"
+    assert_true(re.search(CalculateHsMetrics_validation_output,prog_output))
+    #picard version 1.96 with genome path
+    cmd = ['cmo_picard',
+            '--version', '1.96',
+            '--cmd', 'CalculateHsMetrics',
+            '--BI', bait_interval,
+            '--I', normal_bam,
+            '--O', output,
+            '--PER_TARGET_COVERAGE', 'Per_Target_Coverage.txt',
+            '--REFERENCE_SEQUENCE', GRCh37_path,
+            '--TI', target_interval,
+            '--TMP_DIR', tmpdir,
+            '--VALIDATION_STRINGENCY', 'LENIENT',
+            '--java-version','default']
+    prog_output2 = subprocess.check_output(" ".join(cmd), shell=True, stderr=subprocess.STDOUT)
+    assert_true(re.search(CalculateHsMetrics_validation_output,prog_output2))
+
+def test_CollectMultipleMetrics():
+    cmd = ['cmo_picard',
+            '--version','1.96',
+            '--cmd','CollectMultipleMetrics',
+            '--AS','true',
+            '--I',normal_bam,
+            '--O',output,
+            '--PROGRAM','null',
+            '--PROGRAM','CollectInsertSizeMetrics',
+            '--TMP_DIR',tmpdir,
+            '--VALIDATION_STRINGENCY',' LENIENT',
+            '--java-version','default']
+    prog_output = subprocess.check_output(" ".join(cmd), shell=True, stderr=subprocess.STDOUT)
+    assert_true(re.search("net.sf.picard.analysis.CollectMultipleMetrics INPUT="+normal_bam+" ASSUME_SORTED=true OUTPUT=.* PROGRAM=\[CollectInsertSizeMetrics\] TMP_DIR=\["+current_dir+"\] VALIDATION_STRINGENCY=LENIENT    STOP_AFTER=0 VERBOSITY=INFO QUIET=false COMPRESSION_LEVEL=5 MAX_RECORDS_IN_RAM=500000 CREATE_INDEX=false CREATE_MD5_FILE=false",prog_output))
+
+def test_DepthOfCoverage():
+    cmd = ['cmo_gatk',
+            '-T','DepthOfCoverage',
+            '--input_file',normal_bam,
+            '--intervals','1:1-1000000',
+            '--java_args',"'-Xmx48g -Xms256m -XX:-UseGCOverheadLimit'",
+            '--java-version','default',
+            '--minBaseQuality','3',
+            '--minMappingQuality','10',
+            '--omitIntervalStatistics','--omitLocusTable',
+            '--omitPerSampleStats',
+            '--out',output,
+            '--printBaseCounts',
+            '--read_filter','BadCigar',
+            '--reference_sequence','GRCh37',
+            '--version','3.3-0']
+    prog_output = subprocess.check_output(" ".join(cmd), shell=True, stderr=subprocess.STDOUT)
+    assert_true(re.search("INFO .* HelpFormatter - Program Args: -T DepthOfCoverage --input_file "+normal_bam+" --printBaseCounts --omitPerSampleStats --minBaseQuality 3 --reference_sequence /ifs/depot/assemblies/H.sapiens/b37/b37.fasta --intervals 1:1-1000000 --out "+output+" --read_filter BadCigar --omitLocusTable --minMappingQuality 10 --omitIntervalStatistics",prog_output))
 
 def test_trimgalore():
     cmd = ['cmo_trimgalore',
@@ -290,7 +360,6 @@ def test_fixmateinformation():
     print prog_output
     assert_true(re.search("INPUT=\[/ifs/work/charris/testdata_for_cmo/P1_ADDRG_MD.abra.fmi.printreads.bam\] OUTPUT=.* VERBOSITY=INFO QUIET=false VALIDATION_STRINGENCY=STRICT COMPRESSION_LEVEL=5 MAX_RECORDS_IN_RAM=500000 CREATE_INDEX=false CREATE_MD5_FILE=false", prog_output))
     
-
 
 
 
