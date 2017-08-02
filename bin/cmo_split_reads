@@ -8,7 +8,7 @@ def chunk(fastq, sample, lines_per_chunk, num_pieces):
     logger = cmo.util.get_logger()
     output_prefix = os.path.basename(fastq).split(".", 1)[0] + "."
     if(sample != None):
-        exploded = output_prefix.split(".")
+        exploded = output_prefix.split("_")
         exploded[0]=sample
         output_prefix = ".".join(exploded)
     while lines_per_chunk % 4 != 0:
