@@ -25,8 +25,12 @@ if __name__ =='__main__':
     if(lib_dir):
         pass_through_args+=["--R_lib", lib_dir]
     facets_command = [facets_suite_py] + pass_through_args
+
     rv = subprocess.call(facets_command, stdout=sys.stdout, stderr=sys.stderr)
-    sys.exit(rv)
+    if " ".join(facets_command).find("doFacets") > -1:
+        sys.exit(0)
+    else:
+        sys.exit(rv)
 
 ##    print args
     

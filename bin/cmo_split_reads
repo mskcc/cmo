@@ -10,7 +10,7 @@ def chunk(fastq, sample, lines_per_chunk, num_pieces):
     if(sample != None):
         exploded = output_prefix.split("_")
         exploded[0]=sample
-        output_prefix = ".".join(exploded)
+        output_prefix = "_".join(exploded)
     while lines_per_chunk % 4 != 0:
         lines_per_chunk +=1
     fh = io.BufferedReader(gzip.open(fastq, "rb"))
