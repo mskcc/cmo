@@ -27,7 +27,7 @@ if __name__ =='__main__':
     facets_command = [facets_suite_py] + pass_through_args
 
     rv = subprocess.call(facets_command, stdout=sys.stdout, stderr=sys.stderr)
-    if facets_command.find("doFacets") > -1:
+    if " ".join(facets_command).find("doFacets") > -1:
         sys.exit(0)
     else:
         sys.exit(rv)
