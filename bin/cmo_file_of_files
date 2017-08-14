@@ -1,0 +1,27 @@
+#!/opt/common/CentOS_6-dev/python/python-2.7.10/bin/python
+
+import argparse, os, sys, signal, subprocess, math,  io
+import cmo
+
+
+if __name__ =='__main__':
+    logger = cmo.util.get_logger()
+    parser = argparse.ArgumentParser(description="split files into chunks based on filesize")
+    parser.add_argument('-f', '--files', action='store', help="filename to split", required=True, nargs="+")
+    parser.add_argument('-o', '--outfile', action='store', help='filename to write to', required=True)
+    args = parser.parse_args()
+    outfh = open(args.outfile, "wb")
+    for file in args.files:
+        outfh.write(file +"\n");
+    outfh.close()
+
+
+        
+
+
+
+
+      
+   
+
+
