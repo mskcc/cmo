@@ -3,7 +3,7 @@
 import argparse
 import re, os
 import subprocess
-
+import distutils.version
 import time
 import cmo, shutil, uuid 
 
@@ -25,7 +25,7 @@ def makepreparser():
     # Add preparser to parser as a parent
     parser = argparse.ArgumentParser(parents=[preparser], add_help=True)
 
-    return (parser, java, abra_jar)
+    return (parser, java, abra_jar, options.version)
 
 
 '''
@@ -33,10 +33,14 @@ This method gets command-line option for the tool being wrapped.
 '''
 
 
-def find_command_options(java, abra_jar):
+def find_command_options(java, abra_jar, version):
     # Make command to be run
-    cmd = [java, "-jar", abra_jar, "--help"]
+    if distutils.version.StrictVersion(version) >= distutils.version.StrictVersion('2.08'):
+        cmd = [java, "-jar", abra_jar]
+    else:
+        cmd = [java, "-jar", abra_jar, "--help"]
     # Run the command and get the help
+    print " ".join(cmd)
     abra_help = subprocess.Popen(cmd, stderr=subprocess.PIPE).communicate()[1]
     # Convert help in lines by separating at new line character
     lines = abra_help.split("\n")
@@ -142,9 +146,9 @@ This method runs all the methods in this wrapper
 
 def main():
     # Make a preparser and append to parser as a parent.
-    (parser, java, abra_jar) = makepreparser()
+    (parser, java, abra_jar, abra_version) = makepreparser()
     # Parse args to find command options
-    (cmd_options, error_msg) = find_command_options(java, abra_jar)
+    (cmd_options, error_msg) = find_command_options(java, abra_jar, abra_version)
     # Process the command line to reflect correct option and to make sure flags have action="store_true"
     parser = process_options(parser, cmd_options)
     # Process the default variable to reflect true paths from json
