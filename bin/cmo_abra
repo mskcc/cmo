@@ -97,7 +97,8 @@ This method takes the parser and converts the default values to paths from the j
 
 def convert_default_variables(parser):
     args = parser.parse_args()
-    args.bwa_ref = cmo.util.genomes[args.ref]['bwa_fasta']
+    if args.version != "2.07":
+        args.bwa_ref = cmo.util.genomes[args.ref]['bwa_fasta']
     if not args.targets:
         args.targets = cmo.util.targets['abra'][args.ref]
     command_specific_args = vars(args)
@@ -148,13 +149,13 @@ def main():
     parser = process_options(parser, cmd_options)
     # Process the default variable to reflect true paths from json
     (args, command_specific_args) = convert_default_variables(parser)
-    if not os.path.exists(args.working):
+    if 'working' in args and not os.path.exists(args.working):
         try: 
             os.makedirs(args.working)
         except:
             print >>sys.stderr, "Unable to create your directory tree for scratch."
             sys.exit(1)
-    command_specific_args['working'] = os.path.join(args.working, str(uuid.uuid4()) + "/")
+        command_specific_args['working'] = os.path.join(args.working, str(uuid.uuid4()) + "/")
     # Delete keys that are created by wrapper before making the command
     command_specific_args = delete_wrapper_specific_args(command_specific_args)
     # Make the command that needs to be launched
@@ -168,11 +169,12 @@ def main():
     end_time = time.time()
     print "End Time:", time.ctime(end_time)
     print("Elapsed time was %g seconds" % (end_time - start_time))
-    try:
-        shutil.rmtree(os.path.abspath(command_specific_args['working']))
-    except:
-        print >>sys.stderr, "working tree remove failed, but continue anyway, abra probably completed successful"
-        
+    if 'working' in args:
+        try:
+            shutil.rmtree(os.path.abspath(command_specific_args['working']))
+        except:
+            print >>sys.stderr, "working tree remove failed, but continue anyway, abra probably completed successful"
+            
 
 '''
 This will help to initiate the main

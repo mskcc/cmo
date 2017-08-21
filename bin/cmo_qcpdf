@@ -23,6 +23,7 @@ def main(qc_version, r_version, metrics_dir, pre):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
+    parser.add_argument("--globdir", required=True)
     parser.add_argument("--gcbias-files", required=True, nargs="+")
     parser.add_argument("--mdmetrics-files", required=True, nargs='+')
     parser.add_argument("--insertsize-files", required=True, nargs='+')
