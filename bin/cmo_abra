@@ -42,6 +42,7 @@ def find_command_options(java, abra_jar, version):
             cmd = [java, "-jar", abra_jar, "--help"]
     except: 
         #version was default
+
         cmd = [java, "-jar", abra_jar, "--help"]
     # Run the command and get the help
     print " ".join(cmd)
