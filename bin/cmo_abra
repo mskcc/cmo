@@ -1,7 +1,7 @@
 #!/opt/common/CentOS_6-dev/python/python-2.7.10/bin/python
 
 import argparse
-import re, os
+import re, os, sys
 import subprocess
 import distutils.version
 import time
@@ -105,8 +105,11 @@ This method takes the parser and converts the default values to paths from the j
 
 def convert_default_variables(parser):
     args = parser.parse_args()
-    if args.version != "2.07":
-        args.bwa_ref = cmo.util.genomes[args.ref]['bwa_fasta']
+    try:
+        if distutils.version.StrictVersion(args.version) < distutils.version.StrictVersion('2.07'):
+            args.bwa_ref = cmo.util.genomes[args.ref]['bwa_fasta']
+    except:#default version 
+            args.bwa_ref = cmo.util.genomes[args.ref]['bwa_fasta']
     if not args.targets:
         args.targets = cmo.util.targets['abra'][args.ref]
     command_specific_args = vars(args)
@@ -157,13 +160,13 @@ def main():
     parser = process_options(parser, cmd_options)
     # Process the default variable to reflect true paths from json
     (args, command_specific_args) = convert_default_variables(parser)
-    if 'working' in args and not os.path.exists(args.working):
+    if 'working' in args:
+        command_specific_args['working'] = os.path.join(args.working, str(uuid.uuid4()) + "/")
         try: 
-            os.makedirs(args.working)
+            os.makedirs(command_specific_args['working'])
         except:
             print >>sys.stderr, "Unable to create your directory tree for scratch."
             sys.exit(1)
-        command_specific_args['working'] = os.path.join(args.working, str(uuid.uuid4()) + "/")
     # Delete keys that are created by wrapper before making the command
     command_specific_args = delete_wrapper_specific_args(command_specific_args)
     # Make the command that needs to be launched
