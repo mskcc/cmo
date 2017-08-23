@@ -36,8 +36,7 @@ This method gets command-line option for the tool being wrapped.
 def find_command_options(java, abra_jar, version):
     # Make command to be run
     valid_args = {}
-    if version!='default':
-        if distutils.version.StrictVersion(version) >= distutils.version.StrictVersion('2.08'):
+    if version=='default':
             valid_args['--working']='temp dir'
             valid_args['--bwa-ref']='bwa ref'
     try:
@@ -49,7 +48,7 @@ def find_command_options(java, abra_jar, version):
     except: 
         #version was default
 
-        cmd = [java, "-jar", abra_jar, "--help"]
+        cmd = [java, "-jar", abra_jar]
     # Run the command and get the help
     print " ".join(cmd)
     abra_help = subprocess.Popen(cmd, stderr=subprocess.PIPE).communicate()[1]
