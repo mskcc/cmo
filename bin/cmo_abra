@@ -116,8 +116,10 @@ def convert_default_variables(parser):
         else:
             del args.working
             del args.bwa_ref
-    except:#default version 
-            args.bwa_ref = cmo.util.genomes[args.ref]['bwa_fasta']
+    except:#default version
+        del args.working
+        del args.bwa_ref
+
     if not args.targets:
         args.targets = cmo.util.targets['abra'][args.ref]
     command_specific_args = vars(args)
