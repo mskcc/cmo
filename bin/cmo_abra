@@ -36,7 +36,7 @@ This method gets command-line option for the tool being wrapped.
 def find_command_options(java, abra_jar, version):
     # Make command to be run
     valid_args = {}
-    if version=='default':
+    if version=='default' or version=='2.08':
             valid_args['--working']='temp dir'
             valid_args['--bwa-ref']='bwa ref'
     try:
@@ -110,6 +110,7 @@ This method takes the parser and converts the default values to paths from the j
 
 def convert_default_variables(parser):
     args = parser.parse_args()
+    print args.version
     try:
         if distutils.version.StrictVersion(args.version) < distutils.version.StrictVersion('2.07'):
             args.bwa_ref = cmo.util.genomes[args.ref]['bwa_fasta']

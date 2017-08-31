@@ -49,7 +49,25 @@ def teardown_module():
 #        shutil.rmtree(abratmpdir)
         pass
 
-def test_abra():
+def test_abra_207():
+    cmd = ['cmo_abra',
+            '--version', '2.07',
+            '--in', ",".join([tumor_bam, normal_bam]),
+            "--out", ",".join([output, output2]),
+            '--reference_sequence', genome_string,
+            '--targets', input_bed,
+            '--working', abratmpdir]
+    print " ".join(cmd)
+
+    prog_output = subprocess.check_output(" ".join(cmd), shell=True)
+    #check prog_output to see if it picked up the arguments we gave...
+    assert_true(re.search("input0: /ifs/work/charris/testdata_for_cmo/P1_ADDRG_MD.abra.fmi.printreads.bam", prog_output))
+    assert_true(re.search("input0: /ifs/work/charris/testdata_for_cmo/P2_ADDRG_MD.abra.fmi.printreads.bam", prog_output))
+    assert_true(re.search("regions: /ifs/work/charris/testdata_for_cmo/intervals.bed", prog_output))
+    assert_true(re.search("reference: /ifs/depot/assemblies/H.sapiens/b37/b37.fasta", prog_output))
+    assert_true(re.search("working dir: "+current_dir+"/abra_cmo_test/", prog_output))
+
+def test_abra_default():
     cmd = ['cmo_abra',
             '--in', ",".join([tumor_bam, normal_bam]),
             "--out", ",".join([output, output2]),
