@@ -36,7 +36,8 @@ This method gets command-line option for the tool being wrapped.
 def find_command_options(java, abra_jar, version):
     # Make command to be run
     valid_args = {}
-    if version=='default' or version=='2.08':
+    #only 2.08 removes --help, so we cant combine this statement with the below... 
+    if version=='default' or version=='2.07':
             valid_args['--working']='temp dir'
             valid_args['--bwa-ref']='bwa ref'
     try:
