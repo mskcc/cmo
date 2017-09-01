@@ -38,6 +38,7 @@ def find_command_options(java, abra_jar, version):
     valid_args = {}
     #only 2.08 removes --help, so we cant combine this statement with the below... 
     if version=='default' or version=='2.07':
+
             valid_args['--working']='temp dir'
             valid_args['--bwa-ref']='bwa ref'
     try:
@@ -49,7 +50,7 @@ def find_command_options(java, abra_jar, version):
     except: 
         #version was default
 
-        cmd = [java, "-jar", abra_jar, "--help"]
+        cmd = [java, "-jar", abra_jar]
     # Run the command and get the help
     print " ".join(cmd)
     abra_help = subprocess.Popen(cmd, stderr=subprocess.PIPE).communicate()[1]
