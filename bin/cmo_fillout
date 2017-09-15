@@ -12,13 +12,14 @@ import uuid
 import cmo
 
 parser = argparse.ArgumentParser(description = descr, formatter_class = argparse.RawTextHelpFormatter)
-parser.add_argument('-m', '--maf', help = 'MAF file on which to filllout', required = True)
+parser.add_argument('-m', '--maf', help = 'MAF file on which to fillout', required = True)
 parser.add_argument('-b', '--bams', help = 'BAM files to fillout with', required = True, nargs='+')
 parser.add_argument('-g', '--genome', help = 'Reference assembly of BAM files, e.g. hg19/grch37/b37', required = True, choices = cmo.util.genomes.keys())
-parser.add_argument('-o', '--output', help = 'Prefix for output file', required = False)
+parser.add_argument('-o', '--output', help = 'Filename for output', required = False)
+parser.add_argument('-p', '--portal-output', help = 'Filename for a portal-friendly output MAF', required = False)
 parser.add_argument('-f', '--format', help = 'Output format MAF(1) or tab-delimited with VCF based coordinates(2)', required = True)
 parser.add_argument('-n', '--n_threads', help = 'Multithread', default = 10, required = False)
-parser.add_argument("-v", "--version", help="version of GBCMS to use to count with...", choices=cmo.util.programs['getbasecountsmultisample'].keys())
+parser.add_argument("-v", "--version", help="Version of GBCMS to use to count with...", choices=cmo.util.programs['getbasecountsmultisample'].keys())
 args = parser.parse_args()
 samtools = cmo.util.programs['samtools']['default']
 maf = args.maf
@@ -26,14 +27,17 @@ bams = args.bams
 genome = args.genome.lower()
 n = args.n_threads
 if args.output is None:
-	output = os.path.splitext(os.path.basename(maf))[0]+'.fillout'
+    output = os.path.splitext(os.path.basename(maf))[0]+'.fillout'
 else:
-	output = args.output
+    output = args.output
+if args.portal_output is None:
+    portal_output = os.path.splitext(os.path.basename(maf))[0]+'.fillout.portal.maf'
+else:
+    portal_output = args.portal_output
 
 ### Path to GetBaseCountsMultiSample
 #should be cmo.util.programs['GetBaseCountsMultiSample]['1.0.0'], but zeng hasn't packaged this for release yet
 gbcmPath = cmo.util.programs['getbasecountsmultisample'][args.version]
-
 
 ### Set genome path
 genomePath = cmo.util.genomes[args.genome]['fasta']
@@ -41,7 +45,7 @@ genomePath = cmo.util.genomes[args.genome]['fasta']
 ### Parse BAM files into string
 bamString = []
 for bam in bams:
-	bamString.append('--bam '+os.path.splitext(os.path.basename(bam))[0]+':'+bam)
+    bamString.append('--bam '+os.path.splitext(os.path.basename(bam))[0]+':'+bam)
 bamString = string.join(bamString)
 
 ### Check if MAF has right genome
@@ -49,42 +53,78 @@ mafGenome = subprocess.check_output('grep -v ^# '+maf+' | tail -1 | cut -f4', sh
 print 'Using '+genome
 print 'MAF genome seems to be '+mafGenome.strip().lower()
 if mafGenome.strip().lower() is not genome.lower():
-	print 'Genome build different from that in MAF file, might fail'
+    print 'Genome build different from that in MAF file, might fail'
 
 ### Check if genome in BAM header 
 for bam in bams:
-	try:
-		out = subprocess.check_output(samtools + ' view -H '+bam+' | grep '+genome, shell = True)
-	except subprocess.CalledProcessError:
-		print 'Genome in '+bam+' does not agree with input genome'
+    try:
+        out = subprocess.check_output(samtools + ' view -H '+bam+' | grep -i '+genome, shell = True)
+    except subprocess.CalledProcessError:
+        print 'Genome in '+bam+' does not agree with input genome'
 
-### Make a temporary simplified MAF
+### Make a temporary MAF with events deduplicated by genomic loci and ref/alt alleles
 tmpMaf = uuid.uuid4().hex+'_tmp.maf'
 
 fh = open(maf, "rb")
 reader = csv.DictReader(filter(lambda row: row[0]!='#',fh), delimiter="\t")
 header = reader.fieldnames
-lines = dict()
+dedup = dict() # To deduplicate events by genomic loci and ref/alt alleles for use by GBCMS
+called = dict() # To lookup events that were called in the input MAF
+samples = dict() # To lookup all samples with at least 1 mutation in the input MAF
 for line in reader:
     key = line['Chromosome']+line['Start_Position']+line['End_Position']+line['Reference_Allele']+line['Tumor_Seq_Allele2']
-    if key not in lines:
-        lines[key]=line
+    dedup[key] = line
+    key += line['Tumor_Sample_Barcode']
+    called[key] = line['Mutation_Status']
+    samples[line['Tumor_Sample_Barcode']] = line['Matched_Norm_Sample_Barcode']
+fh.close()
 tmpfh = open(tmpMaf, "w")
 writer = csv.DictWriter(tmpfh, delimiter="\t", quoting=csv.QUOTE_NONE, fieldnames=header)
 writer.writeheader()
-for (key, line) in lines.items():
+for (key, line) in dedup.items():
     writer.writerow(line)
 tmpfh.close()
 
 ### Call GetBaseCountsMultiSample
 gbcmCall = None
 if(int(args.format) == 1):
-	gbcmCall = gbcmPath+' --omaf --thread %s --filter_improper_pair 0 --fasta %s --maf %s --output %s %s' % (n, genomePath, tmpMaf, output, bamString)
-	print(gbcmCall)
+    gbcmCall = gbcmPath+' --omaf --thread %s --filter_improper_pair 0 --fasta %s --maf %s --output %s %s' % (n, genomePath, tmpMaf, output, bamString)
+    print(gbcmCall)
 else:
-	gbcmCall = gbcmPath+' --thread %s --filter_improper_pair 1 --fasta %s --maf %s --output %s %s' % (n, genomePath, tmpMaf, output, bamString)
-	print(gbcmCall)
+    gbcmCall = gbcmPath+' --thread %s --filter_improper_pair 1 --fasta %s --maf %s --output %s %s' % (n, genomePath, tmpMaf, output, bamString)
+    print(gbcmCall)
 subprocess.call(gbcmCall, shell = True)
 
-### Remove temporary MAF
-#subprocess.call('rm -f '+tmpMaf, shell = True)
+### Create a portal-friendly MAF where Mutation_Status=None for events absent in the input MAF
+if(int(args.format) == 1):
+    fh = open(output, "rb")
+    pfh = open(portal_output, "w")
+    reader = csv.DictReader(filter(lambda row: row[0]!='#',fh), delimiter="\t")
+    header = reader.fieldnames
+    writer = csv.DictWriter(pfh, delimiter="\t", quoting=csv.QUOTE_NONE, fieldnames=header)
+    writer.writeheader()
+    for line in reader:
+        # Skip lines from samples not seen in the input MAF
+        tumor = ""
+        for sample_name in samples.keys():
+            if sample_name in line['Tumor_Sample_Barcode']:
+                tumor = sample_name
+                break
+        if tumor:
+            # Fix the tumor/normal sample IDs to match what was in the input MAF
+            line['Tumor_Sample_Barcode'] = tumor
+            line['Matched_Norm_Sample_Barcode'] = samples[tumor]
+            # GBCMS sets Allele2 to blank, which is uncool. Fix it.
+            if line['Tumor_Seq_Allele2'] == "":
+                line['Tumor_Seq_Allele2'] = line['Tumor_Seq_Allele1']
+            key = line['Chromosome']+line['Start_Position']+line['End_Position']+line['Reference_Allele']+line['Tumor_Seq_Allele2']+line['Tumor_Sample_Barcode']
+            if key in called:
+                line['Mutation_Status'] = called[key]
+            else:
+            	line['Mutation_Status'] = "None"
+            writer.writerow(line)
+    fh.close()
+    pfh.close()
+
+### Remove temporary MAFs
+subprocess.call('rm -f '+tmpMaf, shell = True)
