@@ -16,7 +16,7 @@ parser = argparse.ArgumentParser(description = descr, formatter_class = argparse
 parser.add_argument('--tumor', help = 'BAM files to fillout with', required = True)
 parser.add_argument('--normal', help = 'BAM files to fillout with', required = True)
 args = parser.parse_args()
-picard = cmo.util.programs['picard']['default']
+picard = cmo.util.programs['picard']['1.129']
 
 for bam in [args.tumor, args.normal]:
     command = [cmo.util.programs['java']['default'], "-jar", picard, " BuildBamIndex", "I="+bam, "O=", os.path.basename(bam).replace(".bam",".bai")]
