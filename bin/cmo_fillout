@@ -19,13 +19,13 @@ parser.add_argument('-g', '--genome', help = 'Reference assembly of BAM files, e
 parser.add_argument('-o', '--output', help = 'Filename for output of raw fillout data in MAF/VCF format', required = False)
 parser.add_argument('-f', '--format', help = 'Output format MAF(1) or tab-delimited with VCF based coordinates(2)', required = True)
 parser.add_argument('-p', '--portal-output', help = 'Filename for a portal-friendly output MAF', required = False)
-parser.add_argument('-n', '--n_threads', help = 'Multithread', default = 10, required = False)
-parser.add_argument("-v", "--version", help="Version of GBCMS to use to count with...", choices=cmo.util.programs['getbasecountsmultisample'].keys())
+parser.add_argument('-F', '--fillout', help = 'Precomputed fillout file from GBCMS (using this skips GBCMS)', required = False)
+parser.add_argument('-n', '--n_threads', help = 'Multithreaded GBCMS', default = 10, required = False)
+parser.add_argument("-v", '--version', help = 'Version of GBCMS to use to count with...', choices=cmo.util.programs['getbasecountsmultisample'].keys())
 args = parser.parse_args()
 samtools = cmo.util.programs['samtools']['default']
 maf = args.maf
 bams = args.bams
-n = args.n_threads
 if args.output is None:
     output = os.path.splitext(os.path.basename(maf))[0]+'.fillout'
 else:
@@ -78,15 +78,18 @@ for (key, line) in dedup.items():
     writer.writerow(line)
 tmpfh.close()
 
-### Call GetBaseCountsMultiSample
-gbcmCall = None
-if(int(args.format) == 1):
-    gbcmCall = gbcmPath+' --omaf --thread %s --filter_improper_pair 0 --fasta %s --maf %s --output %s %s' % (n, genomePath, tmpMaf, output, bamString)
+### Call GetBaseCountsMultiSample unless user pointed to a precomputed fillout
+if args.fillout is None:
+    gbcmCall = None
+    if(int(args.format) == 1):
+        gbcmCall = gbcmPath+' --omaf --filter_improper_pair 0 --thread %s --fasta %s --maf %s --output %s %s' % (args.n_threads, genomePath, tmpMaf, output, bamString)
+    else:
+        gbcmCall = gbcmPath+' --filter_improper_pair 1--thread %s --fasta %s --maf %s --output %s %s' % (args.n_threads, genomePath, tmpMaf, output, bamString)
     print(gbcmCall)
+    subprocess.call(gbcmCall, shell = True)
 else:
-    gbcmCall = gbcmPath+' --thread %s --filter_improper_pair 1 --fasta %s --maf %s --output %s %s' % (n, genomePath, tmpMaf, output, bamString)
-    print(gbcmCall)
-subprocess.call(gbcmCall, shell = True)
+    print "Using precomputed " + args.fillout + " from GBCMS to generate portal friendly MAF " + portal_output
+    output = args.fillout
 
 ### Create a portal-friendly MAF where Mutation_Status=None for events absent in the input MAF
 if(int(args.format) == 1):
