@@ -6,7 +6,7 @@ descr = 'Fillout allele counts for a MAF file using GetBaseCountsMultiSample on 
 
 import argparse
 import subprocess
-import os, csv
+import os, csv, sys
 import string
 import uuid
 import cmo
@@ -14,7 +14,7 @@ import pysam
 
 parser = argparse.ArgumentParser(description = descr, formatter_class = argparse.RawTextHelpFormatter)
 parser.add_argument('-m', '--maf', help = 'MAF file on which to fillout', required = True)
-parser.add_argument('-b', '--bams', help = 'BAM files to fillout with', required = True, nargs='+')
+parser.add_argument('-b', '--bams', help = 'BAM files to fillout with', required = False, nargs='+')
 parser.add_argument('-g', '--genome', help = 'Reference assembly of BAM files, e.g. hg19/grch37/b37', required = True, choices = cmo.util.genomes.keys())
 parser.add_argument('-o', '--output', help = 'Filename for output of raw fillout data in MAF/VCF format', required = False)
 parser.add_argument('-f', '--format', help = 'Output format MAF(1) or tab-delimited with VCF based coordinates(2)', required = True)
@@ -25,7 +25,9 @@ parser.add_argument("-v", '--version', help = 'Version of GBCMS to use to count 
 args = parser.parse_args()
 samtools = cmo.util.programs['samtools']['default']
 maf = args.maf
-bams = args.bams
+if args.bams is None and args.fillout is None:
+    print >> sys.stderr, "ERROR: Please define either --bams or --fillout"
+    sys.exit(1)
 if args.output is None:
     output = os.path.splitext(os.path.basename(maf))[0]+'.fillout'
 else:
@@ -41,14 +43,15 @@ gbcmPath = cmo.util.programs['getbasecountsmultisample'][args.version]
 ### Set genome path
 genomePath = cmo.util.genomes[args.genome]['fasta']
 
-### Extract sample IDs from BAMs, in prep for passing these as args to GBCMS
+### Extract sample IDs from BAMs unless user provided a GBCMS precomputed fillout
 bamString = []
-for bam in bams:
-    sam = pysam.AlignmentFile(bam, "rb" )
-    sample_id = sam.header['RG'][0]['SM']
-    sam.close()
-    bamString.append('--bam '+sample_id+':'+bam)
-bamString = string.join(bamString)
+if args.fillout is None:
+    for bam in args.bams:
+        sam = pysam.AlignmentFile(bam, "rb" )
+        sample_id = sam.header['RG'][0]['SM']
+        sam.close()
+        bamString.append('--bam '+sample_id+':'+bam)
+    bamString = string.join(bamString)
 
 ### Check if MAF has right genome
 mafGenome = subprocess.check_output('grep -v ^# '+maf+' | tail -n1 | cut -f4', shell = True).rstrip()
@@ -78,7 +81,7 @@ for (key, line) in dedup.items():
     writer.writerow(line)
 tmpfh.close()
 
-### Call GetBaseCountsMultiSample unless user pointed to a precomputed fillout
+### Call GetBaseCountsMultiSample unless user provided a precomputed fillout
 if args.fillout is None:
     gbcmCall = None
     if(int(args.format) == 1):
@@ -88,7 +91,7 @@ if args.fillout is None:
     print(gbcmCall)
     subprocess.call(gbcmCall, shell = True)
 else:
-    print "Using precomputed " + args.fillout + " from GBCMS to generate portal friendly MAF " + portal_output
+    print "Using precomputed " + args.fillout + " to generate portal friendly MAF " + portal_output
     output = args.fillout
 
 ### Create a portal-friendly MAF where Mutation_Status=None for events absent in the input MAF

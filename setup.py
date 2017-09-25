@@ -77,7 +77,7 @@ setup(name='cmo',
         licence='GPLv3',
         packages=find_packages(),
         dependency_links=['https://github.com/cemsbr/python-daemon/tarball/latest_release#egg=python-daemon-2.1.2'],
-        install_requires=['argparse','requests', 'fireworks', 'python-daemon==2.1.2', 'filemagic'],
+        install_requires=['argparse', 'requests', 'fireworks', 'python-daemon==2.1.2', 'filemagic', 'pysam'],
         scripts=['bin/cmo_bwa_sampe',
                  'bin/cmo_getbasecounts',
                  'bin/cmo_facets',
@@ -119,8 +119,8 @@ setup(name='cmo',
                  'bin/cmo_bcftools',
                  'bin/cmo_index',
                  'bin/cmo_fillout',
-                 'bin/cmo_file_of_files'
+                 'bin/cmo_file_of_files',
+                 'bin/cmo_igv_plot'
                  #'bin/cmo_hotspot3d'
                  ],
         zip_safe=False)
-
