@@ -6,26 +6,28 @@ descr = 'Fillout allele counts for a MAF file using GetBaseCountsMultiSample on 
 
 import argparse
 import subprocess
-import os, csv
+import os, csv, sys
 import string
 import uuid
 import cmo
+import pysam
 
 parser = argparse.ArgumentParser(description = descr, formatter_class = argparse.RawTextHelpFormatter)
 parser.add_argument('-m', '--maf', help = 'MAF file on which to fillout', required = True)
-parser.add_argument('-b', '--bams', help = 'BAM files to fillout with', required = True, nargs='+')
+parser.add_argument('-b', '--bams', help = 'BAM files to fillout with', required = False, nargs='+')
 parser.add_argument('-g', '--genome', help = 'Reference assembly of BAM files, e.g. hg19/grch37/b37', required = True, choices = cmo.util.genomes.keys())
 parser.add_argument('-o', '--output', help = 'Filename for output of raw fillout data in MAF/VCF format', required = False)
 parser.add_argument('-f', '--format', help = 'Output format MAF(1) or tab-delimited with VCF based coordinates(2)', required = True)
 parser.add_argument('-p', '--portal-output', help = 'Filename for a portal-friendly output MAF', required = False)
-parser.add_argument('-n', '--n_threads', help = 'Multithread', default = 10, required = False)
-parser.add_argument("-v", "--version", help="Version of GBCMS to use to count with...", choices=cmo.util.programs['getbasecountsmultisample'].keys())
+parser.add_argument('-F', '--fillout', help = 'Precomputed fillout file from GBCMS (using this skips GBCMS)', required = False)
+parser.add_argument('-n', '--n_threads', help = 'Multithreaded GBCMS', default = 10, required = False)
+parser.add_argument("-v", '--version', help = 'Version of GBCMS to use to count with...', choices=cmo.util.programs['getbasecountsmultisample'].keys())
 args = parser.parse_args()
 samtools = cmo.util.programs['samtools']['default']
 maf = args.maf
-bams = args.bams
-genome = args.genome.lower()
-n = args.n_threads
+if args.bams is None and args.fillout is None:
+    print >> sys.stderr, "ERROR: Please define either --bams or --fillout"
+    sys.exit(1)
 if args.output is None:
     output = os.path.splitext(os.path.basename(maf))[0]+'.fillout'
 else:
@@ -41,25 +43,20 @@ gbcmPath = cmo.util.programs['getbasecountsmultisample'][args.version]
 ### Set genome path
 genomePath = cmo.util.genomes[args.genome]['fasta']
 
-### Parse BAM files into string
+### Extract sample IDs from BAMs unless user provided a GBCMS precomputed fillout
 bamString = []
-for bam in bams:
-    bamString.append('--bam '+os.path.splitext(os.path.basename(bam))[0]+':'+bam)
-bamString = string.join(bamString)
+if args.fillout is None:
+    for bam in args.bams:
+        sam = pysam.AlignmentFile(bam, "rb" )
+        sample_id = sam.header['RG'][0]['SM']
+        sam.close()
+        bamString.append('--bam '+sample_id+':'+bam)
+    bamString = string.join(bamString)
 
 ### Check if MAF has right genome
-mafGenome = subprocess.check_output('grep -v ^# '+maf+' | tail -1 | cut -f4', shell = True)
-print 'Using '+genome
-print 'MAF genome seems to be '+mafGenome.strip().lower()
-if mafGenome.strip().lower() is not genome.lower():
-    print 'Genome build different from that in MAF file, might fail'
-
-### Check if genome in BAM header 
-for bam in bams:
-    try:
-        out = subprocess.check_output(samtools + ' view -H '+bam+' | grep -i '+genome, shell = True)
-    except subprocess.CalledProcessError:
-        print 'Genome in '+bam+' does not agree with input genome'
+mafGenome = subprocess.check_output('grep -v ^# '+maf+' | tail -n1 | cut -f4', shell = True).rstrip()
+if mafGenome != args.genome:
+    print 'Warning: Argument --genome '+args.genome+' differs from NCBI_Build '+mafGenome+' in MAF file'
 
 ### Make a temporary MAF with events deduplicated by genomic loci and ref/alt alleles
 tmpMaf = uuid.uuid4().hex+'_tmp.maf'
@@ -84,15 +81,18 @@ for (key, line) in dedup.items():
     writer.writerow(line)
 tmpfh.close()
 
-### Call GetBaseCountsMultiSample
-gbcmCall = None
-if(int(args.format) == 1):
-    gbcmCall = gbcmPath+' --omaf --thread %s --filter_improper_pair 0 --fasta %s --maf %s --output %s %s' % (n, genomePath, tmpMaf, output, bamString)
+### Call GetBaseCountsMultiSample unless user provided a precomputed fillout
+if args.fillout is None:
+    gbcmCall = None
+    if(int(args.format) == 1):
+        gbcmCall = gbcmPath+' --omaf --filter_improper_pair 0 --thread %s --fasta %s --maf %s --output %s %s' % (args.n_threads, genomePath, tmpMaf, output, bamString)
+    else:
+        gbcmCall = gbcmPath+' --filter_improper_pair 1--thread %s --fasta %s --maf %s --output %s %s' % (args.n_threads, genomePath, tmpMaf, output, bamString)
     print(gbcmCall)
+    subprocess.call(gbcmCall, shell = True)
 else:
-    gbcmCall = gbcmPath+' --thread %s --filter_improper_pair 1 --fasta %s --maf %s --output %s %s' % (n, genomePath, tmpMaf, output, bamString)
-    print(gbcmCall)
-subprocess.call(gbcmCall, shell = True)
+    print "Using precomputed " + args.fillout + " to generate portal friendly MAF " + portal_output
+    output = args.fillout
 
 ### Create a portal-friendly MAF where Mutation_Status=None for events absent in the input MAF
 if(int(args.format) == 1):
@@ -103,32 +103,28 @@ if(int(args.format) == 1):
     writer.writeheader()
     # ::TODO:: Also fillout counts from the matched normals into n_alt_count, n_ref_count, n_depth
     for line in reader:
-        tumor = ""
-        for sample_name in pair.keys():
-            if sample_name in line['Tumor_Sample_Barcode']:
-                tumor = sample_name
-                break
-        # Skip lines from samples not listed as tumors in the input MAF
-        if tumor != "":
-            key = ' '.join([ line['Chromosome'], line['Start_Position'], line['End_Position'], line['Reference_Allele'], line['Tumor_Seq_Allele1'] ])
-            # Fetch the full line from the input MAF, and replace sample IDs and allele counts
-            full_line = dict()
-            for tag in header:
-                full_line[tag] = dedup[key][tag]
-            full_line['Tumor_Sample_Barcode'] = tumor
-            full_line['Matched_Norm_Sample_Barcode'] = pair[tumor]
-            full_line['t_alt_count'] = line['t_alt_count']
-            full_line['t_ref_count'] = line['t_ref_count']
-            full_line['t_depth'] = line['t_total_count']
-            # Set Mutation_Status to None for variants that were not called in the input MAF
-            key = ' '.join([ key, tumor ])
-            if key not in called:
-                full_line['Mutation_Status'] = "None"
-                # Also blank out most annotations for these non-calls to keep the file size small
-                for tag in "HGVSc HGVSp Transcript_ID Exon_Number n_depth n_ref_count n_alt_count all_effects Allele Feature Feature_type cDNA_position CDS_position Protein_position Amino_acids Codons Existing_variation ALLELE_NUM DISTANCE STRAND_VEP STRAND SYMBOL SYMBOL_SOURCE HGNC_ID BIOTYPE CANONICAL CCDS ENSP SWISSPROT TREMBL UNIPARC RefSeq SIFT PolyPhen EXON INTRON DOMAINS GMAF AFR_MAF AMR_MAF ASN_MAF EAS_MAF EUR_MAF SAS_MAF AA_MAF EA_MAF CLIN_SIG SOMATIC PUBMED MOTIF_NAME MOTIF_POS HIGH_INF_POS MOTIF_SCORE_CHANGE IMPACT PICK VARIANT_CLASS TSL HGVS_OFFSET PHENO MINIMISED ExAC_AF_AFR ExAC_AF_AMR ExAC_AF_EAS ExAC_AF_FIN ExAC_AF_NFE ExAC_AF_OTH ExAC_AF_SAS GENE_PHENO variant_id variant_qual ExAC_AF_Adj ExAC_AC_AN_Adj ExAC_AC_AN ExAC_AC_AN_AFR ExAC_AC_AN_AMR ExAC_AC_AN_EAS ExAC_AC_AN_FIN ExAC_AC_AN_NFE ExAC_AC_AN_OTH ExAC_AC_AN_SAS ExAC_FILTER set".split():
-                    if tag in header:
-                        full_line[tag] = ""
-            writer.writerow(full_line)
+        key = ' '.join([ line['Chromosome'], line['Start_Position'], line['End_Position'], line['Reference_Allele'], line['Tumor_Seq_Allele1'] ])
+        # Fetch the full line from the input MAF, and replace sample IDs and allele counts
+        full_line = dict()
+        for tag in header:
+            full_line[tag] = dedup[key][tag]
+        sample_id = line['Tumor_Sample_Barcode']
+        full_line['Tumor_Sample_Barcode'] = sample_id
+        full_line['Matched_Norm_Sample_Barcode'] = "NORMAL"
+        if sample_id in pair:
+            full_line['Matched_Norm_Sample_Barcode'] = pair[sample_id]
+        full_line['t_alt_count'] = line['t_alt_count']
+        full_line['t_ref_count'] = line['t_ref_count']
+        full_line['t_depth'] = line['t_total_count']
+        # Set Mutation_Status to None for variants that were not called in the input MAF
+        key = ' '.join([ key, sample_id ])
+        if key not in called:
+            full_line['Mutation_Status'] = "None"
+            # Also blank out most annotations for these non-calls to keep the file size small
+            for tag in "HGVSc HGVSp Transcript_ID Exon_Number n_depth n_ref_count n_alt_count all_effects Allele Feature Feature_type cDNA_position CDS_position Protein_position Amino_acids Codons Existing_variation ALLELE_NUM DISTANCE STRAND_VEP STRAND SYMBOL SYMBOL_SOURCE HGNC_ID BIOTYPE CANONICAL CCDS ENSP SWISSPROT TREMBL UNIPARC RefSeq SIFT PolyPhen EXON INTRON DOMAINS GMAF AFR_MAF AMR_MAF ASN_MAF EAS_MAF EUR_MAF SAS_MAF AA_MAF EA_MAF CLIN_SIG SOMATIC PUBMED MOTIF_NAME MOTIF_POS HIGH_INF_POS MOTIF_SCORE_CHANGE IMPACT PICK VARIANT_CLASS TSL HGVS_OFFSET PHENO MINIMISED ExAC_AF_AFR ExAC_AF_AMR ExAC_AF_EAS ExAC_AF_FIN ExAC_AF_NFE ExAC_AF_OTH ExAC_AF_SAS GENE_PHENO variant_id variant_qual ExAC_AF_Adj ExAC_AC_AN_Adj ExAC_AC_AN ExAC_AC_AN_AFR ExAC_AC_AN_AMR ExAC_AC_AN_EAS ExAC_AC_AN_FIN ExAC_AC_AN_NFE ExAC_AC_AN_OTH ExAC_AC_AN_SAS ExAC_FILTER set".split():
+                if tag in header:
+                    full_line[tag] = ""
+        writer.writerow(full_line)
     ofh.close()
     pfh.close()
 
