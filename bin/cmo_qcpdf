@@ -36,9 +36,10 @@ if __name__ == "__main__":
     parser.add_argument("--pairing-file", required=True)
     parser.add_argument("--grouping-file", required=True)
     parser.add_argument("--request-file", required=True)
+    parser.add_argument("--version", default="0.5.5", choices=cmo.util.programs['roslin-qc'].keys())
     args = parser.parse_args()
-    #script = os.path.join(cmo.util.programs['roslin-qc']['0.5.0'], "generate_pdf.py")
-    cmd= [cmo.util.programs['roslin-qc']['0.5.0']]
+#    script = os.path.join(cmo.util.programs['roslin-qc'][args.version], "generate_pdf.py")
+    cmd= [cmo.util.programs['roslin-qc'][args.version]]
 #    cmd = [script]
     for arg, value in vars(args).items():
         cmd = cmd + ["--" + arg.replace("_","-")]
