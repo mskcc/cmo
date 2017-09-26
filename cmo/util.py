@@ -113,7 +113,7 @@ def call_cmd(cmd, shell=True, stderr=None, stdout=None, stdin=None):
         stdin=open(stdin, "r")
     try:
         logger.info("EXECUTING: %s" % cmd)
-        return_code = subprocess.check_call(cmd, shell=shell, stderr=stderr, stdout=stdout, stdin=stdin)
+        return_code = subprocess.check_call(cmd, shell=shell, stderr=stderr, stdout=stdout, stdin=stdin, executable="/bin/bash")
         return return_code
     except subprocess.CalledProcessError, e:
         logger.critical( "Non Zero Exit Code %s from %s" % (e.returncode, cmd))
