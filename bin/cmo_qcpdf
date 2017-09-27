@@ -41,7 +41,10 @@ if __name__ == "__main__":
 #    script = os.path.join(cmo.util.programs['roslin-qc'][args.version], "generate_pdf.py")
     cmd= [cmo.util.programs['roslin-qc'][args.version]]
 #    cmd = [script]
+    
     for arg, value in vars(args).items():
+        if arg == 'version':
+            continue
         cmd = cmd + ["--" + arg.replace("_","-")]
         if isinstance(value, list):
             cmd = cmd +  value
