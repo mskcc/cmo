@@ -82,6 +82,7 @@ class Picard:
 
         for line in picard_help.split("\n"):
             m= re.search("(?:^([\S_]+)=\S+\n?)(?:\s+([\S\s]+))?$", line)
+
             if(m):
                 #some args have only long
                 if (new_short_option or new_long_option) and new_description!='':
