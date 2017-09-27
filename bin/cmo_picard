@@ -9,7 +9,7 @@ class Picard:
             self.picard_jar=cmo.util.programs["picard"][version]
             self.version=version
         except KeyError, e:
-            print >>sys.stderr, "Cannot find specified version of piard in configuration file: %s" % version
+            print >>sys.stderr, "Cannot find specified version of picard in configuration file: %s" % version
             sys.exit(1)
         try: 
             self.java_cmd=cmo.util.programs["java"][java_version]
