@@ -4,13 +4,13 @@ import argparse, os, sys, signal, subprocess, math, gzip, io
 import cmo
 import multiprocessing
 
-def chunk(fastq, sample, lines_per_chunk, num_pieces):
+def chunk(fastq, platform_unit, lines_per_chunk, num_pieces):
     logger = cmo.util.get_logger()
     output_prefix = os.path.basename(fastq).split(".", 1)[0] + "."
-    if(sample != None):
+    if(platform_unit != None):
         exploded = output_prefix.split("_")
-        exploded[0]=sample
-        output_prefix = "_".join(exploded)
+        exploded[0]=platform_unit
+        output_prefix = "-".join(exploded)
     while lines_per_chunk % 4 != 0:
         lines_per_chunk +=1
     fh = io.BufferedReader(gzip.open(fastq, "rb"))
@@ -44,7 +44,8 @@ if __name__ =='__main__':
     parser = argparse.ArgumentParser(description="split files into chunks based on filesize")
     parser.add_argument('-f1', "--fastq1", action='store', help="filename to split", required=True)
     parser.add_argument('-f2', "--fastq2", action='store', help="filename2 to split")
-    parser.add_argument('-s', "--sample", action='store', help="sample ID")
+#    parser.add_argument('-s', "--sample", action='store', help="sample ID", required=True)
+    parser.add_argument('-p', "--platform-unit", action='store', help="RG/PU ID", required=True)
     args = parser.parse_args()
     fastqs = [args.fastq1]
     if args.fastq2:
@@ -58,7 +59,7 @@ if __name__ =='__main__':
     logger.info("%s lines per chunk" % str(lines_per_chunk))
     pool=multiprocessing.Pool(processes=2)
     for fastq in fastqs:
-        result = pool.apply_async(chunk, args=(fastq, args.sample, lines_per_chunk, num_pieces, ))
+        result = pool.apply_async(chunk, args=(fastq, args.platform_unit, lines_per_chunk, num_pieces, ))
     pool.close()
     pool.join()
 
