@@ -5,6 +5,7 @@ import cmo
 
 #FIXME this SHOULD NOT take pairing file as input in long term
 #first version is for pipeline parity
+#this method doesnt even get called? what kinda crackerjack operation am I running here
 def main(qc_version, r_version, metrics_dir, pre):
     script = os.path.join(qc_version, "qcPDF.R")
     Rscript = os.path.join(r_version, "R")
@@ -50,7 +51,12 @@ if __name__ == "__main__":
             cmd = cmd +  value
         else:
             cmd = cmd + [value]
-    cmo.util.call_cmd(" ".join(cmd))
+    try:
+        cmo.util.call_cmd(" ".join(cmd))
+    except:
+        #don't kill the pipeline if we died bc qc can be rerun later
+        print >>sys.stderr, "QC PDF Fail but continue anyway" 
+        sys.exit(0)
 
         
         
