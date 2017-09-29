@@ -9,7 +9,7 @@ class Picard:
             self.picard_jar=cmo.util.programs["picard"][version]
             self.version=version
         except KeyError, e:
-            print >>sys.stderr, "Cannot find specified version of piard in configuration file: %s" % version
+            print >>sys.stderr, "Cannot find specified version of picard in configuration file: %s" % version
             sys.exit(1)
         try: 
             self.java_cmd=cmo.util.programs["java"][java_version]
@@ -82,11 +82,7 @@ class Picard:
 
         for line in picard_help.split("\n"):
             m= re.search("(?:^([\S_]+)=\S+\n?)(?:\s+([\S\s]+))?$", line)
-            try:
-                foo=m.groups()
-                print line[:50], m.groups()
-            except:
-                print line[:50], None
+
             if(m):
                 #some args have only long
                 if (new_short_option or new_long_option) and new_description!='':
@@ -153,7 +149,6 @@ if __name__ =='__main__':
             elif arg and not long_arg:
                 parser.add_argument("--" + arg, action="store", help=help, required=required)
             else:
-                print arg, long_arg
                 parser.add_argument("--"+arg, "--" + long_arg, action="store", help=help, required=required)
     parser.add_argument("--QUIET", action="store_true")
     parser.add_argument("--CREATE_MD5_FILE", action="store_true")
