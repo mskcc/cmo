@@ -30,6 +30,14 @@ logger = logging.getLogger('cmo')
 logger.addHandler(out_hdlr)
 logger.setLevel(logging.INFO)
 
+###charris FIXME
+##some lsf specific code for our immediate needs.
+try:
+    if os.getenv("LSB_JOBID"):
+        logger.info("LSFJOBID: %s"% os.getenv('LSB_JOBID'))
+except:
+    pass
+
 
 def get_logger():
     return logger
