@@ -5,6 +5,7 @@ import cmo
 
 #FIXME this SHOULD NOT take pairing file as input in long term
 #first version is for pipeline parity
+#this method doesnt even get called? what kinda crackerjack operation am I running here
 def main(qc_version, r_version, metrics_dir, pre):
     script = os.path.join(qc_version, "qcPDF.R")
     Rscript = os.path.join(r_version, "R")
@@ -23,20 +24,31 @@ def main(qc_version, r_version, metrics_dir, pre):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
+    #FIXME
+    #ccharris 10-30-2017
+    #this is cumbersome, that it doesn't auto pull these from the layer below
+    #if we aren't going to throw this codebase out completely soon, we should fix it
+    #this is technical debt left over from rushing for 93017
     parser.add_argument("--globdir", required=True)
-    parser.add_argument("--gcbias-files", required=True, nargs="+")
-    parser.add_argument("--mdmetrics-files", required=True, nargs='+')
-    parser.add_argument("--insertsize-files", required=True, nargs='+')
-    parser.add_argument("--hsmetrics-files", required=True, nargs='+')
-    parser.add_argument("--qualmetrics-files", required=True, nargs='+')
-    parser.add_argument("--fingerprint-files", required=True, nargs='+')
-    parser.add_argument("--trimgalore-files", required=True, nargs='+')
+    parser.add_argument("--gcbias-files", )
+    parser.add_argument("--mdmetrics-files")
+    parser.add_argument("--insertsize-files")
+    parser.add_argument("--hsmetrics-files")
+    parser.add_argument("--qualmetrics-files")
+    parser.add_argument("--fingerprint-files")
+    parser.add_argument("--trimgalore-files")
     parser.add_argument("--file-prefix", required=True)
     parser.add_argument("--fp-genotypes", required=True)
     parser.add_argument("--pairing-file", required=True)
     parser.add_argument("--grouping-file", required=True)
     parser.add_argument("--request-file", required=True)
-    parser.add_argument("--version", default="0.5.5", choices=cmo.util.programs['roslin-qc'].keys())
+    parser.add_argument("--minor-contam-threshold", default=".02")
+    parser.add_argument("--major-contam-threshold", default=".55")
+    parser.add_argument("--duplication-threshold", default="50")
+    parser.add_argument("--cov-warn-threshold", default="50")
+    parser.add_argument("--cov-fail-threshold", default="25")
+
+    parser.add_argument("--version", default="0.5.8", choices=cmo.util.programs['roslin-qc'].keys())
     args = parser.parse_args()
 #    script = os.path.join(cmo.util.programs['roslin-qc'][args.version], "generate_pdf.py")
     cmd= [cmo.util.programs['roslin-qc'][args.version]]
@@ -50,7 +62,12 @@ if __name__ == "__main__":
             cmd = cmd +  value
         else:
             cmd = cmd + [value]
-    cmo.util.call_cmd(" ".join(cmd))
+    try:
+        cmo.util.call_cmd(" ".join(cmd))
+    except:
+        #don't kill the pipeline if we died bc qc can be rerun later
+        print >>sys.stderr, "QC PDF Fail but continue anyway" 
+        sys.exit(0)
 
         
         
