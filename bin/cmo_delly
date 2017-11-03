@@ -1,0 +1,208 @@
+#!/opt/common/CentOS_6-dev/python/python-2.7.10/bin/python
+
+import argparse, os, sys, re, subprocess,itertools
+import cmo
+
+class Delly:
+    def __init__(self,version="default"):
+        try:
+            self.Delly_image=cmo.util.programs["delly"][version]
+            self.version=version
+        except KeyError, e:
+            print >>sys.stderr, "Cannot find specified version of delly in configuration file: %s" % version
+            sys.exit(1)
+        self.default_args = {}        
+        
+    def delly_cmd(self, command, default_args_override={}, command_specific_args={}):        
+        options = ''
+        input_files = ''
+        genome = ''
+        cmd_option = ''
+        cmd = ''
+        
+        for arg, value in command_specific_args.items():
+            if arg == 'genome':
+                genome = ' -g ' + value
+            elif arg == 'cmd':
+                cmd_option = value
+            elif arg == 'i':
+                input_files = ' '.join(value)
+            else:
+                #Do not include the false booleans
+                if type(value) == bool:
+                    if value == False:
+                        continue
+                    elif value == True:
+                        options = options + ' -' + arg
+                elif value != None:
+                    options = options + ' -' + arg + ' ' + str(value)
+        cmd = [self.Delly_image,cmd_option,options,genome,input_files]
+          #  elif value==True:
+          #      cmd = cmd + [arg + "=" + str(value)]
+          #  elif value != None and value!=False:
+          #      cmd = cmd + [arg + "=" + value]
+        print >>sys.stderr, " ".join(cmd)
+        return " ".join(cmd)
+
+    def delly_cmd_help(self, command):
+        cmd = [self.Delly_image, command]        
+        return " ".join(cmd)
+
+    def find_sub_command_options(self, sub_command):        
+        cmd = self.delly_cmd_help(sub_command) 
+        delly_output = subprocess.Popen(cmd,stderr=subprocess.PIPE,stdout=subprocess.PIPE,shell=True).communicate()
+        #look for "Unrecognized command" command, and return the delly help instead of a parsed dict of args
+        delly_stdout = delly_output[0]
+        delly_stderr = delly_output[1]        
+        if re.search("Unrecognized command", delly_stderr):
+            return (None, delly_stderr)
+
+        if sub_command == 'help':
+            return(None, delly_stdout)
+        
+        valid_tuple_args = []
+        valid_list_args = []
+        new_short_option = None;
+        new_long_option= None
+        new_description = '';
+        #print delly_stdout
+        headers=['Generic options','Discovery options','Genotyping options','Usage','Overlap options','Somatic options','Germline options']
+
+        for line in delly_stdout.split("\n"):           
+            arg_short_option = ''
+            arg_long_option = ''
+            arg_default = ''
+            arg_description = ''
+            arg_type = str            
+            #Check if boolean
+            m= re.search("\s+(-.) \[ (--\S+) \] (?:arg)? \(?=?([^)]*)\)? +([\S\s]+)$", line)            
+            if m:
+                arg_short_option = m.group(1)               
+                arg_long_option = m.group(2)
+                arg_default_str = m.group(3).strip()
+                arg_description = m.group(4).strip()
+                
+                #There is no default value
+                if '=' not in line:
+                    arg_description = arg_default_str + " " + arg_description
+                    arg_default_str = ''
+                    arg_default = None
+                else:
+                    arg_default_str = arg_default_str.replace('"','')
+                    arg_default = arg_default_str
+
+                if 'arg' not in line:
+                    arg_type = bool
+                elif arg_default_str != '':
+                    try:
+                        arg_default = float(arg_default_str)
+                        arg_type = float
+                        if arg_default.is_integer():
+                            arg_default = int(arg_default)
+                            arg_type = int
+                    except:
+                        pass
+
+                list_elem = [arg_short_option, arg_long_option, arg_description, arg_default,arg_type]
+                valid_list_args.append(list_elem)
+            else:
+                # Full description goes to the next line
+                m= re.search("\s+(-.) \[ (--\S+) \] (?:arg)? \(?=?([^)]*)\)?", line)
+                if m:
+                    arg_short_option = m.group(1)
+                    arg_long_option = m.group(2)
+                    arg_default_str = m.group(3).strip()
+                    arg_default_str = arg_default_str.replace('"','')
+                    arg_description = ""
+                    if 'arg' not in line:
+                        arg_type = bool
+                    elif arg_default_str != '':
+                        try:
+                            arg_default = float(arg_default_str)
+                            arg_type = float
+                            if arg_default.is_integer():
+                                arg_default = int(arg_default)
+                                arg_type = int
+                        except:
+                            pass
+                    list_elem = [arg_short_option, arg_long_option, arg_description, arg_default,arg_type]
+                    valid_list_args.append(list_elem)
+                elif len(valid_list_args) != 0:
+                    if not any(single_header in line for single_header in headers):                                        
+                        non_whitespace_line = " " + line.strip()
+                        arg_description = arg_description + non_whitespace_line
+                        valid_list_args[-1][2] = valid_list_args[-1][2] + arg_description
+        #print valid_list_args
+        for single_arg in valid_list_args:
+            tuple_elem = tuple(single_arg)
+            valid_tuple_args.append(tuple_elem)        
+        
+        #print valid_list_args
+            #print arg_description                 
+            
+        #valid_args.append((new_short_option, new_long_option, new_description))
+#        for (short, longa, desc) in valid_args:
+#            print "%s, %s, %s" % (short, longa, desc[0:50])
+#        sys.exit(1)
+        return (valid_tuple_args, None)
+        #return None
+
+
+
+if __name__ =='__main__':
+    list_of_args = sys.argv
+    preparser = argparse.ArgumentParser(description="run delly", add_help=False)
+    preparser.add_argument("--version", choices=cmo.util.programs['delly'].keys(), default="default",required=False)
+    preparser.add_argument("--cmd",required=True,help='delly command, use "--cmd help" for a list of delly commands')
+    try:
+        options, _ = preparser.parse_known_args()
+    except:
+        preparser.print_help()
+        exit()
+    delly_cmd = options.cmd
+    delly_version = options.version    
+
+    if '--generate_cwl_tool' in list_of_args:
+        base_command = ' '.join([sys.argv[0],'--version',delly_version,'--cmd',delly_cmd])
+        sys.argv = [sys.argv[0], sys.argv[-1],'-b',base_command]  
+     
+    #partially parse options to get version/subcommand and add more options    
+    parser = argparse.ArgumentParser(add_help= True, parents=[preparser], formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+
+    #time for monkey business
+    delly_helper = Delly(version=delly_version)
+    (sub_command_options, error_msg) = delly_helper.find_sub_command_options(delly_cmd)
+    if sub_command_options == None:
+        print >>sys.stderr, error_msg
+        sys.exit(1)
+    #ok it was a valid subcommand, add the options we found and the genome option
+    
+    arg_required = False
+    required_list = ['-g']
+    ignore_list = ['-?','-g']    
+    for arg, long_arg, description, default, arg_type in sub_command_options:
+        if arg not in ignore_list:
+            if arg in required_list:
+                arg_required = True
+            if arg_type == bool:                
+                parser.add_argument("-" + arg, long_arg, action="store_true", help=description, required=arg_required)
+            elif default == None:
+                parser.add_argument("-" + arg, long_arg, action="store", help=description, required=arg_required, type=arg_type)
+            else:                
+                parser.add_argument("-" + arg, long_arg, action="store", help=description, default=default, required=arg_required, type=arg_type)
+        if arg == '-g':
+            parser.add_argument("-" + arg,long_arg,help=description,required=arg_required, choices=cmo.util.genomes.keys(), type=arg_type)
+    parser.add_argument("--i","--input", action="store", help="Input files (sorted bams)", nargs="+", required=True)    
+    cmo.util.add_logging_options(parser)    
+    args = parser.parse_args()
+    command_specific_args = vars(args)
+    if args.g:
+        command_specific_args['genome']=cmo.util.genomes[args.g]['fasta']
+        del command_specific_args['g']   
+    default_args_override = {}        
+    stdout = args.stdout
+    stderr = args.stderr    
+    cmo.util.remove_logging_options_from_dict(command_specific_args)
+    #default_args is handled a little crappily, but not a big deal for now
+    cmo.util.call_cmd(delly_helper.delly_cmd(options.cmd, default_args_override=default_args_override, command_specific_args=command_specific_args), stdout=stdout, stderr=stderr)
+     
