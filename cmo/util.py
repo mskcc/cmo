@@ -13,7 +13,7 @@ import json, subprocess, sys, re, magic, csv, os, logging
 #genomes = defaultdict(dict)
 #genomes['hg19']={"fasta":"/ifs/depot/assemblies/H.sapiens/hg19/hg19.fasta"}
 
-resource_file = os.getenv('CMO_RESOURCE_CONFIG', "/vagrant/build/cwl-wrappers/cmo_resources.json")
+resource_file = os.getenv('CMO_RESOURCE_CONFIG', "/opt/common/CentOS_6-dev/cmo/cmo_resources.json")
 json_config = json.load(open(resource_file))
 programs = json_config['programs']
 genomes = json_config['genomes']

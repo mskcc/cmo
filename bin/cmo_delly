@@ -25,6 +25,8 @@ class Delly:
                 genome = ' -g ' + value
             elif arg == 'cmd':
                 cmd_option = value
+            elif arg == 'version':
+                continue
             elif arg == 'i':
                 input_files = ' '.join(value)
             else:
