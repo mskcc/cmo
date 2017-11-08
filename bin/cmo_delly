@@ -16,6 +16,8 @@ class Delly:
     def delly_cmd(self, command, default_args_override={}, command_specific_args={}):        
         options = ''
         input_files = ''
+        normal_bam = ''
+        tumor_bam = ''
         genome = ''
         cmd_option = ''
         cmd = ''
@@ -28,7 +30,16 @@ class Delly:
             elif arg == 'version':
                 continue
             elif arg == 'i':
-                input_files = ' '.join(value)
+                if command == 'merge':
+                    input_files = ' '.join(value)
+                else:
+                    input_files = value
+            elif arg == 'normal_bam':
+                normal_bam = value
+            elif arg == 'tumor_bam':
+                tumor_bam = value
+            elif arg == 'genome_exc':
+                options = ' -x ' + value
             else:
                 #Do not include the false booleans
                 if type(value) == bool:
@@ -38,6 +49,8 @@ class Delly:
                         options = options + ' -' + arg
                 elif value != None:
                     options = options + ' -' + arg + ' ' + str(value)
+        if normal_bam and tumor_bam:
+            input_files = tumor_bam + " " + normal_bam
         cmd = [self.Delly_image,cmd_option,options,genome,input_files]
           #  elif value==True:
           #      cmd = cmd + [arg + "=" + str(value)]
@@ -181,7 +194,7 @@ if __name__ =='__main__':
     
     arg_required = False
     required_list = ['-g']
-    ignore_list = ['-?','-g']    
+    ignore_list = ['-?','-g','-x']
     for arg, long_arg, description, default, arg_type in sub_command_options:
         if arg not in ignore_list:
             if arg in required_list:
@@ -194,13 +207,31 @@ if __name__ =='__main__':
                 parser.add_argument("-" + arg, long_arg, action="store", help=description, default=default, required=arg_required, type=arg_type)
         if arg == '-g':
             parser.add_argument("-" + arg,long_arg,help=description,required=arg_required, choices=cmo.util.genomes.keys(), type=arg_type)
-    parser.add_argument("--i","--input", action="store", help="Input files (sorted bams)", nargs="+", required=True)    
+        if arg == '-x':
+            parser.add_argument("-" + arg,"--exclude_file", help=description,required=arg_required, type=arg_type)
+    if delly_cmd == 'call':
+        parser.add_argument("--normal_bam", action="store", help="Sorted normal bam", required=True)
+        parser.add_argument("--tumor_bam", action="store", help="Sorted tumor bam", required=True)
+    elif delly_cmd == 'filter':
+        parser.add_argument("--i","--input", action="store", help="Input file (.bcf)", required=True)
+    else:
+        parser.add_argument("--i","--input", action="store", help="Input files (.bcf)", nargs="+", required=True)
+    parser.add_argument("--all_regions", help="include regions marked in this genome", action="store_true",default=False)        
     cmo.util.add_logging_options(parser)    
     args = parser.parse_args()
     command_specific_args = vars(args)
-    if args.g:
+    if args.all_regions and args.x:
+        print >>sys.stderr, "You cannot use all_regions when specifying an exclude file"
+        sys.exit(1)    
+    if 'g' in args and args.g:
         command_specific_args['genome']=cmo.util.genomes[args.g]['fasta']
-        del command_specific_args['g']   
+        if not args.all_regions and not args.x:
+            if 'delly' not in cmo.util.genomes[args.g]:
+                print >>sys.stderr, "exclude file not included with the " + args.g + " genome. Please use --all_regions"
+                sys.exit(1)
+            command_specific_args['genome_exc'] = cmo.util.genomes[args.g]['delly']        
+        del command_specific_args['g']
+        del command_specific_args['all_regions']    
     default_args_override = {}        
     stdout = args.stdout
     stderr = args.stderr    
