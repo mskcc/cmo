@@ -39,7 +39,7 @@ class Delly:
             elif arg == 'tumor_bam':
                 tumor_bam = value
             elif arg == 'genome_exc':
-                options = ' -x ' + value
+                options = options + ' -x ' + value
             else:
                 #Do not include the false booleans
                 if type(value) == bool:
