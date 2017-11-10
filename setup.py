@@ -120,7 +120,8 @@ setup(name='cmo',
                  'bin/cmo_index',
                  'bin/cmo_fillout',
                  'bin/cmo_file_of_files',
-                 'bin/cmo_igv_plot'
+                 'bin/cmo_igv_plot',
+                 'bin/cmo_marianas'
                  #'bin/cmo_hotspot3d'
                  ],
         zip_safe=False)
