@@ -247,6 +247,10 @@
             "default": "/opt/common/CentOS_6-dev/QoRT/1.1.8/QoRTs.jar",
             "1.1.8": "/opt/common/CentOS_6-dev/QoRT/1.1.8/QoRTs.jar"
         },
+        "marianas": {
+            "0.0.0": "/home/johnsoni/software/Marianas.jar",
+            "default": "/home/johnsoni/software/Marianas.jar"
+        },
 	"suppa":
 	{
 	    "default":"/ifs/work/taylorlab/pensona/checkout/suppa/suppa.py"
