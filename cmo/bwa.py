@@ -23,7 +23,8 @@ class Bwa:
         cmd = [self.bwa_cmd,"index"]
         if args_dict != None:
             for arg, value in args_dict.items():
-                cmd.append( "-" + arg + " " + value)
+                if value is not None:
+                    cmd.append( "-" + arg + " " + value)
         cmd.append(fasta)
         return " ".join(cmd)
     def aln(self, fasta, fastq, output, args_dict=None):

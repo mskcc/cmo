@@ -13,7 +13,7 @@ import json, subprocess, sys, re, magic, csv, os, logging
 #genomes = defaultdict(dict)
 #genomes['hg19']={"fasta":"/ifs/depot/assemblies/H.sapiens/hg19/hg19.fasta"}
 
-resource_file = os.getenv('CMO_RESOURCE_CONFIG', "/opt/common/CentOS_6-dev/cmo/cmo_resources.json")
+resource_file = os.getenv('CMO_RESOURCE_CONFIG', "/home/johnsoni/cmo/cmo/data/cmo_resources.json")
 json_config = json.load(open(resource_file))
 programs = json_config['programs']
 genomes = json_config['genomes']
@@ -29,6 +29,14 @@ d = {'clientip': '192.168.0.1', 'user': 'fbloggs'}
 logger = logging.getLogger('cmo')
 logger.addHandler(out_hdlr)
 logger.setLevel(logging.INFO)
+
+###charris FIXME
+##some lsf specific code for our immediate needs.
+try:
+    if os.getenv("LSB_JOBID"):
+        logger.info("LSFJOBID: %s"% os.getenv('LSB_JOBID'))
+except:
+    pass
 
 
 def get_logger():
