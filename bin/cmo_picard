@@ -3,6 +3,110 @@
 import argparse, os, sys, re, subprocess,itertools
 import cmo
 
+class Picard:
+    def __init__(self,version="default", java_version="default", java_args="-Xmx2g"):
+        try:
+            self.picard_jar=cmo.util.programs["picard"][version]
+            self.version=version
+        except KeyError, e:
+            print >>sys.stderr, "Cannot find specified version of picard in configuration file: %s" % version
+            sys.exit(1)
+        try: 
+            self.java_cmd=cmo.util.programs["java"][java_version]
+        except KeyError, e:
+            print >>sys.stderr, "Cannot find specified version of java to run picard with: %s" % java_version
+            sys.exit(1)
+        self.java_args = java_args
+        self.default_args = {
+                "TMP_DIR" : "/scratch/",
+                "VERBOSITY" : "INFO",
+                "QUIET": "false",
+                "VALIDATION_STRINGENCY":"SILENT",
+                "COMPRESSION_LEVEL": "5",
+                "MAX_RECORDS_IN_RAM": "5000000",
+                "CREATE_INDEX": "true",
+                "CREATE_MD5_FILE": "false",
+           #     "GA4GH_CLIENT_SECRETS":"null",
+                }
+        
+    def picard_cmd(self, command, default_args_override={}, command_specific_args={}):
+        #TODO -make this resource hack better
+        self.java_args = "-Xms256m -Xmx30g -XX:-UseGCOverheadLimit -Djava.io.tmpdir=/scratch/"
+        if(self.version == "1.96"):
+            cmd = [self.java_cmd, self.java_args, "-jar", os.path.join(self.picard_jar, command+".jar")]
+        else:
+            cmd = [self.java_cmd, self.java_args, "-jar", self.picard_jar, command]
+        #overwrite default args with whatever was passed in
+        for arg, value in default_args_override.items():
+            if arg in self.default_args:
+                self.default_args[arg] = value        
+        #add combination of pass-ins and defaults to command 
+        for arg, value in self.default_args.items():
+            if arg in default_args_override:
+                value = default_args_override[arg]
+            if arg not in command_specific_args:
+                if value==True:
+                    cmd = cmd + [arg + "="+ str(value)]
+                elif value != None and value !=False:
+                    cmd = cmd + [arg + "=" + value]
+        for arg, value in command_specific_args.items():
+            if(isinstance(value, list)):
+                for arg_value in value:
+                    cmd = cmd + [arg + "=" + arg_value]
+            elif value==True:
+                cmd = cmd + [arg + "=" + str(value)]
+            elif value != None and value!=False:
+                cmd = cmd + [arg + "=" + value]
+        print >>sys.stderr, " ".join(cmd)
+        return " ".join(cmd)
+
+    def picard_cmd_help(self, command):
+        if(self.version == "1.96"):
+            cmd = [self.java_cmd, self.java_args, "-jar", os.path.join(self.picard_jar, command+ ".jar"), "-h"]
+        else:
+            cmd = [self.java_cmd, self.java_args, "-jar", self.picard_jar, command, " -h"]
+        return " ".join(cmd)
+
+    def find_sub_command_options(self, sub_command):
+        cmd = self.picard_cmd_help(sub_command) 
+        picard_help = subprocess.Popen(cmd,stderr=subprocess.PIPE,shell=True).communicate()[1]
+        #look for "is not a valid command, and return the picard help instead of a parsed dict of args
+        if re.search("is not a valid command", picard_help):
+            return (None, picard_help)
+        #look for 1 or 2 occurrences of WORD_THINGY=THINGY and the following help and return them as a dictified
+        #list of tuples
+        valid_args = []
+        new_short_option = None;
+        new_long_option= None
+        new_description = '';
+
+        for line in picard_help.split("\n"):
+            m= re.search("(?:^([\S_]+)=\S+\n?)(?:\s+([\S\s]+))?$", line)
+
+            if(m):
+                #some args have only long
+                if (new_short_option or new_long_option) and new_description!='':
+                    valid_args.append((new_short_option, new_long_option, new_description.lstrip()))
+                    new_short_option=None
+                    new_long_option=None
+                    new_description=''
+                if not m.group(2):
+                    #parsing long option, description never starts on long option line, even for args without short option
+                    new_long_option = m.group(1)
+                else:
+                    #else we got description pattern match in group(2), this is a short option
+                    new_short_option = m.group(1)
+                    new_description = m.group(2)
+            elif new_short_option or new_long_option:
+                new_description+=line
+
+        valid_args.append((new_short_option, new_long_option, new_description))
+#        for (short, longa, desc) in valid_args:
+#            print "%s, %s, %s" % (short, longa, desc[0:50])
+#        sys.exit(1)
+        return (valid_args, None)
+
+
 
 if __name__ =='__main__':    
     #partially parse options to get versin/subcommand and add more options
@@ -12,7 +116,7 @@ if __name__ =='__main__':
     preparser.add_argument("--cmd",required=True)
     options, _ = preparser.parse_known_args()
     #time for monkey business
-    picard_helper = cmo.picard.Picard(java_version=options.java_version, version=options.version)
+    picard_helper = Picard(java_version=options.java_version, version=options.version)
     (sub_command_options, error_msg) = picard_helper.find_sub_command_options(options.cmd)
     if sub_command_options == None:
         print >>sys.stderr, error_msg
@@ -21,10 +125,10 @@ if __name__ =='__main__':
     parser = argparse.ArgumentParser(parents= [ preparser ] , add_help= True,
             formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     R_parameter = False
-    for arg, help in sub_command_options.items():        
+    for arg, long_arg, help in sub_command_options:        
         help = help.replace("%","%%")                    
         if(arg =="LEVEL" or arg=="I"):
-            parser.add_argument("--" + arg, action="append")
+            parser.add_argument("--" + arg, "--" + long_arg, action="append")
             continue
         if re.search("Required.", help) != None:
             required=True
@@ -33,13 +137,19 @@ if __name__ =='__main__':
         if(arg == "PROGRAM"):
             parser.add_argument("--"+arg, action="append", help=help, required=required)
         elif(arg == "R"):
+            #FIXME this may not work right with new parser have to check
             reference_sequence_group = parser.add_mutually_exclusive_group(required=required)
             reference_sequence_group.add_argument("--R","--genome",choices=cmo.util.genomes.keys())
             reference_sequence_group.add_argument('--REFERENCE_SEQUENCE', action="store");
             R_parameter = True
             continue
         else:
-            parser.add_argument("--"+arg, action="store", help=help, required=required)
+            if long_arg and not arg:
+                parser.add_argument("--" + long_arg, action="store", help=help, required=required)
+            elif arg and not long_arg:
+                parser.add_argument("--" + arg, action="store", help=help, required=required)
+            else:
+                parser.add_argument("--"+arg, "--" + long_arg, action="store", help=help, required=required)
     parser.add_argument("--QUIET", action="store_true")
     parser.add_argument("--CREATE_MD5_FILE", action="store_true")
     parser.add_argument("--CREATE_INDEX", action="store_true")
@@ -61,6 +171,6 @@ if __name__ =='__main__':
         if key in command_specific_args:
             del command_specific_args[key]
     cmo.util.remove_logging_options_from_dict(command_specific_args)
-    #default_args is handled a little crappily, but not a big deal for now    
+    #default_args is handled a little crappily, but not a big deal for now
     cmo.util.call_cmd(picard_helper.picard_cmd(options.cmd, default_args_override=default_args_override, command_specific_args=command_specific_args), stdout=stdout, stderr=stderr)
      

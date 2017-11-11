@@ -1,10 +1,11 @@
 #!/opt/common/CentOS_6-dev/python/python-2.7.10/bin/python
 
 import argparse, os, sys, subprocess, re
-import cmo, time, copy
+import cmo, time, copy, uuid
 from datetime import date
 
-LPAD_CONFIG_LOC = "/opt/common/CentOS_6-dev/cmo/fireworks_config_files/"
+singularity_log_file = str(uuid.uuid4()) + ".singularity.debug.log"
+sing_log = open(singularity_log_file, "w")
 
 
 def find_bcftools_options(bcftools_version, subcommand):
@@ -16,6 +17,10 @@ def find_bcftools_options(bcftools_version, subcommand):
     last_desc=''
     parsed_options = dict()
     for line in lines:
+        s = re.match(r"^(DEBUG|VERBOSE)", line)
+        if s:
+            sing_log.write(line+"\n")
+            continue
         m = re.match(r"\s+(-\S)?,? *(--[\S-]+)\s+(.*$)", line)
         if m:
             if last_larg:
@@ -32,6 +37,10 @@ def find_bcftools_subcommands(bcftools_version):
     lines = bcftools_help.split("\n")
     subcommand_help_tuples = list()
     for line in lines:
+        s = re.match(r"^(DEBUG|VERBOSE)", line)
+        if s:
+            sing_log.write(line+"\n")
+            continue
         m = re.search("^\s\s+(\S+)\s\s+(\S[\s\S]+$)", line)
         if m:
             #subcommand, help blurb
