@@ -6,4 +6,6 @@ cmo.egg-info/
 **.swp
 docs/build/
 venv
+
+# Pycharm
 .idea

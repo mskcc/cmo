@@ -1,8 +1,8 @@
 {
-    "programs": 
+    "programs":
     {
         "cmo":
-        { 
+        {
             "1.4.5":"/opt/common/CentOS_6-dev/cmo_python/1.4.5/",
             "1.4.6":"/opt/common/CentOS_6-dev/cmo_python/1.4.6"
         },
@@ -46,7 +46,7 @@
             "0.2.5":"/opt/common/CentOS_6/trim_galore/Trim_Galore_v0.2.5/trim_galore"
         },
         "cutadapt":
-        { 
+        {
             "default":"/opt/common/CentOS_6-dev/python/python-2.7.10/bin/cutadapt",
             "1.1":"/opt/common/CentOS_6/cutadapt/cutadapt-1.1/bin/cutadapt",
             "1.9.1":"/opt/common/CentOS_6-dev/python/python-2.7.10/bin/cutadapt"
@@ -295,6 +295,15 @@
         {
             "default": "/opt/common/CentOS_6-dev/QoRT/1.1.8/QoRTs.jar",
             "1.1.8": "/opt/common/CentOS_6-dev/QoRT/1.1.8/QoRTs.jar"
+        },
+        "marianas":
+        {
+            "0.0.0": "/home/johnsoni/software/Marianas.jar",
+            "default": "/home/johnsoni/software/Marianas.jar"
+        },
+        "suppa":
+        {
+            "default":"/ifs/work/taylorlab/pensona/checkout/suppa/suppa.py"
         }
     },
 
@@ -356,7 +365,7 @@
             "kallisto_index": "/ifs/res/pwg/data/assemblies/homo_sapiens/gencode.v19/gencode.v19",
             "vep_cache":"/opt/common/CentOS_6-dev/vep/cache/"
         },
-        "GRCh38": 
+        "GRCh38":
         {
             "fasta":"/opt/common/CentOS_6-dev/vep/cache/homo_sapiens/86_GRCh38/Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz",
             "facets_snps":"/opt/common/CentOS_6-dev/facets_lib/Homo_sapiens_assembly38.dbsnp138.vcf.gz",
@@ -413,7 +422,7 @@
             "length":247249719
         },
         "ncbi36":
-        { 
+        {
             "name":"1",
             "length":247249719
         },
@@ -442,7 +451,7 @@
 
     "targets":
     {
-        "abra": 
+        "abra":
         {
             "GRCh37":"/opt/common/CentOS_6-dev/cmo/targets/abra/abra_target_regions_b37.bed",
             "hg19":"/opt/common/CentOS_6-dev/cmo/targets/abra/abra_target_regions_hg19.bed"
