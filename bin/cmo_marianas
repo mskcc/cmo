@@ -19,7 +19,7 @@ if __name__ =='__main__':
     # Todo - build jar and require reference to class:
     # "org.mskcc.marianas.umi.duplex.fastqprocessing.ProcessLoopUMIFastq"
 
-    cmd = [java, "-server -Xms8g -Xmx8g -cp", "-jar",  marianas, "org.mskcc.marianas.umi.duplex.fastqprocessing.ProcessLoopUMIFastq"]
+    cmd = [java, "-server -Xms8g -Xmx8g -cp",  marianas, "org.mskcc.marianas.umi.duplex.fastqprocessing.ProcessLoopUMIFastq"]
     cmd = " ".join(cmd)
     if args.r1_fastq:
         cmd += " " + args.r1_fastq + " "
