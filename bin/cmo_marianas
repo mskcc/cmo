@@ -8,7 +8,7 @@ import cmo
 if __name__ =='__main__':
     parser = argparse.ArgumentParser(description="Run Marianas", add_help=False)
     marianas = cmo.util.programs['marianas']['default']
-    java = cmo.util.programs['java']['default']
+    java = cmo.util.programs['java']['jdk1.8.0_25']
 
     parser.add_argument("--r1_fastq")
     parser.add_argument("--umi_length")
