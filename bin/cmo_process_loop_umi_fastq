@@ -1,0 +1,23 @@
+#!/opt/common/CentOS_6-dev/python/python-2.7.10/bin/python
+
+import argparse
+
+import cmo
+
+
+if __name__ =='__main__':
+    parser = argparse.ArgumentParser(description="Run Marianas", add_help=False)
+    marianas = cmo.util.programs['marianas']['default']
+    java = cmo.util.programs['java']['jdk1.8.0_25']
+
+    parser.add_argument("--r1_fastq")
+    parser.add_argument("--umi_length")
+    parser.add_argument("--output_project_folder")
+
+    (args, unknowns) = parser.parse_known_args()
+
+    cmd = [java, "-server -Xms8g -Xmx8g -cp", marianas, "org.mskcc.marianas.umi.duplex.fastqprocessing.ProcessLoopUMIFastq"]
+    cmd = " ".join(cmd)
+    cmd = "{} {} {} {}".format(cmd, args.r1_fastq, args.umi_length, args.output_project_folder)
+
+    cmo.util.call_cmd(cmd, shell=True)
