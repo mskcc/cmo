@@ -121,7 +121,7 @@ setup(name='cmo',
                  'bin/cmo_fillout',
                  'bin/cmo_file_of_files',
                  'bin/cmo_igv_plot',
-		             'bin/cmo_delly',
+                 'bin/cmo_delly',
                  'bin/cmo_process_loop_umi_fastq'
                  #'bin/cmo_hotspot3d'
                  ],
