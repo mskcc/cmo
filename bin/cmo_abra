@@ -120,8 +120,10 @@ def convert_default_variables(parser):
             del args.working
             del args.bwa_ref
     except:#default version
-        del args.working
-        del args.bwa_ref
+        if 'working' in args:
+            del args.working
+        if 'bwa_ref' in args: 
+            del args.bwa_ref
 
     if not args.targets:
         args.targets = cmo.util.targets['abra'][args.ref]
