@@ -47,7 +47,6 @@ if __name__ == "__main__":
     parser.add_argument("--duplication-threshold", type=int, default="50")
     parser.add_argument("--cov-warn-threshold", type=int, default="50")
     parser.add_argument("--cov-fail-threshold", type=int, default="25")
-
     parser.add_argument("--version", default="0.5.8", choices=cmo.util.programs['roslin-qc'].keys())
     args = parser.parse_args()
 #    script = os.path.join(cmo.util.programs['roslin-qc'][args.version], "generate_pdf.py")
