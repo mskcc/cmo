@@ -4,7 +4,7 @@ import cmo, os, subprocess
 
 print cmo.__version__
 
-archive_dir = "/ifs/work/pi/cmo_package_archive/"
+archive_dir = "/home/johnsoni/cmo_tools"
 target_directory = os.path.join(archive_dir, str(cmo.__version__))
 print target_directory
 pythonpath = os.path.join(target_directory, "lib/python2.7/site-packages/")
