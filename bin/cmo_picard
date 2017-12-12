@@ -125,7 +125,7 @@ if __name__ =='__main__':
     parser = argparse.ArgumentParser(parents= [ preparser ] , add_help= True,
             formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     R_parameter = False
-    for arg, long_arg, help in sub_command_options:        
+    for arg, long_arg, help in sub_command_options:
         help = help.replace("%","%%")                    
         if(arg =="LEVEL" or arg=="I"):
             parser.add_argument("--" + arg, "--" + long_arg, action="append")
@@ -141,7 +141,8 @@ if __name__ =='__main__':
             reference_sequence_group = parser.add_mutually_exclusive_group(required=required)
             reference_sequence_group.add_argument("--R","--genome",choices=cmo.util.genomes.keys())
             reference_sequence_group.add_argument('--REFERENCE_SEQUENCE', action="store");
-            R_parameter = True
+	    #parser.add_argument("--R","--genome",choices=cmo.util.genomes.keys())
+	    R_parameter = True
             continue
         else:
             if long_arg and not arg:
@@ -150,6 +151,9 @@ if __name__ =='__main__':
                 parser.add_argument("--" + arg, action="store", help=help, required=required)
             else:
                 parser.add_argument("--"+arg, "--" + long_arg, action="store", help=help, required=required)
+    list_of_short_args = [single_arg[0] for single_arg in sub_command_options]
+    if 'R' not in list_of_short_args and options.cmd == 'CalculateHsMetrics':
+	parser.add_argument("--R","--genome",choices=cmo.util.genomes.keys())
     parser.add_argument("--QUIET", action="store_true")
     parser.add_argument("--CREATE_MD5_FILE", action="store_true")
     parser.add_argument("--CREATE_INDEX", action="store_true")

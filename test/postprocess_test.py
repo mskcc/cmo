@@ -2,7 +2,7 @@ import tempfile, subprocess, shutil, os
 from nose.tools import nottest
 
 TEST_TEMP_DIR = None
-TEST_DATA_DIR = "/ifs/res/pwg/tests/cmo_testdata/postprocess/"
+TEST_DATA_DIR = "/ifs/work/pi/testdata/postprocess/"
 test_expected_outputs = {
         "filter_haplotype": "filt_haplotype.short",
         "filter_mutect": "filt_mutect.short",

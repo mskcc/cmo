@@ -2,7 +2,7 @@ import tempfile, subprocess, shutil, os, sys
 from nose.tools import nottest
 
 TEST_TEMP_DIR = None
-TEST_DATA_DIR = "/ifs/res/pwg/tests/cmo_testdata/facets/"
+TEST_DATA_DIR = "/ifs/work/pi/testdata/facets/"
 
 
 test_inputs = {"tumor_bam":"Chr22_hg19_TCGA-A8-A094-01A-11W-A019-09.tumor.bam",
