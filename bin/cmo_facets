@@ -14,7 +14,7 @@ if __name__ =='__main__':
     verparser.add_argument("--suite-version", default="default", choices=cmo.util.programs['facets'].keys())
     verparser.add_argument("--lib-version", choices=cmo.util.programs['facets_lib'].keys())
     (options, pass_through_args) = verparser.parse_known_args()
-    facets_suite_py = os.path.join(cmo.util.programs['facets'][options.suite_version], "facets") 
+    facets_suite_py = os.path.join(cmo.util.programs['facets'][options.suite_version], "facets")
     facets = imp.load_source("facets", facets_suite_py)
     parser = argparse.ArgumentParser(parents=[verparser], add_help=True, epilog="To use the lib-version, argument, it must currently be supplied BEFORE subcommand, i.e. cmo_facets --lib-version=0.3.7 doFacets")
     parser = facets.create_parser(parser)
