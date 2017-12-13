@@ -1,6 +1,7 @@
 import subprocess, shutil, os, sys, tempfile, re
 from nose.tools import assert_true
 import unittest
+import shutil
 
 TEST_TEMP_DIR = None
 TEST_DATA_DIR = "/ifs/work/pi/testdata/testdata_for_cmo"
@@ -180,13 +181,15 @@ class CMOTest(unittest.TestCase):
 
     def test_CalculateHsMetrics(self):
         #picard version 1.129 with genome short string
+	per_target_coverage_local = os.path.join(os.getcwd(),'Per_Target_Coverage.txt')
+	shutil.copy(per_target_coverage,per_target_coverage_local)
         cmd = ['cmo_picard',
                 '--version', '1.129',
                 '--cmd', 'CalculateHsMetrics',
                 '--BI', bait_interval,
                 '--I', normal_bam,
                 '--O', output,
-                '--PER_TARGET_COVERAGE', per_target_coverage,
+                '--PER_TARGET_COVERAGE', per_target_coverage_local,
                 '--R', genome_string,
                 '--TI', target_interval,
                 '--TMP_DIR', tmpdir,
