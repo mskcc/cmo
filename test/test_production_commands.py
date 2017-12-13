@@ -1,7 +1,6 @@
 import subprocess, shutil, os, sys, tempfile, re
 from nose.tools import assert_true
 import unittest
-#blank link for testing
 
 TEST_TEMP_DIR = None
 TEST_DATA_DIR = "/ifs/work/pi/testdata/testdata_for_cmo"
