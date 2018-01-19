@@ -115,16 +115,16 @@ class Picard:
 
 
 if __name__ =='__main__':    
-    list_of_args = sys.argv
+    #list_of_args = sys.argv
     #partially parse options to get versin/subcommand and add more options
     preparser = argparse.ArgumentParser(description="run picard", add_help=False)
     preparser.add_argument("--version", choices=cmo.util.programs['picard'].keys(), default="default")
     preparser.add_argument("--java-version", choices=cmo.util.programs['java'].keys(), default="default")
     preparser.add_argument("--cmd",required=True)
     options, _ = preparser.parse_known_args()
-    if '--generate_cwl_tool' in list_of_args:
-        base_command = ' '.join([sys.argv[0],'--version',options.version,'--java-version',options.java_version,'--cmd',options.cmd])
-        sys.argv = [sys.argv[0], sys.argv[-1],'-b',base_command]
+    #if '--generate_cwl_tool' in list_of_args:
+    #    base_command = ' '.join([sys.argv[0],'--version',options.version,'--java-version',options.java_version,'--cmd',options.cmd])
+    #    sys.argv = [sys.argv[0], sys.argv[-1],'-b',base_command]
     #time for monkey business
     picard_helper = Picard(java_version=options.java_version, version=options.version)
     (sub_command_options, error_msg) = picard_helper.find_sub_command_options(options.cmd)

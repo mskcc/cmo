@@ -62,7 +62,7 @@ if __name__ == "__main__":
         else:
             cmd = cmd + [str(value)]
     try:
-        print cmd
+#        print cmd
         cmo.util.call_cmd(" ".join(cmd))
     except:
         #don't kill the pipeline if we died bc qc can be rerun later
