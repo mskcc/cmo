@@ -76,17 +76,20 @@ class Picard:
         #look for 1 or 2 occurrences of WORD_THINGY=THINGY and the following help and return them as a dictified
         #list of tuples
         valid_args = []
-        new_short_option = None;
+        new_short_option = None
         new_long_option= None
-        new_description = '';
-
+        new_description = ''
+        R_parameter = False
+        #print picard_help
         for line in picard_help.split("\n"):
             m= re.search("(?:^([\S_]+)=\S+\n?)(?:\s+([\S\s]+))?$", line)
 
             if(m):
                 #some args have only long
-                if (new_short_option or new_long_option) and new_description!='':
+                if (new_short_option or new_long_option) and new_description!='' and (new_short_option != 'R' or  R_parameter != True):
                     valid_args.append((new_short_option, new_long_option, new_description.lstrip()))
+                    if new_short_option == 'R':
+                        R_parameter = True
                     new_short_option=None
                     new_long_option=None
                     new_description=''
@@ -99,8 +102,11 @@ class Picard:
                     new_description = m.group(2)
             elif new_short_option or new_long_option:
                 new_description+=line
-
         valid_args.append((new_short_option, new_long_option, new_description))
+        if new_short_option == 'R':
+            R_parameter = True
+        if 'R=reference_sequence.fasta' in  picard_help and R_parameter==False:
+            valid_args.append(('R','genome','It does not matter becuase this will get overwritten anyway'))
 #        for (short, longa, desc) in valid_args:
 #            print "%s, %s, %s" % (short, longa, desc[0:50])
 #        sys.exit(1)
@@ -109,12 +115,16 @@ class Picard:
 
 
 if __name__ =='__main__':    
+    #list_of_args = sys.argv
     #partially parse options to get versin/subcommand and add more options
     preparser = argparse.ArgumentParser(description="run picard", add_help=False)
     preparser.add_argument("--version", choices=cmo.util.programs['picard'].keys(), default="default")
     preparser.add_argument("--java-version", choices=cmo.util.programs['java'].keys(), default="default")
     preparser.add_argument("--cmd",required=True)
     options, _ = preparser.parse_known_args()
+    #if '--generate_cwl_tool' in list_of_args:
+    #    base_command = ' '.join([sys.argv[0],'--version',options.version,'--java-version',options.java_version,'--cmd',options.cmd])
+    #    sys.argv = [sys.argv[0], sys.argv[-1],'-b',base_command]
     #time for monkey business
     picard_helper = Picard(java_version=options.java_version, version=options.version)
     (sub_command_options, error_msg) = picard_helper.find_sub_command_options(options.cmd)
