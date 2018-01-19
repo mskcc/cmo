@@ -60,13 +60,15 @@ if __name__ == "__main__":
         if isinstance(value, list):
             cmd = cmd +  value
         else:
-            cmd = cmd + [value]
+            cmd = cmd + [str(value)]
     try:
+        print cmd
         cmo.util.call_cmd(" ".join(cmd))
     except:
         #don't kill the pipeline if we died bc qc can be rerun later
         print >>sys.stderr, "QC PDF Fail but continue anyway" 
-        sys.exit(0)
+        raise
+        #sys.exit(0)
 
         
         
