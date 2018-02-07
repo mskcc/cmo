@@ -16,11 +16,14 @@ parser = argparse.ArgumentParser(description = descr, formatter_class = argparse
 parser.add_argument('--tumor', help = 'BAM files to fillout with', required = True)
 parser.add_argument('--normal', help = 'BAM files to fillout with', required = True)
 parser.add_argument("--version", choices=cmo.util.programs['picard'].keys(), default="default")
+preparser.add_argument("--java-version", choices=cmo.util.programs['java'].keys(), default="default")
+
 args = parser.parse_args()
 picard = cmo.util.programs['picard'][args.version]
+java = cmo.util.programs['java'][args.java_version]
 
 for bam in [args.tumor, args.normal]:
-    command = [cmo.util.programs['java']['default'], "-jar", picard, " BuildBamIndex", "I="+bam, "O=", os.path.basename(bam).replace(".bam",".bai")]
+    command = [java, "-jar", picard, " BuildBamIndex", "I="+bam, "O=", os.path.basename(bam).replace(".bam",".bai")]
     shutil.copy(bam, os.path.basename(bam))
     cmo.util.call_cmd(" ".join(command), shell=True)
     #hack for pindel
