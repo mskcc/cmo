@@ -16,7 +16,7 @@ parser = argparse.ArgumentParser(description = descr, formatter_class = argparse
 parser.add_argument('--tumor', help = 'BAM files to fillout with', required = True)
 parser.add_argument('--normal', help = 'BAM files to fillout with', required = True)
 parser.add_argument("--version", choices=cmo.util.programs['picard'].keys(), default="default")
-preparser.add_argument("--java-version", choices=cmo.util.programs['java'].keys(), default="default")
+parser.add_argument("--java-version", choices=cmo.util.programs['java'].keys(), default="default")
 
 args = parser.parse_args()
 picard = cmo.util.programs['picard'][args.version]
