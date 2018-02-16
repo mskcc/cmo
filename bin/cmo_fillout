@@ -21,7 +21,7 @@ parser.add_argument('-f', '--format', help = 'Output format MAF(1) or tab-delimi
 parser.add_argument('-p', '--portal-output', help = 'Filename for a portal-friendly output MAF', required = False)
 parser.add_argument('-F', '--fillout', help = 'Precomputed fillout file from GBCMS (using this skips GBCMS)', required = False)
 parser.add_argument('-n', '--n_threads', help = 'Multithreaded GBCMS', default = 10, required = False)
-parser.add_argument("-v", '--version', help = 'Version of GBCMS to use to count with...', choices=cmo.util.programs['getbasecountsmultisample'].keys())
+parser.add_argument("-v", '--version', help = 'Version of GBCMS to use to count with...', default = "default", choices=cmo.util.programs['getbasecountsmultisample'].keys())
 args = parser.parse_args()
 samtools = cmo.util.programs['samtools']['default']
 maf = args.maf
