@@ -104,4 +104,7 @@ if __name__ =='__main__':
         cmd = cmd + ["--"+arg, value]
     sys.stderr.write( "RUNNING: " + " ".join( cmd ) + "\n" )
     cmo.util.call_cmd( " ".join( cmd ))
-    shutil.rmtree(tmp_dir)
+
+    # Cleanup temporary folders unless it was user-defined
+    if 'tmp_dir' in locals():
+        shutil.rmtree(tmp_dir)

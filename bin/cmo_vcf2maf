@@ -64,6 +64,12 @@ if __name__ =='__main__':
     args = parser.parse_args()
     args_dict = vars(args)
 
+    # Unless user-defined, assume that sample IDs are the same in VCF and MAF
+    if args_dict['tumor_id'] is not defaults_dict['--tumor-id'] and args_dict['vcf_tumor_id'] is defaults_dict['--vcf-tumor-id']:
+        args_dict['vcf_tumor_id'] = args_dict['tumor_id']
+    if args_dict['normal_id'] is not defaults_dict['--normal-id'] and args_dict['vcf_normal_id'] is defaults_dict['--vcf-normal-id']:
+        args_dict['vcf_normal_id'] = args_dict['normal_id']
+
     # If user didn't define their own --tmp-dir, let's create one for them under /scratch/username
     if args_dict['tmp_dir'] == tmp_root:
         # Create a subdirectory under /scratch with the username, if it doesn't already exist
@@ -106,4 +112,7 @@ if __name__ =='__main__':
         cmd = cmd + ["--"+arg, value]
     sys.stderr.write( "RUNNING: " + " ".join( cmd ) + "\n" )
     cmo.util.call_cmd( " ".join( cmd ))
-    shutil.rmtree(tmp_dir)
+
+    # Cleanup temporary folders unless it was user-defined
+    if 'tmp_dir' in locals():
+        shutil.rmtree(tmp_dir)
