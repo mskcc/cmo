@@ -92,8 +92,6 @@ setup(name='cmo',
                  'bin/cmo_bedtools',
                  'bin/cmo_maf2maf',
                  'bin/cmo_vcf2maf',
-                 'bin/cmo_vcf2vcf',
-                 'bin/cmo_maf2vcf',
                  'bin/cmo_filter_haplotype',
                  'bin/cmo_filter_mutect',
                  'bin/cmo_merge_mafs',
@@ -121,7 +119,7 @@ setup(name='cmo',
                  'bin/cmo_fillout',
                  'bin/cmo_file_of_files',
                  'bin/cmo_igv_plot',
-		 'bin/cmo_delly'
+                 'bin/cmo_delly'
                  #'bin/cmo_hotspot3d'
                  ],
         zip_safe=False)
