@@ -5,7 +5,9 @@ List of wrappers
 .. toctree::
     :titlesonly:
 
+    cmo_list2bed
     cmo_bedtools
+    cmoflow_clinical_series_live_analysis
     cmo_trimgalore
     cmo_filter_haplotype
     cmo_vcf2maf
@@ -13,6 +15,7 @@ List of wrappers
     cmo_watcher
     cmo_taskmod
     cmo_qcpdf
+    cmo_file_of_files
     cmo_bwa_mem
     cmo_getbasecounts
     cmo_samstat
@@ -20,25 +23,31 @@ List of wrappers
     cmo_igv_plot
     cmo_snp_pileup
     cmoflow_rnaseq_project
-    workflow_launcher
+    cmo_pindel
     cmo_picard
     cmo_bwa_sampe
     cmo_bwa_aln
     cmo_merge_mafs
     cmo_mutsig
     cmo_make_facets_file
+    cmo_vardict
     cmo_facets
     cmo_mutect
     cmo_maf2maf
     cmoflow_rnaseq
     cmo_abra
-    cmo_maf2vcf
+    cmo_delly
+    cmo_index
+    cmo_ppflag_fixer
     cmoflow_postprocess
     cmo_filter_mutect
     cmo_add_variant_info
     cmo_split_reads
     cmoflow_facets
     cmo_rerun
+    cmoflow_mattspots
+    cmo_fillout
+    cmo_bcftools
     cmoflow_reference_alignment
     cmo_trinuc_and_impact
     cmo_hotspot3d
