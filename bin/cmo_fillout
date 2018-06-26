@@ -9,13 +9,13 @@ import os, sys, argparse, csv, subprocess, string, uuid, cmo, pysam
 parser = argparse.ArgumentParser(description = descr, formatter_class = argparse.RawTextHelpFormatter)
 parser.add_argument('-m', '--maf', help = 'MAF file on which to fillout', required = True)
 parser.add_argument('-b', '--bams', help = 'BAM files to fillout with', required = False, nargs='+')
-parser.add_argument('-g', '--genome', help = 'Reference assembly of BAM files, e.g. hg19/grch37/b37', required = True, choices = cmo.util.genomes.keys())
+parser.add_argument('-g', '--genome', help = 'Reference assembly of BAM files', default = "GRCh37", required = False, choices = cmo.util.genomes.keys())
 parser.add_argument('-o', '--output', help = 'Filename for output of raw fillout data in MAF/VCF format', required = False)
 parser.add_argument('-f', '--format', help = 'Output format MAF(1) or tab-delimited with VCF based coordinates(2)', default = 1, required = False)
 parser.add_argument('-p', '--portal-output', help = 'Filename for a portal-friendly output MAF', required = False)
 parser.add_argument('-F', '--fillout', help = 'Precomputed fillout file from GBCMS (using this skips GBCMS)', required = False)
-parser.add_argument('-n', '--n_threads', help = 'Multithreaded GBCMS', default = 10, required = False)
-parser.add_argument("-v", '--version', help = 'Version of GBCMS to use to count with...', default = "default", choices=cmo.util.programs['getbasecountsmultisample'].keys())
+parser.add_argument('-n', '--n_threads', help = 'Multithreaded GBCMS', default = 8, required = False)
+parser.add_argument("-v", '--version', help = 'Version of GBCMS to use to count with...', default = "1.2.1", choices=cmo.util.programs['getbasecountsmultisample'].keys())
 args = parser.parse_args()
 samtools = cmo.util.programs['samtools']['default']
 maf = args.maf
@@ -67,7 +67,7 @@ for line in reader:
     pair[line['Tumor_Sample_Barcode']] = line['Matched_Norm_Sample_Barcode']
 fh.close()
 tmpfh = open(tmpMaf, "w")
-writer = csv.DictWriter(tmpfh, delimiter="\t", quoting=csv.QUOTE_NONE, fieldnames=header)
+writer = csv.DictWriter(tmpfh, delimiter="\t", quoting=csv.QUOTE_NONE, fieldnames=header, lineterminator='\n')
 writer.writeheader()
 for (key, line) in dedup.items():
     writer.writerow(line)
@@ -77,9 +77,9 @@ tmpfh.close()
 if args.fillout is None:
     gbcmCall = None
     if(int(args.format) == 1):
-        gbcmCall = gbcmPath+' --omaf --filter_improper_pair 0 --thread %s --fasta %s --maf %s --output %s %s' % (args.n_threads, genomePath, tmpMaf, output, bamString)
+        gbcmCall = gbcmPath+' --omaf --maq 1 --baq 20 --filter_improper_pair 0 --thread %s --fasta %s --maf %s --output %s %s' % (args.n_threads, genomePath, tmpMaf, output, bamString)
     else:
-        gbcmCall = gbcmPath+' --filter_improper_pair 1--thread %s --fasta %s --maf %s --output %s %s' % (args.n_threads, genomePath, tmpMaf, output, bamString)
+        gbcmCall = gbcmPath+' --maq 1 --baq 20 --filter_improper_pair 0 --thread %s --fasta %s --maf %s --output %s %s' % (args.n_threads, genomePath, tmpMaf, output, bamString)
     print(gbcmCall)
     subprocess.call(gbcmCall, shell = True)
 else:
@@ -91,7 +91,7 @@ if(int(args.format) == 1):
     ofh = open(output, "rb")
     pfh = open(portal_output, "w")
     reader = csv.DictReader(filter(lambda row: row[0]!='#',ofh), delimiter="\t")
-    writer = csv.DictWriter(pfh, delimiter="\t", quoting=csv.QUOTE_NONE, fieldnames=header)
+    writer = csv.DictWriter(pfh, delimiter="\t", quoting=csv.QUOTE_NONE, fieldnames=header, lineterminator='\n')
     writer.writeheader()
     # ::TODO:: Also fillout counts from the matched normals into n_alt_count, n_ref_count, n_depth
     for line in reader:
