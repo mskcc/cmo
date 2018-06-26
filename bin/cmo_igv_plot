@@ -11,75 +11,137 @@ import pysam
 # non_synonymous = ["missense_variant", "stop_gained", "frameshift_variant", "splice_donor_variant", "splice_acceptor_variant", "inframe_insertion", "inframe_deletion", "stop_lost", "exon_loss_variant", "disruptive_inframe_deletion", "disruptive_inframe_insertion", "start_lost"]
 
 def ensure_dir(f):
-    d = os.path.dirname(f)
+    d = os.path.dirname(f+'/')
     if not os.path.exists(d):
         os.makedirs(d)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="the less effort, the faster and more powerful you will be", epilog="a tool for people who want to plot mutations in igv good and do other stuff good too")
+    parser.add_argument("-d", "--project-directory", help="I'mma look in this directory and do magic for u", action='store_true')
     parser.add_argument("-m", "--maf", help="maf file to create plots")
-    parser.add_argument("-d", "--project-directory", help="I'mma look in this directory and do magic for u", required=True)
     parser.add_argument("-o", "--output-directory", help="put locus files and pngs here")
+    parser.add_argument("-b", "--bams", help="Input bams separated by space, Only use this argument if not working with project directory magic. Requires output directory and maf file", nargs = '+')
 
     args = parser.parse_args()
 
-    if args.output_directory is None:
-        args.output_directory = args.project_directory+'/analysis/igv_plots'
+
+    if args.bams is None:
+        if args.output_directory is None:
+            args.output_directory = args.project_directory+'/analysis/igv_plots'
+            ensure_dir(args.output_directory)
+
+        if args.maf is None:
+            args.maf = args.project_directory+'/portal/data_mutations_extended.txt'
+        
+        fh = open(args.maf, "rb")
+        reader = csv.DictReader(filter(lambda row: row[0] != '#', fh), delimiter="\t")
+        bamDict = {}
+        for bamfile in glob.glob( os.path.join(args.project_directory+'/bam/', '*.bam') ):
+            sam = pysam.AlignmentFile(bamfile, "rb")
+            sample_id = sam.header['RG'][0]['SM']
+            sam.close()
+            bamDict[sample_id] = bamfile
+        row_count = 0
+        locus_files = dict()
+        print >>sys.stderr, "aggregating variants into locus files...."
+        for row in reader:
+            row_count += 1
+            tumor_barcode = row['Tumor_Sample_Barcode']
+            normal_barcode = row['Matched_Norm_Sample_Barcode']
+            tumor_bam = bamDict[tumor_barcode]
+            normal_bam = bamDict[normal_barcode]
+            chrom = row['Chromosome']
+            try:
+                position = row['Start_Position']
+            except:
+                position = row['Start_position']
+            position_string = chrom + ":" + position
+            if tumor_barcode not in locus_files:
+                locus_files[tumor_barcode] = dict()
+                if normal_barcode not in locus_files[tumor_barcode]:
+                    locus_files[tumor_barcode][normal_barcode] = list()
+            locus_files[tumor_barcode][normal_barcode].append(position_string)
+            if(row_count % 10000 == 0):
+                print "\r %d variants processed" % row_count,
+        print >>sys.stderr, "Taking screenshots..."
+        for tumor_barcode in locus_files.keys():
+            for normal_barcode in locus_files[tumor_barcode].keys():
+                prefix = "_".join([tumor_barcode, normal_barcode])
+                ensure_dir(args.output_directory+'/'+prefix)
+                locus_filename = os.path.abspath(os.path.join(args.output_directory, prefix, prefix + ".locus"))
+                locus_file = open(locus_filename, "wb")
+                locus_file.write("\n".join(locus_files[tumor_barcode][normal_barcode]))
+                locus_file.close()
+                output_prefix = os.path.abspath(os.path.join(args.output_directory, prefix, prefix+'_'))
+                cmd = ["igv_plotter",
+                    bamDict[tumor_barcode],
+                    bamDict[normal_barcode],
+                    "-L", locus_filename,
+                    "-o", output_prefix,
+                    "--max-panel-height", "1024",
+                    "--height", "1024",
+                    "--width", "768",
+                    "--igv-jar-path", "/opt/common/CentOS_6-dev/igv/v2.3.60/igv.jar"]
+                print " ".join(cmd)
+                subprocess.call(cmd)
+    elif args.bams is not None:
+        if args.output_directory is None:
+            sys.exit("Error: Need output directory")
         ensure_dir(args.output_directory)
 
-    bamDict = {}
-    for bamfile in glob.glob( os.path.join(args.project_directory+'/bam/', '*.bam') ):
-        sam = pysam.AlignmentFile(bamfile, "rb")
-        sample_id = sam.header['RG'][0]['SM']
-        sam.close()
-        bamDict[sample_id] = bamfile
+        if args.maf is None:
+            sys.exit("Error: Need maf file")
 
-    if args.maf is None:
-        args.maf = args.project_directory+'/portal/data_mutations_extended.txt'
-    
-    fh = open(args.maf, "rb")
-    reader = csv.DictReader(filter(lambda row: row[0] != '#', fh), delimiter="\t")
+        fh = open(args.maf, "rb")
+        reader = csv.DictReader(filter(lambda row: row[0] != '#', fh), delimiter="\t")
+        bamDict = {}
+        for bamfile in args.bams:
+            sam = pysam.AlignmentFile(bamfile, "rb")
+            sample_id = sam.header['RG'][0]['SM']
+            sam.close()
+            bamDict[sample_id] = bamfile
 
-    row_count = 0
-    locus_files = dict()
-    print >>sys.stderr, "aggregating variants into locus files...."
-    for row in reader:
-        row_count += 1
-        tumor_barcode = row['Tumor_Sample_Barcode']
-        normal_barcode = row['Matched_Norm_Sample_Barcode']
-        tumor_bam = bamDict[tumor_barcode]
-        normal_bam = bamDict[normal_barcode]
-        chrom = row['Chromosome']
-        try:
-            position = row['Start_Position']
-        except:
-            position = row['Start_position']
-        position_string = chrom + ":" + position
-        if tumor_barcode not in locus_files:
-            locus_files[tumor_barcode] = dict()
-            if normal_barcode not in locus_files[tumor_barcode]:
-                locus_files[tumor_barcode][normal_barcode] = list()
-        locus_files[tumor_barcode][normal_barcode].append(position_string)
-        if(row_count % 10000 == 0):
-            print "\r %d variants processed" % row_count,
-    print >>sys.stderr, "Taking screenshots..."
-    for tumor_barcode in locus_files.keys():
-        for normal_barcode in locus_files[tumor_barcode].keys():
-            prefix = "_".join([tumor_barcode, normal_barcode])
-            ensure_dir(args.output_directory+'/'+prefix)
-            locus_filename = os.path.abspath(os.path.join(args.output_directory, prefix, prefix + ".locus"))
-            locus_file = open(locus_filename, "wb")
-            locus_file.write("\n".join(locus_files[tumor_barcode][normal_barcode]))
-            locus_file.close()
-            output_prefix = os.path.abspath(os.path.join(args.output_directory, prefix, prefix+'_'))
-            cmd = ["igv_plotter",
-                   bamDict[tumor_barcode],
-                   bamDict[normal_barcode],
-                   "-L", locus_filename,
-                   "-o", output_prefix,
-                   "--max-panel-height", "1024",
-                   "--height", "1024",
-                   "--width", "768",
-                   "--igv-jar-path", "/opt/common/CentOS_6-dev/igv/v2.3.60/igv.jar"]
-            print " ".join(cmd)
-            subprocess.call(cmd)
+
+        locus_files = dict()
+        print >>sys.stderr, "aggregating variants into locus files...."
+        for row in reader:
+            try:
+                tumor_barcode = row['Tumor_Sample_Barcode']
+                normal_barcode = row['Matched_Norm_Sample_Barcode']
+                tumor_bam = bamDict[tumor_barcode]
+                normal_bam = bamDict[normal_barcode]
+                chrom = row['Chromosome']
+                try:
+                    position = row['Start_Position']
+                except:
+                    position = row['Start_position']
+                position_string = chrom + ":" + position
+                if tumor_barcode not in locus_files:
+                    locus_files[tumor_barcode] = dict()
+                    if normal_barcode not in locus_files[tumor_barcode]:
+                        locus_files[tumor_barcode][normal_barcode] = list()
+                locus_files[tumor_barcode][normal_barcode].append(position_string)
+
+            except KeyError:
+                pass
+        print >>sys.stderr, "Taking screenshots..."
+        for tumor_barcode in locus_files.keys():
+            for normal_barcode in locus_files[tumor_barcode].keys():
+                prefix = "_".join([tumor_barcode, normal_barcode])
+                ensure_dir(args.output_directory+'/'+prefix)
+                locus_filename = os.path.abspath(os.path.join(args.output_directory, prefix, prefix + ".locus"))
+                locus_file = open(locus_filename, "wb")
+                locus_file.write("\n".join(locus_files[tumor_barcode][normal_barcode]))
+                locus_file.close()
+                output_prefix = os.path.abspath(os.path.join(args.output_directory, prefix, prefix+'_'))
+                cmd = ["igv_plotter",
+                       bamDict[tumor_barcode],
+                       bamDict[normal_barcode],
+                       "-L", locus_filename,
+                       "-o", output_prefix,
+                       "--max-panel-height", "1024",
+                       "--height", "1024",
+                       "--width", "768",
+                       "--igv-jar-path", "/opt/common/CentOS_6-dev/igv/v2.3.60/igv.jar"]
+                print " ".join(cmd)
+                subprocess.call(cmd)
