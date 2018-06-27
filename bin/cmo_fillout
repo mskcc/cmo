@@ -40,7 +40,8 @@ bamString = []
 if args.fillout is None:
     for bam in args.bams:
         sam = pysam.AlignmentFile(bam, "rb" )
-        sample_id = sam.header['RG'][0]['SM']
+        # In MSK DMP BAMs, the more appropriate sample ID is in "ID" not "SM" - use the shorter one
+        sample_id = sam.header['RG'][0]['ID'] if len(sam.header['RG'][0]['ID']) < len(sam.header['RG'][0]['SM']) else sam.header['RG'][0]['SM']
         sam.close()
         bamString.append('--bam '+sample_id+':'+bam)
     bamString = string.join(bamString)

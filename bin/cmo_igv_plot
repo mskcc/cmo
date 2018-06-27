@@ -38,9 +38,11 @@ if __name__ == '__main__':
         bamDict = {}
         for bamfile in glob.glob( os.path.join(args.project_directory+'/bam/', '*.bam') ):
             sam = pysam.AlignmentFile(bamfile, "rb")
-            sample_id = sam.header['RG'][0]['SM']
+            sample_id = sam.header['RG'][0]['ID']
+            sample_sm = sam.header['RG'][0]['SM']
             sam.close()
             bamDict[sample_id] = bamfile
+            bamDict[sample_sm] = bamfile
         row_count = 0
         locus_files = dict()
         print >>sys.stderr, "aggregating variants into locus files...."
@@ -97,10 +99,11 @@ if __name__ == '__main__':
         bamDict = {}
         for bamfile in args.bams:
             sam = pysam.AlignmentFile(bamfile, "rb")
-            sample_id = sam.header['RG'][0]['SM']
+            sample_id = sam.header['RG'][0]['ID']
+            sample_sm = sam.header['RG'][0]['SM']
             sam.close()
             bamDict[sample_id] = bamfile
-
+            bamDict[sample_sm] = bamfile
 
         locus_files = dict()
         print >>sys.stderr, "aggregating variants into locus files...."
