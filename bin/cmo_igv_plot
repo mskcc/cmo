@@ -78,11 +78,13 @@ if __name__ == '__main__':
                 cmd = ["igv_plotter",
                     bamDict[tumor_barcode],
                     bamDict[normal_barcode],
-                    "-L", locus_filename,
-                    "-o", output_prefix,
+                    "--locus-file", locus_filename,
+                    "--output", output_prefix,
                     "--max-panel-height", "1024",
                     "--height", "1024",
                     "--width", "768",
+                    "--collapse", "--view-as-pairs",
+                    "--preference", "SAM_COLOR_BY=READ_STRAND",
                     "--igv-jar-path", "/opt/common/CentOS_6-dev/igv/v2.3.60/igv.jar"]
                 print " ".join(cmd)
                 subprocess.call(cmd)
@@ -140,11 +142,13 @@ if __name__ == '__main__':
                 cmd = ["igv_plotter",
                        bamDict[tumor_barcode],
                        bamDict[normal_barcode],
-                       "-L", locus_filename,
-                       "-o", output_prefix,
+                       "--locus-file", locus_filename,
+                       "--output", output_prefix,
                        "--max-panel-height", "1024",
                        "--height", "1024",
                        "--width", "768",
+                       "--collapse", "--view-as-pairs",
+                       "--preference", "SAM_COLOR_BY=READ_STRAND",
                        "--igv-jar-path", "/opt/common/CentOS_6-dev/igv/v2.3.60/igv.jar"]
                 print " ".join(cmd)
                 subprocess.call(cmd)
