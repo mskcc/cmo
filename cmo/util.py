@@ -30,6 +30,15 @@ logger = logging.getLogger('cmo')
 logger.addHandler(out_hdlr)
 logger.setLevel(logging.INFO)
 
+# For files under genomes, return path to the copy at /dev/shm if found
+for build in genomes.keys():
+    for file in genomes[build].keys():
+        path = genomes[build][file]
+        if type(path) == unicode and os.path.isfile(path):
+            fastpath = '/dev/shm' + path
+            if os.path.isfile(fastpath):
+                genomes[build][file] = fastpath
+
 ###charris FIXME
 ##some lsf specific code for our immediate needs.
 try:
