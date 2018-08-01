@@ -4,50 +4,40 @@ import argparse, os, sys, subprocess, re
 import cmo, time, copy, uuid
 from datetime import date
 
-singularity_log_file = str(uuid.uuid4()) + ".singularity.debug.log"
-sing_log = open(singularity_log_file, "w")
-
-
 def find_bcftools_options(bcftools_version, subcommand):
     bcftools_cmd = cmo.util.programs['bcftools'][bcftools_version]
-    bcftools_help = subprocess.Popen(" ".join([bcftools_cmd, subcommand, "--help"]), shell=True, stderr=subprocess.PIPE).communicate()[1]
+    bcftools_help = subprocess.Popen(" ".join([bcftools_cmd, subcommand]), shell=True, stderr=subprocess.PIPE).communicate()[1]
     lines = bcftools_help.split("\n")
     last_sarg=''
     last_larg=''
     last_desc=''
     parsed_options = dict()
     for line in lines:
-        s = re.match(r"^(DEBUG|VERBOSE)", line)
-        if s:
-            sing_log.write(line+"\n")
-            continue
         m = re.match(r"\s+(-\S)?,? *(--[\S-]+)\s+(.*$)", line)
         if m:
             if last_larg:
                 parsed_options[last_larg]=(last_sarg, last_larg, last_desc)
             last_sarg = m.group(1)
             last_larg = m.group(2)
-            last_desc=m.group(3)
+            last_desc = m.group(3)
+
+    if not parsed_options:
+        print >>sys.stderr, "ERROR: Could not parse help for bcftools", subcommand
+        sys.exit(1)
     parsed_options[last_larg]=(last_sarg, last_larg, last_desc)
     return parsed_options.values()
-                
+
 def find_bcftools_subcommands(bcftools_version):
     bcftools_cmd = cmo.util.programs['bcftools'][bcftools_version]
-    bcftools_help = subprocess.Popen([bcftools_cmd, "-h"], shell=True, stderr=subprocess.PIPE).communicate()[1]
+    bcftools_help = subprocess.Popen([bcftools_cmd], shell=True, stderr=subprocess.PIPE).communicate()[1]
     lines = bcftools_help.split("\n")
     subcommand_help_tuples = list()
     for line in lines:
-        s = re.match(r"^(DEBUG|VERBOSE)", line)
-        if s:
-            sing_log.write(line+"\n")
-            continue
         m = re.search("^\s\s+(\S+)\s\s+(\S[\s\S]+$)", line)
         if m:
             #subcommand, help blurb
             subcommand_help_tuples.append((m.group(1), m.group(2)))
     return subcommand_help_tuples
- 
-
 
 def run_bcftools(bcftools_version, args):
     args_dict = copy.deepcopy(vars(args))
@@ -66,42 +56,42 @@ def run_bcftools(bcftools_version, args):
     print >>sys.stderr, " ".join(command)
     cmo.util.call_cmd(" ".join(command))
 
+# An override to print help on error since bcftools does not allow -h or --help
+class NoHelpParser(argparse.ArgumentParser):
+    def error(self, message):
+        sys.stderr.write('error: %s\n' % message)
+        self.print_help()
+        sys.exit(2)
 
 if __name__ =='__main__':
-    preparser = argparse.ArgumentParser(description="run bcftools", add_help=False)
+    preparser = NoHelpParser(description="run bcftools", add_help=False)
     preparser.add_argument("-v", "--version", action="store", choices=cmo.util.programs['bcftools'].keys(), default="default")
     opts, _ = preparser.parse_known_args()
-    parser = argparse.ArgumentParser(parents=[preparser], add_help=True)
+    parser = NoHelpParser(parents=[preparser], add_help=False)
     subcommands = find_bcftools_subcommands(opts.version)
     subparsers = parser.add_subparsers(help="bcftoooooooools!!!!", dest="subcommand")
-    for (subcommand, help) in  subcommands:
-         add_F=False
-         subparser = subparsers.add_parser(subcommand, help=help)
-         bcftools_options = find_bcftools_options(opts.version, subcommand)
-         for (short_arg, long_arg, description) in bcftools_options:
-             if(re.search("[<\[][\s\S]+[>\]]", description)):
-                 action="store"
-             else:
-                 action="store_true"
-             description=description.replace("%","%%")
-             if short_arg and short_arg in ['-h', "-f", "-F"]:
-                 if short_arg in ['-f', '-F']:
-                     add_F=True
-                 continue;
-             elif short_arg:
-                 subparser.add_argument(short_arg, long_arg, action=action, help=description)
-             else:
-                 subparser.add_argument(long_arg, action=action, help=description)
-         if(add_F):
-             subparser.add_argument("-f", "--fasta-ref", choices=cmo.util.genomes.keys())
-         subparser.add_argument("vcf", action="store")
-    
-        
+    for (subcommand, help) in subcommands:
+        add_fasta_arg = False
+        subparser = subparsers.add_parser(subcommand, add_help=False)
+        bcftools_options = find_bcftools_options(opts.version, subcommand)
+        for (short_arg, long_arg, description) in bcftools_options:
+            if(re.search("[<\[][\s\S]+[>\]]", description)):
+                action="store"
+            else:
+                action="store_true"
+            description=description.replace("%","%%")
+            if long_arg and long_arg in ['--fasta-ref']:
+                add_fasta_arg = True
+            elif short_arg and long_arg:
+                subparser.add_argument(short_arg, long_arg, action=action, help=description)
+            elif long_arg:
+                subparser.add_argument(long_arg, action=action, help=description)
+        if(add_fasta_arg):
+            subparser.add_argument('--fasta-ref', choices=cmo.util.genomes.keys())
+        subparser.add_argument("vcf", action="store")
+
+    # Since we disabled --help print full help if no arguments are provided or some other error
     args = parser.parse_args()
-    if "fasta_ref" in args:
+    if 'fasta_ref' in args:
         args.fasta_ref = cmo.util.genomes[args.fasta_ref]['fasta']
-#    args.fasta=cmo.util.genomes[args.fasta]['fasta']
     run_bcftools(opts.version, args)
-
-
-
