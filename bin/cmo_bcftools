@@ -52,7 +52,7 @@ def run_bcftools(bcftools_version, args):
                 command = command + ["--"+argument.replace("_","-")]
             else:
                 command = command + ["--"+argument.replace("_","-"), value]
-    command = command + [vcf]
+    command = command + vcf
     print >>sys.stderr, " ".join(command)
     cmo.util.call_cmd(" ".join(command))
 
@@ -88,7 +88,7 @@ if __name__ =='__main__':
                 subparser.add_argument(long_arg, action=action, help=description)
         if(add_fasta_arg):
             subparser.add_argument('--fasta-ref', choices=cmo.util.genomes.keys())
-        subparser.add_argument("vcf", action="store")
+        subparser.add_argument("vcf", metavar='vcf', nargs='+', action="store")
 
     # Since we disabled --help print full help if no arguments are provided or some other error
     args = parser.parse_args()
