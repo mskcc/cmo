@@ -149,7 +149,7 @@ This method makes the final command as a list and returns the list
 
 
 def make_command_to_run(java, abra_jar, command_specific_args):
-    cmd = [java, "-jar", abra_jar]
+    cmd = [java, "-Xmx36g", "-jar", abra_jar]
     for option, value in command_specific_args.items():
         option = option.replace("_","-")
         if value == True:
