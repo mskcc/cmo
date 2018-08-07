@@ -157,23 +157,22 @@ def remove_logging_options_from_dict(dict):
                 del dict[key]
 
 
-TABIX_LOCATION = '/opt/common/CentOS_6/samtools/samtools-1.2/htslib-1.2.1/tabix'
-BGZIP_LOCATION = '/opt/common/CentOS_6/samtools/samtools-1.2/htslib-1.2.1/bgzip'
-SORTBED_LOCATION = '/opt/common/CentOS_6/bedtools/bedtools-2.22.0/bin/sortBed'
-#BCFTOOLS_LOCATION = '/opt/common/CentOS_6/bcftools/bcftools-1.2/bin/bcftools'
+TABIX_LOCATION = programs['tabix']['default']
+BGZIP_LOCATION = programs['bgzip']['default']
+SORTBED_LOCATION = os.path.join(programs['bedtools']['default'],'sortBed')
+BCFTOOLS_LOCATION = programs['bcftools']['default']
 
 def sort_vcf(vcf):
 
     outfile = vcf.replace('.vcf', '.sorted.vcf')
     cmd = [SORTBED_LOCATION, '-i', vcf, '-header']
-    logger.info('sortBed command: %s'%(' '.join(cmd)))
-    #logger.debug('sortBed command: %s'%(' '.join(cmd)))
     try:
         rv = subprocess.check_call(cmd, stdout=open(outfile,'w'))
-        return outfile
     except subprocess.CalledProcessError, e:
         logger.critical("Non-zero exit code from sortBed! Bailing out.")
         sys.exit(1)
+    cmd = ['mv', outfile, vcf]
+    subprocess.call(cmd)
 
     
 def bgzip(vcf):
@@ -206,7 +205,7 @@ def tabix_file(vcf_file):
 def fix_contig_tag_in_vcf(vcf_file):
 
     #OK for small files only
-    process_one = subprocess.Popen(['bcftools', 'view', '%s'%(vcf_file)], stdout=subprocess.PIPE)
+    process_one = subprocess.Popen([BCFTOOLS_LOCATION, 'view', '%s'%(vcf_file)], stdout=subprocess.PIPE)
     vcf = re.sub(r'(?P<id>##contig=<ID=[^>]+)', r'\1,length=0', process_one.communicate()[0])
     process_two = subprocess.Popen([BGZIP_LOCATION, '-c'], stdin=subprocess.PIPE, stdout=open(vcf_file,'w'))
     process_two.communicate(input=vcf)
@@ -214,7 +213,7 @@ def fix_contig_tag_in_vcf(vcf_file):
 
 def fix_contig_tag_in_vcf_by_line(vcf_file):
 
-    process_one = subprocess.Popen(['bcftools', 'view', '%s'%(vcf_file)], stdout=subprocess.PIPE)
+    process_one = subprocess.Popen([BCFTOOLS_LOCATION, 'view', '%s'%(vcf_file)], stdout=subprocess.PIPE)
     process_two = subprocess.Popen([BGZIP_LOCATION, '-c'], stdin=subprocess.PIPE, stdout=open('fixed.vcf','w'))
 
     with process_one.stdout as p:
@@ -229,25 +228,24 @@ def fix_contig_tag_in_vcf_by_line(vcf_file):
 
 
 def normalize_vcf(vcf_file, ref_fasta, version="default", method='bcf'):
-    norm_command = programs[method][version]
-    sorted_vcf = sort_vcf(vcf_file)
-    zipped_file = bgzip(sorted_vcf)
-    tabix_file(zipped_file)
-    output_vcf = zipped_file.replace('.vcf', '.normalized.vcf')
+    output_vcf = vcf_file.replace('.vcf', '.norm.vcf.gz')
+    #sort_vcf(vcf_file)
+    vcf_gz_file = bgzip(vcf_file)
+    tabix_file(vcf_gz_file)
     cmd = ''
     if method == 'vt':
-        cmd = [norm_command, 'normalize', '-r', ref_fasta, zipped_file, '-o', output_vcf, '-q', '-n']
+        cmd = [programs['vt'][version], 'normalize', '-r', ref_fasta, vcf_gz_file, '-o', output_vcf, '-q', '-n']
         logger.debug('VT Command: %s'%(' '.join(cmd)))
     elif method == 'bcf':
-        cmd = [norm_command, 'norm', '-m', '-', '-O', 'b', '-o', output_vcf, zipped_file]
-        logger.info('bcftools norm Command: %s'%(' '.join(cmd)))
+        cmd = [programs['bcftools'][version], 'norm', '-f', ref_fasta, '-m', '+any', '-O', 'z', '-o', output_vcf, vcf_gz_file]
+        logger.debug('bcftools norm Command: %s'%(' '.join(cmd)))
     try:
         rv = subprocess.check_call(cmd)
-        fix_contig_tag_in_vcf_by_line(output_vcf)
+        #fix_contig_tag_in_vcf_by_line(output_vcf)
         #fix_contig_tag_in_vcf(output_vcf)
-        return output_vcf
     except subprocess.CalledProcessError, e:
         logger.critical("Non-zero exit code from normalization! Bailing out.")
         sys.exit(1)
-
-
+    os.unlink(vcf_gz_file)
+    os.unlink('%s.tbi'%(vcf_gz_file))
+    return output_vcf
