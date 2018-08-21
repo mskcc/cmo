@@ -237,7 +237,7 @@ def normalize_vcf(vcf_file, ref_fasta, version="default", method='bcf'):
         cmd = [programs['vt'][version], 'normalize', '-r', ref_fasta, vcf_gz_file, '-o', output_vcf, '-q', '-n']
         logger.debug('VT Command: %s'%(' '.join(cmd)))
     elif method == 'bcf':
-        cmd = [programs['bcftools'][version], 'norm', '-f', ref_fasta, '-m', '+any', '-O', 'z', '-o', output_vcf, vcf_gz_file]
+        cmd = [programs['bcftools'][version], 'norm', '--check-ref', 's', '--fasta-ref', ref_fasta, '--multiallelics', '+any', '--output-type', 'z', '--output', output_vcf, vcf_gz_file]
         logger.debug('bcftools norm Command: %s'%(' '.join(cmd)))
     try:
         rv = subprocess.check_call(cmd)
