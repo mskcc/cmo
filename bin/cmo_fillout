@@ -78,9 +78,9 @@ tmpfh.close()
 if args.fillout is None:
     gbcmCall = None
     if(int(args.format) == 1):
-        gbcmCall = gbcmPath+' --omaf --maq 1 --baq 20 --filter_improper_pair 0 --thread %s --fasta %s --maf %s --output %s %s' % (args.n_threads, genomePath, tmpMaf, output, bamString)
+        gbcmCall = gbcmPath+' --omaf --maq 20 --baq 20 --filter_improper_pair 0 --thread %s --fasta %s --maf %s --output %s %s' % (args.n_threads, genomePath, tmpMaf, output, bamString)
     else:
-        gbcmCall = gbcmPath+' --maq 1 --baq 20 --filter_improper_pair 0 --thread %s --fasta %s --maf %s --output %s %s' % (args.n_threads, genomePath, tmpMaf, output, bamString)
+        gbcmCall = gbcmPath+' --maq 20 --baq 20 --filter_improper_pair 0 --thread %s --fasta %s --maf %s --output %s %s' % (args.n_threads, genomePath, tmpMaf, output, bamString)
     print(gbcmCall)
     subprocess.call(gbcmCall, shell = True)
 else:
