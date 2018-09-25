@@ -13,7 +13,7 @@ def main(source_file_list, output_file, column_range):
 
 
     for file in source_file_list:
-        cmd = ["cat", file, "|", "cut", "-f%s" % column_range, "|", "grep -v '^[#|Hugo]'"]
+        cmd = ["cat", file, "|", "cut", "-f%s" % column_range, "|", "grep -Ev '^#|^Hugo'"]
         try:
             cmo.util.call_cmd(" ".join(cmd), stdout=fh)
         except:
