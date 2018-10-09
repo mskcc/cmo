@@ -87,7 +87,7 @@ if __name__ =='__main__':
     if args.java_args:
         gatk_helper.java_args=args.java_args
     if args.java_temp:
-        gatk_helper.temp_dir = java_temp
+        gatk_helper.temp_dir = args.java_temp
     command_specific_args = vars(args)
     if len(unknowns_dict.keys()) > 0:
         command_specific_args.update(unknowns_dict)
