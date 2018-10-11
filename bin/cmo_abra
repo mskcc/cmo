@@ -4,8 +4,7 @@ import argparse
 import re, os, sys
 import subprocess
 import distutils.version
-import time
-import cmo, shutil, uuid 
+import cmo, shutil, uuid
 
 '''
 This method adds custom arguments to run the wrapper
@@ -36,21 +35,16 @@ This method gets command-line option for the tool being wrapped.
 def find_command_options(java, abra_jar, version):
     # Make command to be run
     valid_args = {}
-    #only 2.08 removes --help, so we cant combine this statement with the below... 
+    #only 2.08 removes --help, so we cant combine this statement with the below...
     try:
         if distutils.version.StrictVersion(version) >= distutils.version.StrictVersion('2.08'):
             cmd = [java, "-jar", abra_jar]
             valid_args['--working']='temp dir'
             valid_args['--bwa-ref']='bwa ref'
-           
         else:
             cmd = [java, "-jar", abra_jar, "--help"]
-    except: 
-        #version was default
-
+    except:
         cmd = [java, "-jar", abra_jar]
-    # Run the command and get the help
-    print " ".join(cmd)
     abra_help = subprocess.Popen(cmd, stderr=subprocess.PIPE).communicate()[1]
     # Convert help in lines by separating at new line character
     lines = abra_help.split("\n")
@@ -110,17 +104,13 @@ This method takes the parser and converts the default values to paths from the j
 
 def convert_default_variables(parser):
     args = parser.parse_args()
-    print args.version
     try:
         if distutils.version.StrictVersion(args.version) < distutils.version.StrictVersion('2.07'):
             args.bwa_ref = cmo.util.genomes[args.ref]['bwa_fasta']
         else:
-            del args.working
             del args.bwa_ref
-    except:#default version
-        if 'working' in args:
-            del args.working
-        if 'bwa_ref' in args: 
+    except:
+        if 'bwa_ref' in args:
             del args.bwa_ref
 
     if not args.targets:
@@ -128,6 +118,7 @@ def convert_default_variables(parser):
     command_specific_args = vars(args)
     command_specific_args = dict((k, v) for k, v in command_specific_args.iteritems() if v)
     command_specific_args['ref'] = cmo.util.genomes[args.ref]['fasta']
+    command_specific_args['tmpdir'] = args.working
     return (args, command_specific_args)
 
 
@@ -137,7 +128,7 @@ This method deletes the keys from the command_specific_args dict that belongs to
 
 
 def delete_wrapper_specific_args(command_specific_args):
-    for key in ["version", "java_version"]:
+    for key in ["version", "java_version", "working"]:
         if key in command_specific_args:
             del command_specific_args[key]
     return (command_specific_args)
@@ -149,7 +140,8 @@ This method makes the final command as a list and returns the list
 
 
 def make_command_to_run(java, abra_jar, command_specific_args):
-    cmd = [java, "-Xmx36g", "-jar", abra_jar]
+    mem = len(command_specific_args['in'].split(',')) * 18
+    cmd = [java, "-Xmx"+str(mem)+"g", "-jar", abra_jar]
     for option, value in command_specific_args.items():
         option = option.replace("_","-")
         if value == True:
@@ -173,38 +165,11 @@ def main():
     parser = process_options(parser, cmd_options)
     # Process the default variable to reflect true paths from json
     (args, command_specific_args) = convert_default_variables(parser)
-    if 'working' in args:
-        command_specific_args['working'] = os.path.join(args.working, str(uuid.uuid4()) + "/")
-        try: 
-            os.makedirs(command_specific_args['working'])
-        except:
-            print >>sys.stderr, "Unable to create your directory tree for scratch."
-            sys.exit(1)
     # Delete keys that are created by wrapper before making the command
     command_specific_args = delete_wrapper_specific_args(command_specific_args)
     # Make the command that needs to be launched
-    # To get the time
-    start_time = time.time()
-    print "Start Time:", time.ctime(start_time)
-    try:
-        print os.path.join("/scratch/", str(os.getpid()) + "/", "")
-        os.makedirs(os.path.join("/scratch/", str(os.getpid()) + "/", ""))
-    except:
-        #already made...?
-        pass
-    java = java + " -Djava.io.tmpdir=/scratch/" + str(os.getpid())
     cmd = make_command_to_run(java, abra_jar, command_specific_args)
-    print " ".join(cmd)
     cmo.util.call_cmd(" ".join(cmd), shell=True)
-    end_time = time.time()
-    print "End Time:", time.ctime(end_time)
-    print("Elapsed time was %g seconds" % (end_time - start_time))
-    if 'working' in args:
-        try:
-            shutil.rmtree(os.path.join("/scratch/", str(os.getpid()) + "/", ""))
-        except:
-            print >>sys.stderr, "working tree remove failed, but continue anyway, abra probably completed successful"
-            
 
 '''
 This will help to initiate the main
