@@ -15,7 +15,7 @@ parser.add_argument('-f', '--format', help = 'Output format MAF(1) or tab-delimi
 parser.add_argument('-p', '--portal-output', help = 'Filename for a portal-friendly output MAF', required = False)
 parser.add_argument('-F', '--fillout', help = 'Precomputed fillout file from GBCMS (using this skips GBCMS)', required = False)
 parser.add_argument('-n', '--n_threads', help = 'Multithreaded GBCMS', default = 8, required = False)
-parser.add_argument("-v", '--version', help = 'Version of GBCMS to use to count with...', default = "1.2.1", choices=cmo.util.programs['getbasecountsmultisample'].keys())
+parser.add_argument("-v", '--version', help = 'Version of GBCMS to use to count with...', default = "1.2.2", choices=cmo.util.programs['getbasecountsmultisample'].keys())
 args = parser.parse_args()
 samtools = cmo.util.programs['samtools']['default']
 maf = args.maf
@@ -61,6 +61,7 @@ dedup = dict() # To deduplicate events by genomic loci and ref/alt alleles for u
 called = dict() # To lookup events that were called in the input MAF
 pair = dict() # To lookup matched normal barcodes for a given tumor sample ID
 for line in reader:
+    if not line['Tumor_Seq_Allele2'] or line['Reference_Allele'] == line['Tumor_Seq_Allele2']: continue # Fix for rare non-events
     key = ' '.join([ line['Chromosome'], line['Start_Position'], line['End_Position'], line['Reference_Allele'], line['Tumor_Seq_Allele2'] ])
     dedup[key] = line
     key = ' '.join([ key, line['Tumor_Sample_Barcode'] ])
