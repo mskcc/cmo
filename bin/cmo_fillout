@@ -37,13 +37,16 @@ genomePath = cmo.util.genomes[args.genome]['fasta']
 
 ### Extract sample IDs from BAMs unless user provided a GBCMS precomputed fillout
 bamString = []
+dedupBams = dict() # To deduplicate BAMs with the same sample IDs
 if args.fillout is None:
     for bam in args.bams:
         sam = pysam.AlignmentFile(bam, "rb" )
         # In MSK DMP BAMs, the more appropriate sample ID is in "ID" not "SM" - use the shorter one
         sample_id = sam.header['RG'][0]['ID'] if len(sam.header['RG'][0]['ID']) < len(sam.header['RG'][0]['SM']) else sam.header['RG'][0]['SM']
         sam.close()
-        bamString.append('--bam '+sample_id+':'+bam)
+        if sample_id not in dedupBams:
+            bamString.append('--bam '+sample_id+':'+bam)
+        dedupBams[sample_id] = 1
     bamString = string.join(bamString)
 
 ### Check if MAF has right genome
