@@ -33,7 +33,6 @@ else:
 ### Path to GetBaseCountsMultiSample binary and the reference genome FASTA
 gbcmPath = cmo.util.programs['getbasecountsmultisample'][args.version]
 genomePath = cmo.util.genomes[args.genome]['fasta']
-# genomePath = '/ifs/work/songt/task_cmofillout/testingzone/input/data/Homo_sapiens.GRCh37.dna.chromosome.21.fa'
 ### Extract sample IDs from BAMs unless user provided a GBCMS precomputed fillout
 bamString = []
 samplelist = list()
@@ -50,7 +49,6 @@ if args.fillout is None:
             bamString.append('--bam '+sample_id+':'+bam)
         dedupBams[sample_id] = 1
     bamString = string.join(bamString)
-print samplelist
 ### Check if MAF has right genome
 mafGenome = subprocess.check_output('grep -v ^# '+maf+' | tail -n1 | cut -f4', shell = True).rstrip()
 if mafGenome != args.genome:
@@ -194,7 +192,7 @@ if(int(args.format) == 1):
                     full_line1['fillout_n_reverse_ref'] = str(normal_ref_reverse)
                     full_line1['fillout_n_reverse_alt'] = str(normal_alt_reverse)
 
-                    # For all events retain allele counts from the caller, otherwise use the fillout to backfill 
+                    # For all events retain allele counts from the caller, otherwise use the fillout to backfill
                     if tumor_samplekey not in called or not full_line1['t_alt_count']:  # if columns 40-45 are empty, use fillout to backfill
                         full_line1['t_alt_count'] = tumor_line['t_alt_count']
                         full_line1['t_ref_count'] = tumor_line['t_ref_count']

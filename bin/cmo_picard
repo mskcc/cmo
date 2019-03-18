@@ -11,7 +11,7 @@ class Picard:
         except KeyError, e:
             print >>sys.stderr, "Cannot find specified version of picard in configuration file: %s" % version
             sys.exit(1)
-        try: 
+        try:
             self.java_cmd=cmo.util.programs["java"][java_version]
         except KeyError, e:
             print >>sys.stderr, "Cannot find specified version of java to run picard with: %s" % java_version
@@ -39,8 +39,8 @@ class Picard:
         #overwrite default args with whatever was passed in
         for arg, value in default_args_override.items():
             if arg in self.default_args:
-                self.default_args[arg] = value        
-        #add combination of pass-ins and defaults to command 
+                self.default_args[arg] = value
+        #add combination of pass-ins and defaults to command
         for arg, value in self.default_args.items():
             if arg in default_args_override:
                 value = default_args_override[arg]
@@ -68,7 +68,7 @@ class Picard:
         return " ".join(cmd)
 
     def find_sub_command_options(self, sub_command):
-        cmd = self.picard_cmd_help(sub_command) 
+        cmd = self.picard_cmd_help(sub_command)
         picard_help = subprocess.Popen(cmd,stderr=subprocess.PIPE,shell=True).communicate()[1]
         #look for "is not a valid command, and return the picard help instead of a parsed dict of args
         if re.search("is not a valid command", picard_help):
@@ -114,7 +114,7 @@ class Picard:
 
 
 
-if __name__ =='__main__':    
+if __name__ =='__main__':
     #list_of_args = sys.argv
     #partially parse options to get versin/subcommand and add more options
     preparser = argparse.ArgumentParser(description="run picard", add_help=False)
@@ -136,7 +136,7 @@ if __name__ =='__main__':
             formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     R_parameter = False
     for arg, long_arg, help in sub_command_options:
-        help = help.replace("%","%%")                    
+        help = help.replace("%","%%")
         if(arg =="LEVEL" or arg=="I"):
             parser.add_argument("--" + arg, "--" + long_arg, action="append")
             continue
@@ -175,10 +175,10 @@ if __name__ =='__main__':
     cmo.util.add_logging_options(parser)
     args = parser.parse_args()
     command_specific_args = vars(args)
-    default_args_override = {}    
+    default_args_override = {}
     if "R" in command_specific_args and args.R != None:
         genome = args.R
-        command_specific_args["REFERENCE_SEQUENCE"]=cmo.util.genomes[genome]['fasta']    
+        command_specific_args["REFERENCE_SEQUENCE"]=cmo.util.genomes[genome]['fasta']
     stdout = args.stdout
     stderr = args.stderr
     for key in  ["version", "java_version", "cmd", "R"]:
@@ -187,4 +187,4 @@ if __name__ =='__main__':
     cmo.util.remove_logging_options_from_dict(command_specific_args)
     #default_args is handled a little crappily, but not a big deal for now
     cmo.util.call_cmd(picard_helper.picard_cmd(options.cmd, default_args_override=default_args_override, command_specific_args=command_specific_args), stdout=stdout, stderr=stderr)
-     
+
