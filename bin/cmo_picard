@@ -17,8 +17,11 @@ class Picard:
             print >>sys.stderr, "Cannot find specified version of java to run picard with: %s" % java_version
             sys.exit(1)
         self.java_args = java_args
+        tmp_dir =  "/scratch/"
+        if 'TMPDIR' in os.environ:
+            tmp_dir = os.environ['TMPDIR']
         self.default_args = {
-                "TMP_DIR" : "/scratch/",
+                "TMP_DIR" : tmp_dir,
                 "VERBOSITY" : "INFO",
                 "QUIET": "false",
                 "VALIDATION_STRINGENCY":"SILENT",
@@ -28,10 +31,11 @@ class Picard:
                 "CREATE_MD5_FILE": "false",
            #     "GA4GH_CLIENT_SECRETS":"null",
                 }
-        
+
     def picard_cmd(self, command, default_args_override={}, command_specific_args={}):
         #TODO -make this resource hack better
-        self.java_args = "-Xms256m -Xmx30g -XX:-UseGCOverheadLimit -Djava.io.tmpdir=/scratch/"
+        tmp_dir = self.default_args['TMP_DIR']
+        self.java_args = "-Xms256m -Xmx30g -XX:-UseGCOverheadLimit -Djava.io.tmpdir="+tmp_dir
         if(self.version == "1.96"):
             cmd = [self.java_cmd, self.java_args, "-jar", os.path.join(self.picard_jar, command+".jar")]
         else:
