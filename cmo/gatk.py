@@ -8,18 +8,18 @@ class Gatk:
     def __init__(self,version="default", java_version="default", java_args="-Xmx48g -Xms256m -XX:-UseGCOverheadLimit", temp_dir="/scratch", mutect=False):
         try:
             if mutect:
-                self.gatk_jar=util.programs["mutect"][version]
+                self.gatk_jar = util.programs["mutect"][version]
             else:
-                self.gatk_jar=util.programs["gatk"][version]
+                self.gatk_jar = util.programs["gatk"][version]
         except KeyError, e:
             logger.critical("Cannot find specified version of gatk in configuration file: %s" % version)
             sys.exit(1)
         try: 
-            self.java_cmd=util.programs["java"][java_version]
+            self.java_cmd = util.programs["java"][java_version]
         except KeyError, e:
             logger.critical("Cannot find specified version of java to run gatk with: %s" % java_version)
             sys.exit(1)
-        self.temp_dir=None
+        self.temp_dir = None
         if temp_dir:
             self.temp_dir = temp_dir
         self.java_args = java_args 
