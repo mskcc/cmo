@@ -7,12 +7,12 @@ from . import util
 class Bwa:
     def __init__(self,version="default", samtools_version="default"):
         try:
-            self.bwa_cmd=util.programs["bwa"][version]
+            self.bwa_cmd = util.programs["bwa"][version]
         except KeyError, e:
             print >>sys.stderr, "Cannot find specified version of bwa in configuration file: %s" % version
             sys.exit(1)
         try:   
-            self.samtools_cmd=util.programs["samtools"][samtools_version]
+            self.samtools_cmd = util.programs["samtools"][samtools_version]
         except KeyError, e:
             print >>sys.stderr, "Cannot find specified version of samtools in configuration file: %s" % version
             sys.exit(1)
