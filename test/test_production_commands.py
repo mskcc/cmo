@@ -11,9 +11,9 @@ test_inputs = {}
 ####INPUTS
 tumor_bam = os.path.join(TEST_DATA_DIR, "P1_ADDRG_MD.abra.fmi.printreads.bam")
 normal_bam = os.path.join(TEST_DATA_DIR, "P2_ADDRG_MD.abra.fmi.printreads.bam")
-fastq1=os.path.join(TEST_DATA_DIR, "P1_R1.fastq.gz")
-fastq2=os.path.join(TEST_DATA_DIR, "P1_R2.fastq.gz")
-matrix=os.path.join(TEST_DATA_DIR, "recal.matrix")
+fastq1 = os.path.join(TEST_DATA_DIR, "P1_R1.fastq.gz")
+fastq2 = os.path.join(TEST_DATA_DIR, "P1_R2.fastq.gz")
+matrix = os.path.join(TEST_DATA_DIR, "recal.matrix")
 genome_string = "GRCh37"
 GRCh37_path = "/ifs/work/pi/testdata/assemblies/b37/b37.fasta"
 current_dir = os.getcwd()
@@ -40,7 +40,7 @@ class CMOTest(unittest.TestCase):
         if os.path.exists(working_dir):
             TEST_TEMP_DIR = tempfile.mkdtemp(dir=working_dir)
             global output
-            output= os.path.join(TEST_TEMP_DIR, "output")
+            output = os.path.join(TEST_TEMP_DIR, "output")
             global output2
             output2 = os.path.join(TEST_TEMP_DIR, "output2")
             os.chdir(TEST_TEMP_DIR)
@@ -139,7 +139,7 @@ class CMOTest(unittest.TestCase):
         assert_true(re.search("INFO  .* HelpFormatter - Program Args: -T PrintReads --input_file /ifs/work/pi/testdata/testdata_for_cmo/P1_ADDRG_MD.abra.fmi.printreads.bam --num_cpu_threads_per_data_thread 6 --BQSR /ifs/work/pi/testdata/testdata_for_cmo/recal.matrix --reference_sequence /ifs/work/pi/testdata/assemblies/b37/b37.fasta --out", prog_output))
 
     def test_baserecal(self):
-        cmd= ['cmo_gatk',
+        cmd = ['cmo_gatk',
                 '-T', 'BaseRecalibrator',
                 '--version', '3.3-0',
                 '--input_file', tumor_bam,

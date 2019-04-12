@@ -12,31 +12,31 @@ class Job(fireworks.Firework):
     #TODO type checking
     #if not isinstance(command, string):
     def __new__(cls, command, **kwargs):
-        bsub_options_dict={}
+        bsub_options_dict = {}
         spec = None
         name = None
         for key in['queue', 'resources', 'walltime', 'est_wait_time', 'processors']:
             if key in kwargs:
-                bsub_options_dict[key]=kwargs[key]
+                bsub_options_dict[key] = kwargs[key]
         spec = {}
         if len(bsub_options_dict.keys()) > 0:
-            spec['_queueadapter']=bsub_options_dict
+            spec['_queueadapter'] = bsub_options_dict
      #   spec['_dupefinder']={"_fw_name" : "DupeFinderScript"}
         if 'name' in kwargs:
-            name=kwargs['name']
+            name = kwargs['name']
         return fireworks.Firework(fireworks.ScriptTask.from_str(command), name=name, spec=spec)
     def __init__(self, command, resources=None, name=None, queue=None, walltime=None):
-        self.resources=resources
-        self.queue= queue
-        self.walltime=walltime
+        self.resources = resources
+        self.queue = queue
+        self.walltime = walltime
         if name:
-            self.name=name
+            self.name = name
        
 class Workflow():
     def __init__(self, jobs_list, job_dependencies, name=None):
         self.jobs_list = jobs_list
         self.job_dependencies = job_dependencies
-        self.name=name
+        self.name = name
         db = DatabaseManager()
         self.db = db
         # Make sure the user has rlaunch in their PATH
@@ -49,11 +49,11 @@ class Workflow():
             jobs_list.append(job)
     def add_dep(job1, jobs2):
         if not isinstance(jobs2,list):
-            jobs2=[jobs2]
+            jobs2 = [jobs2]
         if job1 in self.job_dependencies:
-            self.job_dependencies[job1]= self.job_dependencies[job1] + jobs2
+            self.job_dependencies[job1] = self.job_dependencies[job1] + jobs2
         else:
-            self.job_dependencies[job1]= jobs2
+            self.job_dependencies[job1] = jobs2
             if job1 not in self.jobs_list:
                 jobs_list.append(job)
                 
@@ -62,17 +62,17 @@ class Workflow():
         if not daemon_log:
             daemon_log = os.path.join(FW_WFLOW_LAUNCH_LOC, getpass.getuser(), "daemon.log")
         self.set_launch_dir()
-        if processing_mode=='serial':
+        if processing_mode == 'serial':
             unique_serial_key = str(uuid.uuid4())
             serial_worker = fireworks.FWorker(name=unique_serial_key)
             for job in self.jobs_list:
-                job.spec['_fworker']=unique_serial_key
+                job.spec['_fworker'] = unique_serial_key
             self.workflow = fireworks.Workflow(self.jobs_list, self.job_dependencies, name=self.name)
             self.launchpad.add_wf(self.workflow)
             rocket_launcher.rapidfire(self.launchpad, fworker=serial_worker)
-        elif processing_mode=='LSF':
+        elif processing_mode == 'LSF':
             for job in self.jobs_list:
-                job.spec['_fworker']='LSF'
+                job.spec['_fworker'] = 'LSF'
             self.workflow = fireworks.Workflow(self.jobs_list, self.job_dependencies, name=self.name)
             self.launchpad.add_wf(self.workflow)
             self.watcher_daemon(daemon_log)
@@ -99,7 +99,7 @@ class Workflow():
     def set_launch_dir(self):
         if self.name:
             keepcharacters = ('.','_')
-            sanitized_workflow_name = "".join(c for c in self.name.replace(" ", "_") if c.isalnum() or c in keepcharacters).rstrip() + "-"+ str(uuid.uuid4())
+            sanitized_workflow_name = "".join(c for c in self.name.replace(" ", "_") if c.isalnum() or c in keepcharacters).rstrip() + "-" + str(uuid.uuid4())
         else:
             sanitized_workflow_name = time.strftime("%m-%d-%Y-%I-%M-%S") +  str(uid.uuid4())
         workflow_dir = os.path.join(FW_WFLOW_LAUNCH_LOC, getpass.getuser(), sanitized_workflow_name, "")
@@ -107,18 +107,18 @@ class Workflow():
         for job in self.jobs_list:
             if job.name:
                 keepcharacters = ('.','_')
-                sanitized_job_name = "".join(c for c in job.name.replace(" ", "_") if c.isalnum() or c in keepcharacters).rstrip() + "-"+ str(uuid.uuid4())
+                sanitized_job_name = "".join(c for c in job.name.replace(" ", "_") if c.isalnum() or c in keepcharacters).rstrip() + "-" + str(uuid.uuid4())
             else:
                 sanitized_job_name = time.strftime("%m-%d-%Y-%I-%M-%S") +  str(uid.uuid4())
             job_launch_dir = os.path.join(workflow_dir, sanitized_job_name, "")
             os.makedirs(job_launch_dir)
-            job.spec['_launch_dir']=job_launch_dir
+            job.spec['_launch_dir'] = job_launch_dir
     def cleanup_daemon(self):
             print >>sys.stderr, "Cleaning up Daemon record..."
             daemons = self.db.client.daemons
             daemons.daemons.remove({"user":getpass.getuser()})
     def watcher_daemon(self, log_file):
-        log=None
+        log = None
         
         if(log_file):
             try:
@@ -129,27 +129,27 @@ class Workflow():
         #about to fork a process, throw away all handlers.
         #fireworks will create a new queue log handler to write to test with
         #lil hacky but who cares right now
-        logging.handlers=[]
+        logging.handlers = []
         #FIXME this seems not to have fixed it all the time?
         old_sys_stdout = sys.stdout
         self.db.client.close()
         self.launchpad.connection.close()
         print >>sys.stderr, "Connections closed, preparing to fork..."
         with daemon.DaemonContext( stdout=log, stderr=log):
-            logging.handlers=[]
+            logging.handlers = []
             dbm = DatabaseManager()
             self.db = dbm
             #reconnect to mongo after fork
             print dbm.find_lpad_config()
-            self.launchpad=fireworks.LaunchPad.from_file(dbm.find_lpad_config())
-            self.qadapter=dbm.find_qadapter()
+            self.launchpad = fireworks.LaunchPad.from_file(dbm.find_lpad_config())
+            self.qadapter = dbm.find_qadapter()
             #add our pid as a running process so new daemons don't get started
             dbm.client.admin.authenticate("fireworks", "speakfriendandenter")
             db = dbm.client.daemons
             #FIXME POSSIBLE CRITICAL RAISE FOR EXTREMELY RAPID WORKFLOW STARTS
             #ADD MUTEX?
             running_daemons = db.daemons.find({"user":getpass.getuser()}).count()
-            if running_daemons >0:
+            if running_daemons > 0:
             #todo, check pid is alive
                 print >>old_sys_stdout, "Not Forking Daemon- daemon process found"
             #don't start daemon
@@ -171,7 +171,7 @@ class Workflow():
                 running_lsf_jobs = self.launchpad.fireworks.find({"state":"RUNNING", "spec._fworker":"LSF"}).count()
 
                 self.launchpad.m_logger.info("%s ready, %s running, %s reserved lsf jobs found" % (ready_lsf_jobs, running_lsf_jobs, reserved_lsf_jobs))
-                if(ready_lsf_jobs == 0 and reserved_lsf_jobs ==0 and running_lsf_jobs==0):
+                if(ready_lsf_jobs == 0 and reserved_lsf_jobs == 0 and running_lsf_jobs == 0):
                     break
                 for l in self.launchpad.offline_runs.find({"completed": False, "deprecated": False}, {"launch_id": 1}):
                     fw = self.launchpad.recover_offline(l['launch_id'], True)
@@ -188,22 +188,22 @@ class Workflow():
         for i, job in enumerate(self.jobs_list):
             new_job = dict()
             new_job['spec'] = copy.deepcopy(job.spec)
-            new_job['spec']['_tasks']=dict({'_fw_name': 'ScriptTask'})
-            new_job['spec']['_tasks']['script']=job.spec['_tasks'][0]['script'][0]
-            new_job['fw_id']=i
-            new_job['name']=job.name
+            new_job['spec']['_tasks'] = dict({'_fw_name': 'ScriptTask'})
+            new_job['spec']['_tasks']['script'] = job.spec['_tasks'][0]['script'][0]
+            new_job['fw_id'] = i
+            new_job['name'] = job.name
             job_list['fws'].append(new_job)
-            old_jobs[job]=i
+            old_jobs[job] = i
         ofh.write(yaml.safe_dump(job_list, default_flow_style=False))
         links = { 'links': dict()}
         for (key, value) in self.job_dependencies.items():
             if isinstance(value, list):
-                links['links'][old_jobs[key]]=list()
+                links['links'][old_jobs[key]] = list()
                 for item in value:
                     print key, item
                     links['links'][old_jobs[key]].append(old_jobs[item])
             else:
-                links['links'][old_jobs[key]]=list()
+                links['links'][old_jobs[key]] = list()
                 links['links'][old_jobs[key]].append(old_jobs[value])
         ofh.write(yaml.safe_dump(links, default_flow_style=False))
         ofh.write(yaml.safe_dump({"metadata":dict()}))
@@ -211,9 +211,9 @@ class Workflow():
 
 class DatabaseManager():
     def __init__(self, host="pitchfork.cbio.private", port="27017", user=getpass.getuser()):
-        self.host=host
-        self.port=port
-        self.client=MongoClient(host+":"+port)
+        self.host = host
+        self.port = port
+        self.client = MongoClient(host+":"+port)
         self.user = user
     def lpad_cfg_filename(self):
         return self.user+".yaml"
@@ -245,7 +245,7 @@ class DatabaseManager():
                 "post_rocket" : "null"
                 }
         for key,value in yaml_dict.items():
-            print >>sys.stderr, "Qadapt: %s: %s" %(key, value)
+            print >>sys.stderr, "Qadapt: %s: %s" % (key, value)
             fh.write(key + ": " + value + "\n")
         fh.close()
 

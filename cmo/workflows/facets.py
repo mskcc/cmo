@@ -54,9 +54,9 @@ class Facets(Schematic):
         if vcf:
             snps = os.path.abspath(vcf)
         if not rlib_arg.R_lib:
-            rlib_arg="0.3.9"
+            rlib_arg = "0.3.9"
         else:
-            rlib_arg=rlib_arg.R_lib
+            rlib_arg = rlib_arg.R_lib
         #look at @RG SM: tag for samples
         if not tumor_sample: 
             tumor_sample = cmo.util.infer_sample_from_bam(tumorbam)
@@ -142,7 +142,7 @@ class Facets(Schematic):
         #facets job
         #args will be [--foo, value] or [-f, value] in this list
         facets_dir = "facets_"
-        if not facets_args or len(facets_args) ==0:
+        if not facets_args or len(facets_args) == 0:
             facets_args = []
             facets_dir += "default"
         else:
@@ -177,11 +177,11 @@ class Facets(Schematic):
         #if this ran once and there is a merge but not bams anymore
         #don't schedule either the bams or the merge
         if len(count_jobs) > 0 and merge_job:
-            dependencies[count_jobs[0]]=[merge_job]
-            dependencies[count_jobs[1]]=[merge_job]
+            dependencies[count_jobs[0]] = [merge_job]
+            dependencies[count_jobs[1]] = [merge_job]
             jobs = jobs + count_jobs
         if(merge_job):
-            dependencies[merge_job]=[facets_job]
+            dependencies[merge_job] = [facets_job]
             jobs.append(merge_job)
     #    else: 
     #        if len(count_jobs) > 0:
@@ -192,7 +192,7 @@ class Facets(Schematic):
             rm_cmd = ["rm","-f"]  + temp_bams
             rm_job = workflow.Job(" ".join(rm_cmd), name="Remove temp bams")
             jobs.append(rm_job)
-            dependencies[facets_job]=rm_job
+            dependencies[facets_job] = rm_job
         #make workflow
         jobs.append(facets_job)
         return {"jobs":jobs, "dependencies":dependencies, "workflow_name":" ".join(["Facets", tag]), "terminal_jobs": facets_job, "initial_jobs":count_jobs}
@@ -216,7 +216,7 @@ class Facets(Schematic):
 
 
 
-if __name__=='__main__':
+if __name__ == '__main__':
     facets = Facets()
     parser = facets.parse_workflow_args();
     results_dict = facets.construct_workflow(vars(parser))

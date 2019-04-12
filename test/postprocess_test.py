@@ -19,7 +19,7 @@ test_inputs = {"pairing_file": "Proj_04525_J_sample_pairing.txt",
 dev_null = open("/dev/null", "w")
 
 for key, value in test_inputs.items():
-    test_inputs[key]= os.path.join(TEST_DATA_DIR, "inputs", value)
+    test_inputs[key] = os.path.join(TEST_DATA_DIR, "inputs", value)
 
 for key, value in test_expected_outputs.items():
     test_expected_outputs[key] = os.path.join(TEST_DATA_DIR, value)
@@ -45,13 +45,13 @@ def test_filter_haplotype():
     try:
         print " ".join(cmd)
         rv = subprocess.call(cmd, stderr=dev_null)
-        assert rv==0
+        assert rv == 0
     except:
         assert False
     diff_cmd = ['diff', expected_output, test_output]
     try:
         rv = subprocess.call(cmd, stderr=dev_null)
-        assert rv==0
+        assert rv == 0
     except:
         assert False, "Differences between expected haplotype filter output and test output"
    
@@ -68,13 +68,13 @@ def test_filter_mutect():
     try:
         print " ".join(cmd)
         rv = subprocess.call(cmd, stderr=dev_null)
-        assert rv==0
+        assert rv == 0
     except:
         assert False, "Unable to run cmo_filter_mutect"
     diff_cmd = ['diff', expected_output, test_output]
     try:
         rv = subprocess.call(diff_cmd, stderr=dev_null)
-        assert rv==0
+        assert rv == 0
     except: 
         assert False, "diff between expected output and test-generated output"
 
@@ -90,13 +90,13 @@ def test_merge_mafs():
     try:
         print " ".join(cmd)
         rv = subprocess.call(cmd, stderr=dev_null)
-        assert rv==0
+        assert rv == 0
     except:
         assert False, "Couldn't run cmo_merge_mafs correctly"
     diff_cmd = ['diff', test_output, expected_output]
     try:
         rv = subprocess.call(diff_cmd, stderr=dev_null, stdout=dev_null)
-        assert rv==0
+        assert rv == 0
     except:
         assert False, "merge_mafs expected output doesn't match newly test generated output"
 
@@ -116,10 +116,10 @@ def test_maf2maf():
             '--input-maf', test_expected_outputs['merge_mafs'],
             '--output-maf', test_output]
     rv = subprocess.call(cmd, stderr=dev_null, stdout=dev_null)
-    assert rv==0
+    assert rv == 0
     diff_cmd = ['diff', expected_output, test_output]
     rv = subprocess.call(cmd, stderr=dev_null)
-    assert rv==0
+    assert rv == 0
 
 
 @nottest
@@ -135,19 +135,19 @@ def test_trinuc():
             '--output-impact', test_impact ]
     try:
         rv = subprocess.call(cmd, stderr=dev_null)
-        assert rv==0
+        assert rv == 0
     except:
         assert False, "unable to run cmo_trinuc_and_impact wihtout errors"
     try:
         diff_cmd = ['diff', expected_impact, test_impact]
         rv = subprocess.call(diff_cmd, stderr=dev_null)
-        assert rv==0
+        assert rv == 0
     except: 
         assert False, "diff shows differences between expected impact and test-generated impact output"
     try:
         diff_cmd = ['diff', expected_seq, test_seq]
         rv = subprocess.call(diff_cmd, stderr=dev_null)
-        assert rv==0
+        assert rv == 0
     except:
         assert False, "diff shows differences between expected seq and test-generated sequence output"
 
@@ -161,7 +161,7 @@ def test_add_variant_info():
             '--output-file', test_output]
     try:
         rv = subprocess.call(cmd, stderr=dev_null)
-        assert rv==0
+        assert rv == 0
     except:
         assert False, "unable to run add_variant_info: %s" % " ".join(cmd)
     test_sorted_output = os.path.join(TEST_TEMP_DIR, "sorted_final_maf")
@@ -171,7 +171,7 @@ def test_add_variant_info():
     diff_cmd = ['diff', expected_output, test_sorted_output]
     try:
         rv = subprocess.call(diff_cmd, stderr=dev_null, stdout=dev_null)
-        assert rv==0
+        assert rv == 0
     except:
         assert False, "diff shows difference between expected output of cmo_add_variant_info and test-generated output"
 

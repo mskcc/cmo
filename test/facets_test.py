@@ -16,7 +16,7 @@ test_inputs = {"tumor_bam":"Chr22_hg19_TCGA-A8-A094-01A-11W-A019-09.tumor.bam",
                }
 
 for key, value in test_inputs.items():
-    test_inputs[key]=os.path.join(TEST_DATA_DIR, "inputs", value)
+    test_inputs[key] = os.path.join(TEST_DATA_DIR, "inputs", value)
 
 expected_outputs = {"tumor_basecounts":"H_LS-A8-A094-01A-11W-A019-09-1.dat.gz",
                     "mergeTN":"countsMerged____H_LS-A8-A094-01A-11W-A019-09-1__H_LS-A8-A094-10A-01W-A021-09-1.dat.gz",
@@ -27,7 +27,7 @@ expected_outputs = {"tumor_basecounts":"H_LS-A8-A094-01A-11W-A019-09-1.dat.gz",
                     }
 
 for key, value in expected_outputs.items():
-    expected_outputs[key]=os.path.join(TEST_DATA_DIR, "expected_outputs", value)
+    expected_outputs[key] = os.path.join(TEST_DATA_DIR, "expected_outputs", value)
 
 
 DEV_NULL = open("/dev/null", "w")
@@ -61,18 +61,18 @@ def test_mergeTN():
     test_output = os.path.join(TEST_TEMP_DIR, "test_countsmerged.gz")
     cmd = [FACETS_SCRIPT, "mergeTN", "-t", input_tumor, "-n",input_normal, "-o", test_output]
     rv = subprocess.call(cmd)
-    expected_output= expected_outputs['mergeTN']
+    expected_output = expected_outputs['mergeTN']
     shutil.copy(expected_output, TEST_TEMP_DIR)
     temp_expected_output = os.path.join(TEST_TEMP_DIR, os.path.basename(expected_output))
     gunzip_cmd = ["gunzip", temp_expected_output]
     subprocess.call(gunzip_cmd)
     gunzip_cmd = [ "gunzip", test_output]
     subprocess.call(gunzip_cmd)
-    temp_expected_output= temp_expected_output.replace(".gz", "")
+    temp_expected_output = temp_expected_output.replace(".gz", "")
     test_output = test_output.replace(".gz", "")
     diff_cmd = ["diff", test_output, temp_expected_output]
     rv = subprocess.call(diff_cmd)
-    assert rv==0, "cmo_facets mergeTN output does not match expected output, diff exit code: %s" % str(rv)
+    assert rv == 0, "cmo_facets mergeTN output does not match expected output, diff exit code: %s" % str(rv)
 @nottest
 def test_facets():
     output_dir = os.path.join(TEST_TEMP_DIR)
@@ -85,12 +85,12 @@ def test_facets():
                   "-D", TEST_TEMP_DIR,
                   "-c 200"]
     rv = subprocess.call(facets_cmd)
-    assert rv==0, "facets failed to run :("
+    assert rv == 0, "facets failed to run :("
     expected_seg_output = expected_outputs['seeded.seg']
     test_seg_output = os.path.join(TEST_TEMP_DIR, "H_LS-A8-A094-01A-11W-A019-09-1__H_LS-A8-A094-10A-01W-A021-09-1.seg")
     diff_cmd = ["diff", expected_seg_output, test_seg_output]
     rv = subprocess.call(diff_cmd)
-    assert rv==0, "facets test seg output differs from expected output- diff exit code: %s" % str(rv)
+    assert rv == 0, "facets test seg output differs from expected output- diff exit code: %s" % str(rv)
 
 def test_facets_freeze_facets_version():
     output_dir = os.path.join(TEST_TEMP_DIR)
@@ -104,12 +104,12 @@ def test_facets_freeze_facets_version():
                   "-D", TEST_TEMP_DIR,
                   "-c 200"]
     rv = subprocess.call(facets_cmd)
-    assert rv==0, "facets failed to run :("
+    assert rv == 0, "facets failed to run :("
     expected_seg_output = expected_outputs['seeded.seg']
     test_seg_output = os.path.join(TEST_TEMP_DIR, "H_LS-A8-A094-01A-11W-A019-09-1__H_LS-A8-A094-10A-01W-A021-09-1.seg")
     diff_cmd = ["diff", expected_seg_output, test_seg_output]
     rv = subprocess.call(diff_cmd)
-    assert rv==0, "facets test seg output differs from expected output- diff exit code: %s" % str(rv)
+    assert rv == 0, "facets test seg output differs from expected output- diff exit code: %s" % str(rv)
 
 def test_facets_maf():
     output_dir = os.path.join(TEST_TEMP_DIR)
@@ -122,12 +122,12 @@ def test_facets_maf():
                   "-o", os.path.join(TEST_TEMP_DIR, "TCGA-A8-A094-01A-11W-A019-09.ann.maf")]
     print " ".join(facets_cmd)
     rv = subprocess.call(facets_cmd)
-    assert rv==0, "facets failed to run :("
+    assert rv == 0, "facets failed to run :("
     expected_annmaf_output = expected_outputs['ann_maf']
     test_seg_output = os.path.join(TEST_TEMP_DIR, "TCGA-A8-A094-01A-11W-A019-09.ann.maf")
     diff_cmd = ["diff", expected_annmaf_output, test_seg_output]
     rv = subprocess.check_call(diff_cmd)
-    assert rv==0, "facets test seg output differs from expected output, diff exit code: %s" % str(rv)
+    assert rv == 0, "facets test seg output differs from expected output, diff exit code: %s" % str(rv)
 @nottest
 def test_facets_gene_call():
     output_dir = os.path.join(TEST_TEMP_DIR)
@@ -140,11 +140,11 @@ def test_facets_gene_call():
                   test_seg_output]
     print " ".join(facets_cmd)
     rv = subprocess.call(facets_cmd)
-    assert rv==0, "facets failed to run :(, exit code %s" % rv
+    assert rv == 0, "facets failed to run :(, exit code %s" % rv
     expected_seg_output = expected_outputs['gene_level_calls']
     diff_cmd = ["diff", expected_seg_output, test_seg_output]
     rv = subprocess.call(diff_cmd)
-    assert rv==0, "facets test seg output differs from expected output, diff exit code: %s" % str(rv)
+    assert rv == 0, "facets test seg output differs from expected output, diff exit code: %s" % str(rv)
 @nottest
 def test_facets_arm_call():
     output_dir = os.path.join(TEST_TEMP_DIR)
@@ -157,9 +157,9 @@ def test_facets_arm_call():
                   test_seg_output]
     print " ".join(facets_cmd)
     rv = subprocess.call(facets_cmd)
-    assert rv==0, "facets failed to run :(, exit code %s" % rv
+    assert rv == 0, "facets failed to run :(, exit code %s" % rv
     expected_seg_output = expected_outputs['arm_level_calls']
     diff_cmd = ["diff", expected_seg_output, test_seg_output]
     rv = subprocess.call(diff_cmd)
-    assert rv==0, "facets test seg output differs from expected output, diff exit code: %s" % str(rv)
+    assert rv == 0, "facets test seg output differs from expected output, diff exit code: %s" % str(rv)
 

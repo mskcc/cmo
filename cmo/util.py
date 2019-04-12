@@ -43,7 +43,7 @@ for build in genomes.keys():
 ##some lsf specific code for our immediate needs.
 try:
     if os.getenv("LSB_JOBID"):
-        logger.info("LSFJOBID: %s"% os.getenv('LSB_JOBID'))
+        logger.info("LSFJOBID: %s" % os.getenv('LSB_JOBID'))
 except:
     pass
 
@@ -76,7 +76,7 @@ def samtools_index(bam):
     return call_cmd(" ".join(cmd))
 
 def infer_fasta_from_bam(bam_file):
-    get_chr1_cmd= [programs['samtools']['default'], "view -H", bam_file, "| fgrep \"@SQ\" | awk '{print $2,$3}'"]
+    get_chr1_cmd = [programs['samtools']['default'], "view -H", bam_file, "| fgrep \"@SQ\" | awk '{print $2,$3}'"]
     chr_tags = subprocess.Popen(" ".join(get_chr1_cmd), shell=True, stdout=subprocess.PIPE, stderr=open("/dev/null")).communicate()[0]
     chr_name = None
     length = None
@@ -84,28 +84,28 @@ def infer_fasta_from_bam(bam_file):
         if not line:
             break
         (this_chr, this_length) = line.split(" ")
-        if re.search("SN:(chr)?1$", this_chr)!=None:
+        if re.search("SN:(chr)?1$", this_chr) != None:
             chr_name = this_chr[3:]
             length = this_length[3:]
     if chr_name == None:
         #we didn't find a match
         return(None, None)
     for candidate in chr1_fingerprints:
-        if chr1_fingerprints[candidate]['name']==chr_name and chr1_fingerprints[candidate]['length']==int(length):
+        if chr1_fingerprints[candidate]['name'] == chr_name and chr1_fingerprints[candidate]['length'] == int(length):
             logger.info("Inferred genome to be %s" % candidate)
             return (candidate, genomes[candidate]['fasta'])
     logger.critical("Chromosome 1 name %s, length %s, doesn't match any standard refs?" % (chr_name, length))
     return (None, None)
 
 def infer_sample_from_bam(bam_file):
-    get_rg_cmd= [programs['samtools']['default'], "view -H", bam_file, "| grep \"^@RG\" "]
+    get_rg_cmd = [programs['samtools']['default'], "view -H", bam_file, "| grep \"^@RG\" "]
     rg_lines = subprocess.Popen(" ".join(get_rg_cmd), shell=True, stdout=subprocess.PIPE, stderr=open("/dev/null")).communicate()[0]
     sample_dict = {}
     for rg in rg_lines.splitlines():
         tags = rg.split("\t")
         for tag in tags:
-            if tag[0:2]=="SM":
-                sample_dict[tag[3:]]=1
+            if tag[0:2] == "SM":
+                sample_dict[tag[3:]] = 1
     if len(sample_dict.keys()) > 1:
                     logger.critical("Mixed sample tags in Read Group header for %, can't infer a single sample name from this bam naively" % bam_file)
     elif len(sample_dict.keys()) == 1:
@@ -123,11 +123,11 @@ def filesafe_string(string):
 
 def call_cmd(cmd, shell=True, stderr=None, stdout=None, stdin=None):
     if stdout and not hasattr(stdout, "write"):
-        stdout=open(stdout, "w")
+        stdout = open(stdout, "w")
     if stderr and not hasattr(stderr, "write"):
-        stderr=open(stderr, "w")
+        stderr = open(stderr, "w")
     if stdin and not hasattr(stdin, "read"):
-        stdin=open(stdin, "r")
+        stdin = open(stdin, "r")
     try:
         logger.info("EXECUTING: %s" % cmd)
         return_code = subprocess.check_call(cmd, shell=shell, stderr=stderr, stdout=stdout, stdin=stdin, executable="/bin/bash")
