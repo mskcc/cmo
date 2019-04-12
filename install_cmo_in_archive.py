@@ -11,7 +11,7 @@ pythonpath = os.path.join(target_directory, "lib/python2.7/site-packages/")
 print pythonpath
 if not os.path.exists(pythonpath):
     os.makedirs(pythonpath)
-os.environ['PYTHONPATH']=pythonpath
+os.environ['PYTHONPATH'] = pythonpath
 installation_command = ["python", "setup.py", "install", "--prefix", target_directory]
 subprocess.check_call(installation_command)
 
