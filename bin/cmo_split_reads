@@ -21,7 +21,7 @@ def chunk(fastq, platform_unit, lines_per_chunk, num_pieces):
     logger.info("Opening %s and writing reads..." % (filename))
     ofh = gzip.open(filename, "wb", 1)
     lines = list()
-    for line in os.popen("zcat " + fastq):
+    for line in os.popen("zcat < " + fastq):
         lines.append(line)
         output_file_lines+=1
         if output_file_lines == lines_per_chunk:
@@ -63,15 +63,15 @@ if __name__ =='__main__':
     pool.close()
     pool.join()
 
-                
-
-
-        
 
 
 
 
-      
-   
+
+
+
+
+
+
 
 
