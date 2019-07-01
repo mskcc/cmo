@@ -52,7 +52,7 @@ if __name__ =='__main__':
         fastqs.append(args.fastq2)
     filesize = os.path.getsize(fastqs[0])
     logger.info("Fastq1 Filesize: %sGB" % ("{:.2f}".format(float(filesize)/1000000000)))
-    num_pieces = math.ceil(float(filesize)/350000000)
+    num_pieces = math.ceil(float(filesize)/2800000000)
     logger.info("Splitting into %s pieces" % "{:.0f}".format(num_pieces))
     num_lines = sum(1 for line in os.popen("zcat " + fastqs[0]))
     lines_per_chunk = math.ceil(float(num_lines) / int(num_pieces))
