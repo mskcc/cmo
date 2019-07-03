@@ -28,9 +28,10 @@ if __name__ =='__main__':
     preparser.add_argument("--version", help="Version of tool to run", choices=cmo.util.programs['vcf2maf'].keys(), default="default")
     preparser.add_argument("--vep-release", help="Version of VEP and its cache to use", choices=cmo.util.programs['vep'].keys(), default="default")
     preparser.add_argument("--species", help="Species of variants in input", choices=["homo_sapiens","mus_musculus"], default="homo_sapiens")
-    preparser.add_argument("--ncbi-build", help="Genome build of variants in input", choices=["GRCh37","GRCh38","GRCm38"], default="GRCh37")
+    preparser.add_argument("--ncbi-build", help="Genome build of variants in input", choices=["GRCh37","GRCh38","GRCm38","GRCh37_mm10"], default="GRCh37")
     options, _ = preparser.parse_known_args()
-
+    if options.ncbi_build == 'GRCh37_mm10':
+        options.ncbi_build = 'GRCh37'
     # Figure out the path to the actual Perl script that this Python wrapper will run
     script_path = cmo.util.programs['vcf2maf'][options.version] + "vcf2maf.pl"
     # Extract arguments and their defaults, by parsing the --help output
@@ -62,6 +63,8 @@ if __name__ =='__main__':
 
     # Now run the argparse instance, which will parse and execute, or print help text if requested
     args = parser.parse_args()
+    if args.ncbi_build == 'GRCh37_mm10':
+        args.ncbi_build = 'GRCh37'
     args_dict = vars(args)
 
     # Unless user-defined, assume that sample IDs are the same in VCF and MAF
