@@ -1,42 +1,20 @@
-#!/opt/common/CentOS_6-dev/python/python-2.7.10/bin/python
+#!/ifs/work/pi/roslin-pipelines/roslin-core/2.0.6/config/variant/2.4.2/virtualenv/bin/python
 
 import argparse, os, sys, signal, subprocess, math, gzip, io
 import cmo
 import multiprocessing
 
-def chunk(fastq, platform_unit, lines_per_chunk, num_pieces):
+def chunk(fastq, platform_unit, lines_per_chunk):
     logger = cmo.util.get_logger()
-    output_prefix = os.path.basename(fastq).split(".", 1)[0] + "."
+    output_prefix = os.path.basename(fastq).split(".", 1)[0] + ".chunk"
     if(platform_unit != None):
         exploded = output_prefix.split("_")
         exploded[0]=platform_unit
         output_prefix = "-".join(exploded)
-    while lines_per_chunk % 4 != 0:
-        lines_per_chunk +=1
-    output_file_count = 0
-    output_file_lines = 0
+    # output_prefix = output_prefix+"chunk"
+    logger.info("Opening %s and writing reads..." % (fastq))
     #these aren't relaly gz but trimgalore doesnt like files not named gz...great work trimgalore
-    filename = output_prefix +  "chunk{:0>3d}".format(output_file_count) +  ".fastq.gz"
-    logger.info("Opening %s and writing reads..." % (filename))
-    ofh = gzip.open(filename, "wb", 1)
-    lines = list()
-    for line in os.popen("zcat < " + fastq):
-        lines.append(line)
-        output_file_lines+=1
-        if output_file_lines == lines_per_chunk and int(num_pieces) > 1:
-            if(output_file_count < int(num_pieces)-1):
-                output_file_lines=0
-                for l in lines:
-                    ofh.write(l)
-                ofh.close()
-                lines = list()
-                output_file_count +=1
-                filename = output_prefix + "chunk{:0>3d}".format(output_file_count) +  ".fastq.gz"
-                logger.info("Opening %s and writing reads..." % (filename))
-                ofh = gzip.open(filename, "wb", 1)
-    for l in lines:
-        ofh.write(l)
-    ofh.close()
+    os.popen('zcat %s | split -l %d -d --additional-suffix=.fastq.gz --suffix-length 3 - %s' % (fastq, lines_per_chunk, output_prefix))
     return True
 
 
@@ -45,7 +23,6 @@ if __name__ =='__main__':
     parser = argparse.ArgumentParser(description="split files into chunks based on filesize")
     parser.add_argument('-f1', "--fastq1", action='store', help="filename to split", required=True)
     parser.add_argument('-f2', "--fastq2", action='store', help="filename2 to split")
-#    parser.add_argument('-s', "--sample", action='store', help="sample ID", required=True)
     parser.add_argument('-p', "--platform-unit", action='store', help="RG/PU ID", required=True)
     args = parser.parse_args()
     fastqs = [args.fastq1]
@@ -53,13 +30,10 @@ if __name__ =='__main__':
         fastqs.append(args.fastq2)
     filesize = os.path.getsize(fastqs[0])
     logger.info("Fastq1 Filesize: %sGB" % ("{:.2f}".format(float(filesize)/1000000000)))
-    num_pieces = math.ceil(float(filesize)/2800000000)
-    logger.info("Splitting into %s pieces" % "{:.0f}".format(num_pieces))
-    num_lines = sum(1 for line in os.popen("zcat " + fastqs[0]))
-    lines_per_chunk = math.ceil(float(num_lines) / int(num_pieces))
+    lines_per_chunk = 182560840
     logger.info("%s lines per chunk" % str(lines_per_chunk))
     pool=multiprocessing.Pool(processes=2)
     for fastq in fastqs:
-        result = pool.apply_async(chunk, args=(fastq, args.platform_unit, lines_per_chunk, num_pieces, ))
+        result = pool.apply_async(chunk, args=(fastq, args.platform_unit, lines_per_chunk ))
     pool.close()
     pool.join()
