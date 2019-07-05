@@ -11,10 +11,8 @@ def chunk(fastq, platform_unit, lines_per_chunk):
         exploded = output_prefix.split("_")
         exploded[0]=platform_unit
         output_prefix = "-".join(exploded)
-    # output_prefix = output_prefix+"chunk"
     logger.info("Opening %s and writing reads..." % (fastq))
-    #these aren't relaly gz but trimgalore doesnt like files not named gz...great work trimgalore
-    os.popen('zcat %s | split -l %d -d --additional-suffix=.fastq.gz --suffix-length 3 - %s' % (fastq, lines_per_chunk, output_prefix))
+    os.popen("zcat %s | split -l %d -d --additional-suffix=.fastq --suffix-length 3 - %s --filter='gzip > $FILE.gz'" % (fastq, lines_per_chunk, output_prefix))
     return True
 
 
