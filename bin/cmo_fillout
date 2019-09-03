@@ -7,7 +7,8 @@ import os, sys, argparse, csv, subprocess, string, uuid, cmo, pysam
 parser = argparse.ArgumentParser(description = descr, formatter_class = argparse.RawTextHelpFormatter)
 parser.add_argument('-m', '--maf', help = 'MAF file on which to fillout', required = True)
 parser.add_argument('-b', '--bams', help = 'BAM files to fillout with', required = False, nargs='+')
-parser.add_argument('-g', '--genome', help = 'Reference assembly of BAM files', default = "GRCh37", required = False, choices = cmo.util.genomes.keys())
+parser.add_argument('-g', '--genome', help = 'Reference assembly name of BAM files', default = "GRCh37", required = False, choices = cmo.util.genomes.keys())
+parser.add_argument('-r', '--ref-fasta', help = 'Reference assembly file of BAM files', required = False)
 parser.add_argument('-o', '--output', help = 'Filename for output of raw fillout data in MAF/VCF format', required = False)
 parser.add_argument('-f', '--format', help = 'Output format MAF(1) or tab-delimited with VCF based coordinates(2)', default = 1, required = False)
 parser.add_argument('-p', '--portal-output', help = 'Filename for a portal-friendly output MAF', required = False)
@@ -32,7 +33,10 @@ else:
 
 ### Path to GetBaseCountsMultiSample binary and the reference genome FASTA
 gbcmPath = cmo.util.programs['getbasecountsmultisample'][args.version]
-genomePath = cmo.util.genomes[args.genome]['fasta']
+if args.ref_fasta != None:
+    genomePath = args.ref_fasta
+else:
+    genomePath = cmo.util.genomes[args.genome]['fasta']
 ### Extract sample IDs from BAMs unless user provided a GBCMS precomputed fillout
 bamString = []
 samplelist = list()
