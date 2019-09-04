@@ -1,31 +1,22 @@
 #!/opt/common/CentOS_6-dev/python/python-2.7.10/bin/python
 ##########################################################################################
 # MSKCC CMO
-descr = 'Perform fillout operation on MAF file using GetBaseCountsMultiSample'
+descr = 'Index a bam'
 ##########################################################################################
 
 import argparse
 import subprocess
-import os, csv
+import os
 import string
 import uuid
 import cmo, shutil
 
 parser = argparse.ArgumentParser(description = descr, formatter_class = argparse.RawTextHelpFormatter)
-#parser.add_argument('-b', '--bams', help = 'BAM files to fillout with', required = True, nargs='+')
-parser.add_argument('--tumor', help = 'BAM files to fillout with', required = True)
-parser.add_argument('--normal', help = 'BAM files to fillout with', required = True)
-parser.add_argument("--version", choices=cmo.util.programs['picard'].keys(), default="default")
-parser.add_argument("--java-version", choices=cmo.util.programs['java'].keys(), default="default")
-
+parser.add_argument('--bam', help = 'BAM file to index', required = True)
 args = parser.parse_args()
-picard = cmo.util.programs['picard'][args.version]
-java = cmo.util.programs['java'][args.java_version]
-
-for bam in [args.tumor, args.normal]:
-    command = [java, "-jar", picard, " BuildBamIndex", "I="+bam, "O=", os.path.basename(bam).replace(".bam",".bai")]
-    shutil.copy(bam, os.path.basename(bam))
-    cmo.util.call_cmd(" ".join(command), shell=True)
-    #hack for pindel
-    shutil.copy(os.path.basename(bam).replace(".bam", ".bai"), os.path.basename(bam) + ".bai")
-
+bam = args.bam
+# create .bam.bai
+command = ["samtools","index",args.bam]
+cmo.util.call_cmd(" ".join(command), shell=True)
+# create .bai
+shutil.copy(os.path.basename(bam) + ".bai",os.path.basename(bam).replace(".bam", ".bai"))
