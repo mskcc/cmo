@@ -13,10 +13,14 @@ import cmo, shutil
 
 parser = argparse.ArgumentParser(description = descr, formatter_class = argparse.RawTextHelpFormatter)
 parser.add_argument('--bam', help = 'BAM file to index', required = True)
+parser.add_argument("--picard-version", choices=cmo.util.programs['picard'].keys(), default="default")
+parser.add_argument("--java-version", choices=cmo.util.programs['java'].keys(), default="default")
 args = parser.parse_args()
 bam = args.bam
-# create .bam.bai
-command = ["samtools","index",args.bam]
-cmo.util.call_cmd(" ".join(command), shell=True)
+picard = cmo.util.programs['picard'][args.picard_version]
+java = cmo.util.programs['java'][args.java_version]
 # create .bai
-shutil.copy(os.path.basename(bam) + ".bai",os.path.basename(bam).replace(".bam", ".bai"))
+command = [java, "-jar", picard, " BuildBamIndex", "I="+bam, "O=", os.path.basename(bam).replace(".bam",".bai")]
+cmo.util.call_cmd(" ".join(command), shell=True)
+# create .bam.bai
+shutil.copy(os.path.basename(bam).replace(".bam", ".bai"), os.path.basename(bam) + ".bai")
