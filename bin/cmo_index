@@ -19,8 +19,10 @@ args = parser.parse_args()
 bam = args.bam
 picard = cmo.util.programs['picard'][args.picard_version]
 java = cmo.util.programs['java'][args.java_version]
+index_path = os.path.basename(bam).replace(".bam",".bai")
 # create .bai
-command = [java, "-jar", picard, " BuildBamIndex", "I="+bam, "O=", os.path.basename(bam).replace(".bam",".bai")]
-cmo.util.call_cmd(" ".join(command), shell=True)
+if not os.path.exists(index_path):
+	command = [java, "-jar", picard, " BuildBamIndex", "I="+bam, "O=", index_path]
+	cmo.util.call_cmd(" ".join(command), shell=True)
 # create .bam.bai
 shutil.copy(os.path.basename(bam).replace(".bam", ".bai"), os.path.basename(bam) + ".bai")
